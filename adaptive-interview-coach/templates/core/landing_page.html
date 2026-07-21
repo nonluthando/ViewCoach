@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <p class="eyebrow">Structured interview preparation</p>
+    <h1>Know what to study next—and why.</h1>
+    <p class="lead">
+        Build interview goals, practise deliberately, record mistakes and follow an
+        explainable study plan.
+    </p>
+    <div class="button-row">
+        {% if user.is_authenticated %}
+            <a class="button" href="{% url 'dashboard' %}">Open dashboard</a>
+        {% else %}
+            <a class="button" href="{% url 'signup' %}">Create account</a>
+            <a class="button button-secondary" href="{% url 'login' %}">Log in</a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

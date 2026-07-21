@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section>
+    <p class="eyebrow">Dashboard</p>
+    <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
+    <p class="lead">
+        Your interview goals, study queue and progress will appear here as the next
+        milestones are implemented.
+    </p>
+
+    <div class="empty-state">
+        <h2>No interview goals yet</h2>
+        <p>Milestone 1 will add goal creation and the structured question bank.</p>
+    </div>
+</section>
+{% endblock %}

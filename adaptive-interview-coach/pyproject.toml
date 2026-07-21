@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["apps/*/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-ra --strict-markers"
+testpaths = ["apps", "tests"]

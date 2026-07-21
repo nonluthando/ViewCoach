@@ -1,0 +1,40 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Adaptive Interview Coach{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+<header class="site-header">
+    <nav class="nav container" aria-label="Primary navigation">
+        <a class="brand" href="{% url 'home' %}">Adaptive Interview Coach</a>
+        <div class="nav-actions">
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}">Dashboard</a>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="link-button" type="submit">Log out</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}">Log in</a>
+                <a class="button button-small" href="{% url 'signup' %}">Create account</a>
+            {% endif %}
+        </div>
+    </nav>
+</header>
+
+<main class="container page-content">
+    {% if messages %}
+        <div aria-live="polite">
+            {% for message in messages %}
+                <p class="message">{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>

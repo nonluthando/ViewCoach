@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Create account | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="form-card">
+    <p class="eyebrow">Account</p>
+    <h1>Create your account</h1>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<div class="help-text">{{ field.help_text|safe }}</div>{% endif %}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button class="button" type="submit">Create account</button>
+    </form>
+    <p>Already registered? <a href="{% url 'login' %}">Log in</a>.</p>
+</section>
+{% endblock %}

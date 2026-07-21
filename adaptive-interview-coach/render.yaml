@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: adaptive-interview-coach
+    runtime: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /health/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: adaptive-interview-coach-db
+          property: connectionString
+
+databases:
+  - name: adaptive-interview-coach-db
+    databaseName: adaptive_interview_coach
+    user: adaptive_interview_coach

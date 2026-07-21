@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: adaptive_interview_coach
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d adaptive_interview_coach"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/adaptive_interview_coach
+      DJANGO_SECRET_KEY: ci-only-secret-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Check formatting and linting
+        run: ruff check .
+
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run Django deployment checks
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/adaptive_interview_coach
+          DJANGO_ALLOWED_HOSTS: example.com
+        run: python manage.py check --deploy
+
+      - name: Run tests
+        run: pytest
