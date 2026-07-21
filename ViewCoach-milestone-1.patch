@@ -1,0 +1,2184 @@
+diff --git a/README.md b/README.md
+index 7080c3e..81b7ed8 100644
+--- a/README.md
++++ b/README.md
+@@ -1,27 +1,43 @@
+ # Adaptive Interview Preparation Coach
+ 
+-A Django application that will combine structured interview practice, deterministic study planning and grounded retrieval-augmented explanations.
++A Django application for creating structured interview material, practising it progressively and later receiving a focused study plan based on what matters now.
+ 
+-This repository currently contains **Milestone 0 only**:
++The repository currently contains **Milestones 0 and 1**.
++
++## Implemented
++
++### Milestone 0 — Production foundation
+ 
+ - Django 5.2 foundation;
+ - PostgreSQL in local, test and production environments;
+ - custom email-based user model;
+ - registration, login, logout and protected dashboard;
+ - database-aware health endpoint;
+-- pytest baseline;
+-- GitHub Actions CI;
++- pytest, Ruff and GitHub Actions CI;
+ - Render blueprint draft.
+ 
+-No interview-goal, question-bank, planning or AI domain code belongs in this milestone.
++### Milestone 1 — Structured question library
++
++- polymorphic base `Question` model;
++- technical, behavioural and repository-debugging question types;
++- type-specific create, edit and detail experiences;
++- private user-owned libraries;
++- search and filters for type, status and difficulty;
++- progressive reveal for technical questions;
++- debugging diagnosis reveal;
++- admin support, migration and authorization tests;
++- dashboard question summary.
++
++Spaced repetition, reviews, the Focus Engine, goals and AI are intentionally not part of this milestone.
+ 
+ ## Architecture decisions
+ 
+ - Modular Django monolith.
+-- PostgreSQL from the beginning; no SQLite fallback.
++- PostgreSQL from the beginning; no application SQLite fallback.
+ - Custom user model before the first migration.
+ - Server-rendered Django interface first.
+-- Deterministic domain logic will remain separate from AI behaviour.
++- Concrete base question plus typed child models.
++- Deterministic study logic remains separate from future AI behaviour.
+ 
+ See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/adr/`](docs/adr/).
+ 
+@@ -30,9 +46,9 @@ See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/
+ ### 1. Create a Python environment
+ 
+ ```bash
+-python -m venv .venv
++python3 -m venv .venv
+ source .venv/bin/activate
+-python -m pip install --upgrade pip
++python3 -m pip install --upgrade pip
+ pip install -r requirements-dev.txt
+ ```
+ 
+@@ -59,31 +75,31 @@ docker compose up -d postgres
+ ### 4. Apply migrations
+ 
+ ```bash
+-python manage.py migrate
++python3 manage.py migrate
+ ```
+ 
+ ### 5. Start Django
+ 
+ ```bash
+-python manage.py runserver
++python3 manage.py runserver
+ ```
+ 
+-Open `http://127.0.0.1:8000/`.
++Open `http://127.0.0.1:8000/` and visit `/questions/` after signing in.
+ 
+ ## Tests
+ 
+-The tests also use PostgreSQL. Django creates and removes a separate test database on the configured PostgreSQL server.
++The committed test settings use PostgreSQL. Django creates and removes a separate test database on the configured PostgreSQL server.
+ 
+ ```bash
+-pytest
++python3 -m pytest
+ ruff check .
+-python manage.py makemigrations --check --dry-run
++python3 manage.py makemigrations --check --dry-run
+ ```
+ 
+ ## Create an administrator
+ 
+ ```bash
+-python manage.py createsuperuser
++python3 manage.py createsuperuser
+ ```
+ 
+ The login identifier is the email address.
+diff --git a/apps/core/tests/test_dashboard.py b/apps/core/tests/test_dashboard.py
+new file mode 100644
+index 0000000..1e6bd26
+--- /dev/null
++++ b/apps/core/tests/test_dashboard.py
+@@ -0,0 +1,24 @@
++import pytest
++from django.urls import reverse
++
++from apps.accounts.models import User
++from apps.questions.models import TechnicalQuestion
++
++pytestmark = pytest.mark.django_db
++
++
++def test_dashboard_shows_question_counts_and_recent_questions(client):
++    user = User.objects.create_user(email="tee@example.com", password="safe-test-password")
++    question = TechnicalQuestion.objects.create(
++        owner=user,
++        title="Explain heaps",
++        prompt="What makes a heap useful?",
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.status_code == 200
++    assert response.context["question_count"] == 1
++    assert response.context["active_question_count"] == 1
++    assert question.title in response.content.decode()
+diff --git a/apps/core/views.py b/apps/core/views.py
+index 269d331..8468ec6 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -3,6 +3,8 @@ from django.db import OperationalError, connection
+ from django.http import JsonResponse
+ from django.shortcuts import render
+ 
++from apps.questions.models import Question
++
+ 
+ def landing_page(request):
+     return render(request, "core/landing_page.html")
+@@ -10,7 +12,20 @@ def landing_page(request):
+ 
+ @login_required
+ def dashboard(request):
+-    return render(request, "core/dashboard.html")
++    questions = Question.objects.filter(owner=request.user)
++    return render(
++        request,
++        "core/dashboard.html",
++        {
++            "question_count": questions.count(),
++            "active_question_count": questions.filter(status=Question.Status.ACTIVE).count(),
++            "recent_questions": questions.select_related(
++                "technicalquestion",
++                "behaviouralquestion",
++                "debugquestion",
++            )[:5],
++        },
++    )
+ 
+ 
+ def health_check(request):
+diff --git a/apps/questions/__init__.py b/apps/questions/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/questions/admin.py b/apps/questions/admin.py
+new file mode 100644
+index 0000000..11f11db
+--- /dev/null
++++ b/apps/questions/admin.py
+@@ -0,0 +1,61 @@
++from django.contrib import admin
++
++from .models import BehaviouralQuestion, DebugQuestion, Question, TechnicalQuestion
++
++
++class TypedQuestionAdmin(admin.ModelAdmin):
++    list_display = ("title", "owner", "status", "company", "updated_at")
++    list_filter = ("status", "difficulty", "company")
++    search_fields = ("title", "prompt", "owner__email", "company")
++    readonly_fields = ("question_type", "created_at", "updated_at")
++    autocomplete_fields = ("owner",)
++
++    def save_model(self, request, obj, form, change):
++        if not change and not obj.owner_id:
++            obj.owner = request.user
++        super().save_model(request, obj, form, change)
++
++
++@admin.register(TechnicalQuestion)
++class TechnicalQuestionAdmin(TypedQuestionAdmin):
++    list_display = TypedQuestionAdmin.list_display + ("topic", "pattern")
++    search_fields = TypedQuestionAdmin.search_fields + ("topic", "pattern")
++
++
++@admin.register(BehaviouralQuestion)
++class BehaviouralQuestionAdmin(TypedQuestionAdmin):
++    search_fields = TypedQuestionAdmin.search_fields + (
++        "leadership_principles",
++        "stories",
++    )
++
++
++@admin.register(DebugQuestion)
++class DebugQuestionAdmin(TypedQuestionAdmin):
++    list_display = TypedQuestionAdmin.list_display + ("repository", "bug_type")
++    list_filter = TypedQuestionAdmin.list_filter + ("bug_type",)
++    search_fields = TypedQuestionAdmin.search_fields + ("repository", "bug_type")
++
++
++@admin.register(Question)
++class QuestionAdmin(admin.ModelAdmin):
++    list_display = ("title", "owner", "question_type", "status", "updated_at")
++    list_filter = ("question_type", "status", "difficulty")
++    search_fields = ("title", "prompt", "owner__email", "company")
++    readonly_fields = (
++        "owner",
++        "title",
++        "prompt",
++        "question_type",
++        "company",
++        "difficulty",
++        "status",
++        "created_at",
++        "updated_at",
++    )
++
++    def has_add_permission(self, request):
++        return False
++
++    def has_change_permission(self, request, obj=None):
++        return False
+diff --git a/apps/questions/apps.py b/apps/questions/apps.py
+new file mode 100644
+index 0000000..9f73794
+--- /dev/null
++++ b/apps/questions/apps.py
+@@ -0,0 +1,7 @@
++from django.apps import AppConfig
++
++
++class QuestionsConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.questions"
++    verbose_name = "Question library"
+diff --git a/apps/questions/forms.py b/apps/questions/forms.py
+new file mode 100644
+index 0000000..30d844f
+--- /dev/null
++++ b/apps/questions/forms.py
+@@ -0,0 +1,111 @@
++from django import forms
++
++from .models import BehaviouralQuestion, DebugQuestion, Question, TechnicalQuestion
++
++
++class StyledModelForm(forms.ModelForm):
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        for field in self.fields.values():
++            existing_classes = field.widget.attrs.get("class", "")
++            field.widget.attrs["class"] = f"form-control {existing_classes}".strip()
++
++
++class TechnicalQuestionForm(StyledModelForm):
++    class Meta:
++        model = TechnicalQuestion
++        fields = [
++            "title",
++            "prompt",
++            "company",
++            "difficulty",
++            "status",
++            "topic",
++            "first_hint",
++            "pattern",
++            "data_structure",
++            "intuition",
++            "brute_force",
++            "optimal_approach",
++            "complexity",
++            "mistakes",
++            "code",
++        ]
++        widgets = {
++            "prompt": forms.Textarea(attrs={"rows": 7}),
++            "first_hint": forms.Textarea(attrs={"rows": 3}),
++            "intuition": forms.Textarea(attrs={"rows": 5}),
++            "brute_force": forms.Textarea(attrs={"rows": 5}),
++            "optimal_approach": forms.Textarea(attrs={"rows": 6}),
++            "mistakes": forms.Textarea(attrs={"rows": 4}),
++            "code": forms.Textarea(attrs={"rows": 12, "class": "code-input"}),
++        }
++        help_texts = {
++            "prompt": "Write the problem exactly as you want to practise recalling it.",
++            "first_hint": "The smallest useful nudge. Do not reveal the full approach.",
++            "mistakes": "Record incorrect assumptions, bugs or traps you want to avoid next time.",
++        }
++
++
++class BehaviouralQuestionForm(StyledModelForm):
++    class Meta:
++        model = BehaviouralQuestion
++        fields = [
++            "title",
++            "prompt",
++            "company",
++            "status",
++            "star_answer",
++            "leadership_principles",
++            "stories",
++            "follow_ups",
++        ]
++        labels = {
++            "leadership_principles": "Competencies / leadership principles",
++            "stories": "Supporting story notes",
++        }
++        widgets = {
++            "prompt": forms.Textarea(attrs={"rows": 5}),
++            "star_answer": forms.Textarea(attrs={"rows": 10}),
++            "leadership_principles": forms.Textarea(attrs={"rows": 3}),
++            "stories": forms.Textarea(attrs={"rows": 6}),
++            "follow_ups": forms.Textarea(attrs={"rows": 5}),
++        }
++
++
++class DebugQuestionForm(StyledModelForm):
++    class Meta:
++        model = DebugQuestion
++        fields = [
++            "title",
++            "prompt",
++            "company",
++            "difficulty",
++            "status",
++            "repository",
++            "bug_type",
++            "broken_code",
++            "fix",
++            "tests",
++        ]
++        labels = {
++            "repository": "Repository / project context",
++            "tests": "Relevant tests or assertions",
++        }
++        widgets = {
++            "prompt": forms.Textarea(attrs={"rows": 6}),
++            "broken_code": forms.Textarea(attrs={"rows": 12, "class": "code-input"}),
++            "fix": forms.Textarea(attrs={"rows": 8, "class": "code-input"}),
++            "tests": forms.Textarea(attrs={"rows": 8, "class": "code-input"}),
++        }
++        help_texts = {
++            "prompt": "Describe the symptoms and what the code is expected to do.",
++            "fix": "Explain the diagnosis and corrected implementation.",
++        }
++
++
++QUESTION_FORM_BY_TYPE = {
++    Question.Type.TECHNICAL: TechnicalQuestionForm,
++    Question.Type.BEHAVIOURAL: BehaviouralQuestionForm,
++    Question.Type.DEBUG: DebugQuestionForm,
++}
+diff --git a/apps/questions/migrations/0001_initial.py b/apps/questions/migrations/0001_initial.py
+new file mode 100644
+index 0000000..ff06e2a
+--- /dev/null
++++ b/apps/questions/migrations/0001_initial.py
+@@ -0,0 +1,95 @@
++# Generated by Django 5.2.16 on 2026-07-21 21:52
++
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name='Question',
++            fields=[
++                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
++                ('title', models.CharField(max_length=180)),
++                ('prompt', models.TextField()),
++                ('question_type', models.CharField(choices=[('TECHNICAL', 'Technical'), ('BEHAVIOURAL', 'Behavioural'), ('DEBUG', 'Repository debugging')], editable=False, max_length=20)),
++                ('company', models.CharField(blank=True, max_length=120)),
++                ('difficulty', models.CharField(blank=True, choices=[('EASY', 'Easy'), ('MEDIUM', 'Medium'), ('HARD', 'Hard')], max_length=10)),
++                ('status', models.CharField(choices=[('DRAFT', 'Draft'), ('ACTIVE', 'Active'), ('ARCHIVED', 'Archived')], default='ACTIVE', max_length=10)),
++                ('created_at', models.DateTimeField(auto_now_add=True)),
++                ('updated_at', models.DateTimeField(auto_now=True)),
++                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='questions', to=settings.AUTH_USER_MODEL)),
++            ],
++            options={
++                'ordering': ['-updated_at', '-created_at'],
++            },
++        ),
++        migrations.CreateModel(
++            name='BehaviouralQuestion',
++            fields=[
++                ('question_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='questions.question')),
++                ('star_answer', models.TextField(blank=True)),
++                ('leadership_principles', models.TextField(blank=True, help_text='Competencies, values or leadership principles this answer demonstrates.')),
++                ('stories', models.TextField(blank=True)),
++                ('follow_ups', models.TextField(blank=True)),
++            ],
++            options={
++                'verbose_name': 'behavioural question',
++                'verbose_name_plural': 'behavioural questions',
++            },
++            bases=('questions.question',),
++        ),
++        migrations.CreateModel(
++            name='DebugQuestion',
++            fields=[
++                ('question_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='questions.question')),
++                ('repository', models.CharField(blank=True, max_length=160)),
++                ('bug_type', models.CharField(blank=True, choices=[('SORTING', 'Broken sorting'), ('MISSING_FIELD', 'Missing field'), ('WRONG_COMPARISON', 'Wrong comparison'), ('INCORRECT_DEFAULT', 'Incorrect default'), ('NULL_HANDLING', 'Null handling'), ('KEY_TYPO', 'Dictionary key typo'), ('OFF_BY_ONE', 'Off-by-one'), ('API_RESPONSE', 'Wrong API response'), ('OTHER', 'Other')], max_length=30)),
++                ('broken_code', models.TextField(blank=True)),
++                ('fix', models.TextField(blank=True)),
++                ('tests', models.TextField(blank=True)),
++            ],
++            options={
++                'verbose_name': 'debugging question',
++                'verbose_name_plural': 'debugging questions',
++            },
++            bases=('questions.question',),
++        ),
++        migrations.CreateModel(
++            name='TechnicalQuestion',
++            fields=[
++                ('question_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='questions.question')),
++                ('topic', models.CharField(blank=True, max_length=120)),
++                ('first_hint', models.TextField(blank=True)),
++                ('pattern', models.CharField(blank=True, max_length=120)),
++                ('data_structure', models.CharField(blank=True, max_length=120)),
++                ('intuition', models.TextField(blank=True)),
++                ('brute_force', models.TextField(blank=True)),
++                ('optimal_approach', models.TextField(blank=True)),
++                ('complexity', models.CharField(blank=True, max_length=255)),
++                ('mistakes', models.TextField(blank=True)),
++                ('code', models.TextField(blank=True)),
++            ],
++            options={
++                'verbose_name': 'technical question',
++                'verbose_name_plural': 'technical questions',
++            },
++            bases=('questions.question',),
++        ),
++        migrations.AddIndex(
++            model_name='question',
++            index=models.Index(fields=['owner', 'status', '-updated_at'], name='question_owner_status_idx'),
++        ),
++        migrations.AddIndex(
++            model_name='question',
++            index=models.Index(fields=['owner', 'question_type'], name='question_owner_type_idx'),
++        ),
++    ]
+diff --git a/apps/questions/migrations/__init__.py b/apps/questions/migrations/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/questions/models.py b/apps/questions/models.py
+new file mode 100644
+index 0000000..31a39e9
+--- /dev/null
++++ b/apps/questions/models.py
+@@ -0,0 +1,136 @@
++from django.conf import settings
++from django.core.exceptions import ObjectDoesNotExist, ValidationError
++from django.db import models
++
++
++class Question(models.Model):
++    class Type(models.TextChoices):
++        TECHNICAL = "TECHNICAL", "Technical"
++        BEHAVIOURAL = "BEHAVIOURAL", "Behavioural"
++        DEBUG = "DEBUG", "Repository debugging"
++
++    class Difficulty(models.TextChoices):
++        EASY = "EASY", "Easy"
++        MEDIUM = "MEDIUM", "Medium"
++        HARD = "HARD", "Hard"
++
++    class Status(models.TextChoices):
++        DRAFT = "DRAFT", "Draft"
++        ACTIVE = "ACTIVE", "Active"
++        ARCHIVED = "ARCHIVED", "Archived"
++
++    owner = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="questions",
++    )
++    title = models.CharField(max_length=180)
++    prompt = models.TextField()
++    question_type = models.CharField(max_length=20, choices=Type.choices, editable=False)
++    company = models.CharField(max_length=120, blank=True)
++    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, blank=True)
++    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["-updated_at", "-created_at"]
++        indexes = [
++            models.Index(
++                fields=["owner", "status", "-updated_at"],
++                name="question_owner_status_idx",
++            ),
++            models.Index(fields=["owner", "question_type"], name="question_owner_type_idx"),
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.__class__ is Question:
++            raise ValidationError("Questions must be created using a supported question type.")
++
++    @property
++    def specific(self):
++        relation_by_type = {
++            self.Type.TECHNICAL: "technicalquestion",
++            self.Type.BEHAVIOURAL: "behaviouralquestion",
++            self.Type.DEBUG: "debugquestion",
++        }
++        relation_name = relation_by_type.get(self.question_type)
++        if not relation_name:
++            return self
++
++        try:
++            return getattr(self, relation_name)
++        except ObjectDoesNotExist:
++            return self
++
++    def __str__(self) -> str:
++        return self.title
++
++
++class TechnicalQuestion(Question):
++
++    topic = models.CharField(max_length=120, blank=True)
++    first_hint = models.TextField(blank=True)
++    pattern = models.CharField(max_length=120, blank=True)
++    data_structure = models.CharField(max_length=120, blank=True)
++    intuition = models.TextField(blank=True)
++    brute_force = models.TextField(blank=True)
++    optimal_approach = models.TextField(blank=True)
++    complexity = models.CharField(max_length=255, blank=True)
++    mistakes = models.TextField(blank=True)
++    code = models.TextField(blank=True)
++
++    def save(self, *args, **kwargs):
++        self.question_type = Question.Type.TECHNICAL
++        super().save(*args, **kwargs)
++
++    class Meta:
++        verbose_name = "technical question"
++        verbose_name_plural = "technical questions"
++
++
++class BehaviouralQuestion(Question):
++
++    star_answer = models.TextField(blank=True)
++    leadership_principles = models.TextField(
++        blank=True,
++        help_text="Competencies, values or leadership principles this answer demonstrates.",
++    )
++    stories = models.TextField(blank=True)
++    follow_ups = models.TextField(blank=True)
++
++    def save(self, *args, **kwargs):
++        self.question_type = Question.Type.BEHAVIOURAL
++        super().save(*args, **kwargs)
++
++    class Meta:
++        verbose_name = "behavioural question"
++        verbose_name_plural = "behavioural questions"
++
++
++class DebugQuestion(Question):
++    class BugType(models.TextChoices):
++        SORTING = "SORTING", "Broken sorting"
++        MISSING_FIELD = "MISSING_FIELD", "Missing field"
++        WRONG_COMPARISON = "WRONG_COMPARISON", "Wrong comparison"
++        INCORRECT_DEFAULT = "INCORRECT_DEFAULT", "Incorrect default"
++        NULL_HANDLING = "NULL_HANDLING", "Null handling"
++        KEY_TYPO = "KEY_TYPO", "Dictionary key typo"
++        OFF_BY_ONE = "OFF_BY_ONE", "Off-by-one"
++        API_RESPONSE = "API_RESPONSE", "Wrong API response"
++        OTHER = "OTHER", "Other"
++
++    repository = models.CharField(max_length=160, blank=True)
++    bug_type = models.CharField(max_length=30, choices=BugType.choices, blank=True)
++    broken_code = models.TextField(blank=True)
++    fix = models.TextField(blank=True)
++    tests = models.TextField(blank=True)
++
++    def save(self, *args, **kwargs):
++        self.question_type = Question.Type.DEBUG
++        super().save(*args, **kwargs)
++
++    class Meta:
++        verbose_name = "debugging question"
++        verbose_name_plural = "debugging questions"
+diff --git a/apps/questions/tests/__init__.py b/apps/questions/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/questions/tests/conftest.py b/apps/questions/tests/conftest.py
+new file mode 100644
+index 0000000..8f42b58
+--- /dev/null
++++ b/apps/questions/tests/conftest.py
+@@ -0,0 +1,63 @@
++import pytest
++
++from apps.accounts.models import User
++from apps.questions.models import BehaviouralQuestion, DebugQuestion, TechnicalQuestion
++
++
++@pytest.fixture
++def user(db):
++    return User.objects.create_user(email="tee@example.com", password="safe-test-password")
++
++
++@pytest.fixture
++def other_user(db):
++    return User.objects.create_user(email="other@example.com", password="safe-test-password")
++
++
++@pytest.fixture
++def technical_question(user):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title="Explain binary search on answer",
++        prompt="How do you recognise and solve a binary-search-on-answer problem?",
++        company="Amazon",
++        difficulty="MEDIUM",
++        topic="Algorithms",
++        first_hint="Look for a monotonic feasibility condition.",
++        pattern="Binary search on answer",
++        data_structure="Array",
++        intuition="Search the answer space instead of array indices.",
++        brute_force="Try every candidate answer.",
++        optimal_approach="Binary search the smallest feasible candidate.",
++        complexity="O(n log m)",
++        mistakes="Using the wrong boundary update.",
++        code="while (left <= right) { /* ... */ }",
++    )
++
++
++@pytest.fixture
++def behavioural_question(user):
++    return BehaviouralQuestion.objects.create(
++        owner=user,
++        title="Conflict with a teammate",
++        prompt="Tell me about a time you disagreed with a teammate.",
++        company="Amazon",
++        star_answer="Situation, task, action and result.",
++        leadership_principles="Earn Trust\nHave Backbone",
++        stories="Capstone project disagreement.",
++        follow_ups="What would you do differently?",
++    )
++
++
++@pytest.fixture
++def debug_question(user):
++    return DebugQuestion.objects.create(
++        owner=user,
++        title="Missing response field",
++        prompt="A repository test expects an assignee field but the API omits it.",
++        repository="Spring repository task",
++        bug_type=DebugQuestion.BugType.MISSING_FIELD,
++        broken_code='return Map.of("status", status);',
++        fix="Add the required assignee field and a safe default.",
++        tests='assertThat(response.get("assignee")).isNotNull();',
++    )
+diff --git a/apps/questions/tests/test_forms.py b/apps/questions/tests/test_forms.py
+new file mode 100644
+index 0000000..4a8782a
+--- /dev/null
++++ b/apps/questions/tests/test_forms.py
+@@ -0,0 +1,33 @@
++import pytest
++
++from apps.questions.forms import BehaviouralQuestionForm, DebugQuestionForm, TechnicalQuestionForm
++
++pytestmark = pytest.mark.django_db
++
++
++def test_technical_form_requires_title_and_prompt():
++    form = TechnicalQuestionForm(data={"status": "ACTIVE"})
++
++    assert not form.is_valid()
++    assert "title" in form.errors
++    assert "prompt" in form.errors
++
++
++def test_behavioural_form_does_not_ask_for_difficulty():
++    form = BehaviouralQuestionForm()
++
++    assert "difficulty" not in form.fields
++
++
++def test_debug_form_accepts_known_bug_type():
++    form = DebugQuestionForm(
++        data={
++            "title": "Wrong default",
++            "prompt": "A required value has no default.",
++            "status": "ACTIVE",
++            "difficulty": "MEDIUM",
++            "bug_type": "INCORRECT_DEFAULT",
++        }
++    )
++
++    assert form.is_valid(), form.errors
+diff --git a/apps/questions/tests/test_models.py b/apps/questions/tests/test_models.py
+new file mode 100644
+index 0000000..a61cbec
+--- /dev/null
++++ b/apps/questions/tests/test_models.py
+@@ -0,0 +1,56 @@
++import pytest
++
++from apps.questions.models import BehaviouralQuestion, DebugQuestion, Question, TechnicalQuestion
++
++pytestmark = pytest.mark.django_db
++
++
++def test_technical_question_sets_type_and_resolves_specific(user):
++    technical = TechnicalQuestion.objects.create(
++        owner=user,
++        title="Two pointers",
++        prompt="Explain the pattern.",
++    )
++
++    base_question = Question.objects.get(pk=technical.pk)
++
++    assert base_question.question_type == Question.Type.TECHNICAL
++    assert base_question.specific == technical
++
++
++def test_behavioural_question_sets_type(user):
++    question = BehaviouralQuestion.objects.create(
++        owner=user,
++        title="Ownership story",
++        prompt="Tell me about a time you took ownership.",
++    )
++
++    assert question.question_type == Question.Type.BEHAVIOURAL
++
++
++def test_debug_question_sets_type(user):
++    question = DebugQuestion.objects.create(
++        owner=user,
++        title="Off-by-one bug",
++        prompt="Find the incorrect loop boundary.",
++    )
++
++    assert question.question_type == Question.Type.DEBUG
++
++
++def test_typed_question_save_repairs_incorrect_type(technical_question):
++    technical_question.question_type = Question.Type.DEBUG
++    technical_question.save()
++
++    technical_question.refresh_from_db()
++
++    assert technical_question.question_type == Question.Type.TECHNICAL
++
++
++def test_deleting_base_question_deletes_subtype(technical_question):
++    question_id = technical_question.pk
++
++    Question.objects.get(pk=question_id).delete()
++
++    assert not Question.objects.filter(pk=question_id).exists()
++    assert not TechnicalQuestion.objects.filter(pk=question_id).exists()
+diff --git a/apps/questions/tests/test_views.py b/apps/questions/tests/test_views.py
+new file mode 100644
+index 0000000..7a3337d
+--- /dev/null
++++ b/apps/questions/tests/test_views.py
+@@ -0,0 +1,214 @@
++import pytest
++from django.urls import reverse
++
++from apps.questions.models import BehaviouralQuestion, DebugQuestion, Question, TechnicalQuestion
++
++pytestmark = pytest.mark.django_db
++
++
++def test_question_library_requires_login(client):
++    response = client.get(reverse("questions:list"))
++
++    assert response.status_code == 302
++    assert reverse("login") in response.url
++
++
++def test_question_library_only_shows_owners_questions(
++    client,
++    user,
++    other_user,
++    technical_question,
++):
++    TechnicalQuestion.objects.create(
++        owner=other_user,
++        title="Private question",
++        prompt="This belongs to someone else.",
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("questions:list"))
++
++    assert response.status_code == 200
++    assert "Explain binary search on answer" in response.content.decode()
++    assert "Private question" not in response.content.decode()
++
++
++def test_question_library_searches_subtype_fields(client, user, technical_question):
++    client.force_login(user)
++
++    matching_response = client.get(reverse("questions:list"), {"q": "monotonic"})
++    missing_response = client.get(reverse("questions:list"), {"q": "database indexing"})
++
++    assert technical_question.title in matching_response.content.decode()
++    assert technical_question.title not in missing_response.content.decode()
++
++
++def test_question_library_filters_by_type(
++    client,
++    user,
++    technical_question,
++    behavioural_question,
++):
++    client.force_login(user)
++
++    response = client.get(
++        reverse("questions:list"),
++        {"type": Question.Type.BEHAVIOURAL},
++    )
++    content = response.content.decode()
++
++    assert behavioural_question.title in content
++    assert technical_question.title not in content
++
++
++def test_user_can_create_technical_question(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:create", args=["technical"]),
++        {
++            "title": "Sliding window",
++            "prompt": "Find the longest valid window.",
++            "company": "",
++            "difficulty": "MEDIUM",
++            "status": "ACTIVE",
++            "topic": "Arrays",
++            "first_hint": "Track a valid window.",
++            "pattern": "Sliding Window",
++            "data_structure": "HashMap",
++            "intuition": "Move the left boundary only when invalid.",
++            "brute_force": "Enumerate every substring.",
++            "optimal_approach": "Maintain counts inside a moving window.",
++            "complexity": "O(n)",
++            "mistakes": "Moving left only once.",
++            "code": "int left = 0;",
++        },
++    )
++
++    created = TechnicalQuestion.objects.get(title="Sliding window")
++    assert response.status_code == 302
++    assert response.url == reverse("questions:detail", args=[created.pk])
++    assert created.owner == user
++    assert created.question_type == Question.Type.TECHNICAL
++
++
++def test_user_can_create_behavioural_question(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:create", args=["behavioural"]),
++        {
++            "title": "Failure story",
++            "prompt": "Tell me about a failure.",
++            "company": "",
++            "status": "DRAFT",
++            "star_answer": "My STAR answer",
++            "leadership_principles": "Learn and Be Curious",
++            "stories": "A project setback",
++            "follow_ups": "What changed afterwards?",
++        },
++    )
++
++    assert response.status_code == 302
++    assert BehaviouralQuestion.objects.filter(owner=user, title="Failure story").exists()
++
++
++def test_user_can_create_debug_question(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:create", args=["debug"]),
++        {
++            "title": "Null handling",
++            "prompt": "A test fails when the value is null.",
++            "company": "",
++            "difficulty": "EASY",
++            "status": "ACTIVE",
++            "repository": "Django API",
++            "bug_type": "NULL_HANDLING",
++            "broken_code": "value.lower()",
++            "fix": "Guard the nullable value.",
++            "tests": "assert response.status_code == 200",
++        },
++    )
++
++    assert response.status_code == 302
++    assert DebugQuestion.objects.filter(owner=user, title="Null handling").exists()
++
++
++def test_technical_detail_contains_progressive_reveal_controls(
++    client,
++    user,
++    technical_question,
++):
++    client.force_login(user)
++
++    response = client.get(reverse("questions:detail", args=[technical_question.pk]))
++    content = response.content.decode()
++
++    assert response.status_code == 200
++    assert "Progressive reveal" in content
++    assert "Reveal next step" in content
++    assert technical_question.optimal_approach in content
++
++
++def test_question_detail_returns_404_for_another_users_question(
++    client,
++    other_user,
++    technical_question,
++):
++    client.force_login(other_user)
++
++    response = client.get(reverse("questions:detail", args=[technical_question.pk]))
++
++    assert response.status_code == 404
++
++
++def test_user_can_edit_own_question(client, user, technical_question):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:edit", args=[technical_question.pk]),
++        {
++            "title": "Updated binary search question",
++            "prompt": technical_question.prompt,
++            "company": technical_question.company,
++            "difficulty": technical_question.difficulty,
++            "status": technical_question.status,
++            "topic": technical_question.topic,
++            "first_hint": technical_question.first_hint,
++            "pattern": technical_question.pattern,
++            "data_structure": technical_question.data_structure,
++            "intuition": technical_question.intuition,
++            "brute_force": technical_question.brute_force,
++            "optimal_approach": technical_question.optimal_approach,
++            "complexity": technical_question.complexity,
++            "mistakes": technical_question.mistakes,
++            "code": technical_question.code,
++        },
++    )
++
++    technical_question.refresh_from_db()
++    assert response.status_code == 302
++    assert technical_question.title == "Updated binary search question"
++
++
++def test_user_cannot_edit_another_users_question(client, other_user, technical_question):
++    client.force_login(other_user)
++
++    response = client.get(reverse("questions:edit", args=[technical_question.pk]))
++
++    assert response.status_code == 404
++
++
++def test_delete_is_confirmed_with_post(client, user, technical_question):
++    client.force_login(user)
++    url = reverse("questions:delete", args=[technical_question.pk])
++
++    get_response = client.get(url)
++    post_response = client.post(url)
++
++    assert get_response.status_code == 200
++    assert post_response.status_code == 302
++    assert post_response.url == reverse("questions:list")
++    assert not Question.objects.filter(pk=technical_question.pk).exists()
+diff --git a/apps/questions/urls.py b/apps/questions/urls.py
+new file mode 100644
+index 0000000..8e90582
+--- /dev/null
++++ b/apps/questions/urls.py
+@@ -0,0 +1,14 @@
++from django.urls import path
++
++from . import views
++
++app_name = "questions"
++
++urlpatterns = [
++    path("", views.question_list, name="list"),
++    path("new/", views.choose_question_type, name="choose_type"),
++    path("new/<slug:question_type_slug>/", views.question_create, name="create"),
++    path("<int:pk>/", views.question_detail, name="detail"),
++    path("<int:pk>/edit/", views.question_edit, name="edit"),
++    path("<int:pk>/delete/", views.question_delete, name="delete"),
++]
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+new file mode 100644
+index 0000000..932f39d
+--- /dev/null
++++ b/apps/questions/views.py
+@@ -0,0 +1,181 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.core.paginator import Paginator
++from django.db.models import Q
++from django.http import Http404
++from django.shortcuts import get_object_or_404, redirect, render
++
++from .forms import QUESTION_FORM_BY_TYPE
++from .models import Question
++
++TYPE_BY_SLUG = {
++    "technical": Question.Type.TECHNICAL,
++    "behavioural": Question.Type.BEHAVIOURAL,
++    "debug": Question.Type.DEBUG,
++}
++
++
++def _owned_questions(user):
++    return Question.objects.filter(owner=user).select_related(
++        "technicalquestion",
++        "behaviouralquestion",
++        "debugquestion",
++    )
++
++
++def _question_type_from_slug(question_type_slug: str) -> str:
++    try:
++        return TYPE_BY_SLUG[question_type_slug]
++    except KeyError as exc:
++        raise Http404("Unknown question type") from exc
++
++
++@login_required
++def question_list(request):
++    questions = _owned_questions(request.user)
++
++    search_term = request.GET.get("q", "").strip()
++    question_type = request.GET.get("type", "").strip()
++    difficulty = request.GET.get("difficulty", "").strip()
++    status = request.GET.get("status", "").strip()
++
++    if search_term:
++        questions = questions.filter(
++            Q(title__icontains=search_term)
++            | Q(prompt__icontains=search_term)
++            | Q(company__icontains=search_term)
++            | Q(technicalquestion__topic__icontains=search_term)
++            | Q(technicalquestion__pattern__icontains=search_term)
++            | Q(technicalquestion__first_hint__icontains=search_term)
++            | Q(technicalquestion__intuition__icontains=search_term)
++            | Q(technicalquestion__optimal_approach__icontains=search_term)
++            | Q(technicalquestion__mistakes__icontains=search_term)
++            | Q(behaviouralquestion__leadership_principles__icontains=search_term)
++            | Q(behaviouralquestion__stories__icontains=search_term)
++            | Q(debugquestion__repository__icontains=search_term)
++        ).distinct()
++
++    valid_types = {choice for choice, _ in Question.Type.choices}
++    valid_difficulties = {choice for choice, _ in Question.Difficulty.choices}
++    valid_statuses = {choice for choice, _ in Question.Status.choices}
++
++    if question_type in valid_types:
++        questions = questions.filter(question_type=question_type)
++    if difficulty in valid_difficulties:
++        questions = questions.filter(difficulty=difficulty)
++    if status in valid_statuses:
++        questions = questions.filter(status=status)
++
++    paginator = Paginator(questions, 20)
++    page = paginator.get_page(request.GET.get("page"))
++
++    return render(
++        request,
++        "questions/question_list.html",
++        {
++            "page": page,
++            "question_types": Question.Type.choices,
++            "difficulties": Question.Difficulty.choices,
++            "statuses": Question.Status.choices,
++            "filters": {
++                "q": search_term,
++                "type": question_type,
++                "difficulty": difficulty,
++                "status": status,
++            },
++        },
++    )
++
++
++@login_required
++def choose_question_type(request):
++    return render(request, "questions/choose_question_type.html")
++
++
++@login_required
++def question_create(request, question_type_slug):
++    question_type = _question_type_from_slug(question_type_slug)
++    form_class = QUESTION_FORM_BY_TYPE[question_type]
++
++    if request.method == "POST":
++        form = form_class(request.POST)
++        if form.is_valid():
++            question = form.save(commit=False)
++            question.owner = request.user
++            question.save()
++            messages.success(request, "Question added to your library.")
++            return redirect("questions:detail", pk=question.pk)
++    else:
++        form = form_class()
++
++    return render(
++        request,
++        "questions/question_form.html",
++        {
++            "form": form,
++            "question_type_label": Question.Type(question_type).label,
++            "is_editing": False,
++        },
++    )
++
++
++@login_required
++def question_detail(request, pk):
++    question = get_object_or_404(_owned_questions(request.user), pk=pk)
++    specific = question.specific
++    template_by_type = {
++        Question.Type.TECHNICAL: "questions/technical_question_detail.html",
++        Question.Type.BEHAVIOURAL: "questions/behavioural_question_detail.html",
++        Question.Type.DEBUG: "questions/debug_question_detail.html",
++    }
++    template_name = template_by_type.get(question.question_type)
++    if not template_name or specific is question:
++        raise Http404("Question details are unavailable")
++
++    return render(
++        request,
++        template_name,
++        {"question": question, "specific": specific},
++    )
++
++
++@login_required
++def question_edit(request, pk):
++    question = get_object_or_404(_owned_questions(request.user), pk=pk)
++    specific = question.specific
++    if specific is question:
++        raise Http404("Question details are unavailable")
++
++    form_class = QUESTION_FORM_BY_TYPE[question.question_type]
++    if request.method == "POST":
++        form = form_class(request.POST, instance=specific)
++        if form.is_valid():
++            form.save()
++            messages.success(request, "Question updated.")
++            return redirect("questions:detail", pk=question.pk)
++    else:
++        form = form_class(instance=specific)
++
++    return render(
++        request,
++        "questions/question_form.html",
++        {
++            "form": form,
++            "question": question,
++            "question_type_label": question.get_question_type_display(),
++            "is_editing": True,
++        },
++    )
++
++
++@login_required
++def question_delete(request, pk):
++    question = get_object_or_404(_owned_questions(request.user), pk=pk)
++
++    if request.method == "POST":
++        title = question.title
++        question.delete()
++        messages.success(request, f'“{title}” was deleted.')
++        return redirect("questions:list")
++
++    return render(request, "questions/question_confirm_delete.html", {"question": question})
+diff --git a/config/settings/base.py b/config/settings/base.py
+index d7cabba..59b560a 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -16,6 +16,7 @@ INSTALLED_APPS = [
+     "django.contrib.staticfiles",
+     "apps.core.apps.CoreConfig",
+     "apps.accounts.apps.AccountsConfig",
++    "apps.questions.apps.QuestionsConfig",
+ ]
+ 
+ MIDDLEWARE = [
+diff --git a/config/settings/test.py b/config/settings/test.py
+index ea989c9..83a32e5 100644
+--- a/config/settings/test.py
++++ b/config/settings/test.py
+@@ -22,3 +22,9 @@ DATABASES = {
+ 
+ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
++
++MIDDLEWARE = [
++    middleware
++    for middleware in MIDDLEWARE  # noqa: F405
++    if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"
++]
+diff --git a/config/urls.py b/config/urls.py
+index cd8371b..cdd8997 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -5,4 +5,5 @@ urlpatterns = [
+     path("admin/", admin.site.urls),
+     path("", include("apps.core.urls")),
+     path("accounts/", include("apps.accounts.urls")),
++    path("questions/", include("apps.questions.urls")),
+ ]
+diff --git a/docs/adr/0004-polymorphic-question-models.md b/docs/adr/0004-polymorphic-question-models.md
+new file mode 100644
+index 0000000..e7e2d66
+--- /dev/null
++++ b/docs/adr/0004-polymorphic-question-models.md
+@@ -0,0 +1,29 @@
++# ADR 0004: Concrete base question with typed child models
++
++## Status
++
++Accepted
++
++## Context
++
++Technical, behavioural and repository-debugging questions share identity, ownership, prompt, company, status and timestamps. Their answer structures differ substantially. A single table would accumulate fields that are meaningless and null for most rows, while separate unrelated models would make a unified private library harder to query.
++
++## Decision
++
++Use Django multi-table inheritance:
++
++- `Question` is the concrete base table;
++- `TechnicalQuestion`, `BehaviouralQuestion` and `DebugQuestion` are child tables;
++- each child save operation fixes its `question_type` discriminator;
++- the base table powers common library queries and ownership checks;
++- typed forms and templates operate on the child models.
++
++Direct creation of untyped base questions is not exposed through the application or admin.
++
++## Consequences
++
++- Common library queries remain straightforward.
++- Each question type owns only meaningful fields.
++- Adding another interview format requires a child model and UI rather than widening one table.
++- Reading subtype fields requires one-to-one joins.
++- The application must deliberately resolve a base question to its typed child for detail and edit workflows.
+diff --git a/docs/architecture/overview.md b/docs/architecture/overview.md
+index da792b6..c767de1 100644
+--- a/docs/architecture/overview.md
++++ b/docs/architecture/overview.md
+@@ -2,7 +2,7 @@
+ 
+ ## Current milestone
+ 
+-Milestone 0 creates only the application shell and authentication foundation. It does not introduce interview goals, question-bank entities, planning rules or AI integrations.
++Milestone 1 establishes the structured question library: the product's first interview-preparation domain. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
+ 
+ ## System shape
+ 
+@@ -13,16 +13,16 @@ Browser
+    |
+ Django views and forms
+    |
+-Application services       (introduced with domain milestones)
++Domain modules
+    |
+-Deterministic domain rules (introduced with planning)
++Application services       (introduced when workflows cross model boundaries)
+    |
+ Django ORM
+    |
+ PostgreSQL
+ ```
+ 
+-RAG and external AI-provider integration will later be added as bounded subsystems inside the monolith, not as premature microservices.
++RAG and external AI-provider integration may later be added as bounded subsystems inside the monolith, not as premature microservices.
+ 
+ ## Current modules
+ 
+@@ -36,17 +36,32 @@ Owns identity and authentication-specific behaviour:
+ - user administration;
+ - signup route.
+ 
+-It must not accumulate interview preferences, goals, practice history or AI memory. Those belong to later domain modules.
++It must not accumulate question content, review history or AI memory.
++
++### `apps.questions`
++
++Owns user-created interview preparation material:
++
++- concrete base `Question` records;
++- `TechnicalQuestion`, `BehaviouralQuestion` and `DebugQuestion` child records;
++- type-specific forms and detail experiences;
++- library search and filtering;
++- question ownership and authorization;
++- progressive answer reveal.
++
++The base table stores fields shared by every question. Typed child tables store only fields meaningful to that interview format. New formats can be introduced as new child models without adding unrelated nullable columns to every existing question.
++
++The module does not own spaced repetition or mastery. A later review module will reference questions and store review events separately.
+ 
+ ### `apps.core`
+ 
+ Owns application-level pages and technical endpoints that do not belong to a product domain:
+ 
+ - public landing page;
+-- protected dashboard shell;
++- dashboard composition;
+ - database-aware health endpoint.
+ 
+-It must not become a general dumping ground. Shared product logic should live in the domain that owns it.
++The dashboard may read from domain modules to present summaries, but domain rules must remain in the owning module.
+ 
+ ### `config`
+ 
+@@ -56,6 +71,10 @@ Owns deployment and framework configuration:
+ - WSGI and ASGI entry points;
+ - local, test and production settings.
+ 
++## Ownership boundary
++
++Every question belongs to one user. User-facing queries always filter by the authenticated owner. Requests for another user's question return `404` so the application does not disclose whether that record exists.
++
+ ## Settings strategy
+ 
+ - `base.py`: settings shared by every environment.
+@@ -63,25 +82,17 @@ Owns deployment and framework configuration:
+ - `test.py`: PostgreSQL tests, deterministic password hashing and in-memory email.
+ - `production.py`: required secrets, HTTPS controls, WhiteNoise and managed PostgreSQL.
+ 
+-SQLite is deliberately not used, because PostgreSQL-specific behaviour will later include pgvector and database constraints that should be exercised during development and CI.
+-
+-## Authentication decision
+-
+-The application uses a custom `User` model from the first migration. Email is the unique login identity and the inherited username field is removed.
+-
+-Future user-specific profile data should normally use one-to-one or foreign-key models rather than expanding the authentication table indiscriminately.
++SQLite is deliberately not configured as an application environment because future PostgreSQL-specific behaviour should be exercised during development and CI.
+ 
+ ## Future module direction
+ 
+-Later milestones may add:
++Likely later modules include:
+ 
+-- `goals`;
+-- `question_bank`;
+-- `practice`;
+-- `planning`;
+-- `knowledge`;
+-- `ai`;
+-- `mock_interviews`;
+-- `evaluation`.
++- `reviews` for attempts, recall ratings and spaced repetition;
++- `study` for review sessions and interview modes;
++- `planning` for the Focus Engine;
++- `goals` for lightweight interview context and deadlines;
++- `analytics` for pattern mastery and coverage;
++- `ai` for optional enhancement workflows.
+ 
+-Each module should own its models, services, selectors, rules and tests. Views should coordinate requests, not calculate mastery or call AI providers directly.
++Views coordinate HTTP requests. They should not calculate mastery, scheduling intervals or AI prompts directly.
+diff --git a/static/css/app.css b/static/css/app.css
+index b2ccc70..b684eda 100644
+--- a/static/css/app.css
++++ b/static/css/app.css
+@@ -100,3 +100,256 @@ h1 { font-size: clamp(2.3rem, 7vw, 4.6rem); line-height: 1.02; margin: 0.5rem 0
+     .button-row { align-items: stretch; flex-direction: column; }
+     .button-row .button { text-align: center; }
+ }
++
++/* Milestone 1: structured question library */
++.page-header {
++    max-width: 52rem;
++    margin-bottom: 2rem;
++}
++
++.page-header h1,
++.question-detail-header h1 {
++    font-size: clamp(2.25rem, 5vw, 3.7rem);
++}
++
++.page-header-split,
++.question-detail-header,
++.section-heading,
++.reveal-toolbar {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 2rem;
++}
++
++.compact-header { max-width: 44rem; }
++.dashboard-header { max-width: none; }
++
++.filter-panel {
++    padding: 1.25rem;
++    margin-bottom: 2rem;
++    border: 1px solid #e2e5ef;
++    border-radius: 1rem;
++    background: #ffffff;
++}
++
++.filter-grid {
++    display: grid;
++    grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(9rem, 1fr));
++    gap: 1rem;
++}
++
++.form-field input,
++.form-field textarea,
++.form-field select,
++.filter-panel input,
++.filter-panel select {
++    width: 100%;
++    padding: 0.75rem;
++    border: 1px solid #b8bfd1;
++    border-radius: 0.5rem;
++    color: inherit;
++    background: #ffffff;
++    font: inherit;
++}
++
++.form-field textarea { resize: vertical; }
++.form-field .code-input,
++pre,
++code {
++    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
++}
++
++.form-card-wide { max-width: 52rem; }
++.form-actions { margin-top: 1.5rem; }
++.form-errors { margin-bottom: 1rem; color: #a21d2e; }
++
++.type-grid,
++.question-grid,
++.stats-grid,
++.detail-grid {
++    display: grid;
++    gap: 1rem;
++}
++
++.type-grid { grid-template-columns: repeat(3, 1fr); }
++.question-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++.compact-question-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
++.stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 3rem; }
++.detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++
++.type-card,
++.question-card,
++.stat-card,
++.content-card,
++.practice-card,
++.reveal-workspace {
++    border: 1px solid #e2e5ef;
++    border-radius: 1rem;
++    background: #ffffff;
++}
++
++.type-card {
++    display: block;
++    min-height: 15rem;
++    padding: 1.5rem;
++    color: inherit;
++    text-decoration: none;
++    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
++}
++
++.type-card:hover {
++    transform: translateY(-2px);
++    border-color: #9aa3d8;
++    box-shadow: 0 12px 26px rgba(35, 43, 90, 0.08);
++}
++
++.type-card h2 { margin-bottom: 0.4rem; }
++.type-card p { color: #526078; }
++.type-icon {
++    display: inline-grid;
++    width: 2.8rem;
++    height: 2.8rem;
++    place-items: center;
++    border-radius: 0.75rem;
++    color: #3c4bc6;
++    background: #eceefd;
++    font-weight: 800;
++}
++
++.question-card { padding: 1.35rem; }
++.question-card h2,
++.question-card h3 { margin: 0.75rem 0 0.45rem; }
++.question-card h2 { font-size: 1.3rem; }
++.question-card h3 { font-size: 1.1rem; }
++.question-card h2 a,
++.question-card h3 a { color: inherit; text-decoration: none; }
++.question-card h2 a:hover,
++.question-card h3 a:hover { color: #3c4bc6; text-decoration: underline; }
++.question-card p { color: #526078; }
++
++.question-card-meta,
++.question-card-footer,
++.question-context,
++.metadata-line {
++    color: #606a7e;
++    font-size: 0.9rem;
++}
++
++.question-card-meta { display: flex; flex-wrap: wrap; gap: 0.45rem; }
++.question-card-footer { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; }
++
++.badge {
++    display: inline-flex;
++    align-items: center;
++    padding: 0.25rem 0.55rem;
++    border-radius: 999px;
++    font-size: 0.75rem;
++    font-weight: 750;
++}
++
++.badge-technical { color: #3442ad; background: #e9ebff; }
++.badge-behavioural { color: #78570c; background: #fff3cf; }
++.badge-debug { color: #8b2935; background: #ffe4e7; }
++.badge-neutral { color: #4f586a; background: #eef0f5; }
++
++.pagination {
++    display: flex;
++    justify-content: center;
++    gap: 1.25rem;
++    margin-top: 2rem;
++}
++
++.empty-state-wide { max-width: none; }
++.back-link { margin-top: 2rem; }
++
++.stat-card { padding: 1.35rem; }
++.stat-card-muted { background: #f0f1f7; }
++.stat-value { display: block; font-size: 2rem; font-weight: 800; }
++.stat-label { color: #606a7e; }
++.dashboard-section { margin-top: 2rem; }
++.section-heading { align-items: end; margin-bottom: 1rem; }
++.section-heading h2 { margin: 0.25rem 0 0; }
++
++.question-detail-header {
++    padding-bottom: 1.5rem;
++    margin-bottom: 1.5rem;
++    border-bottom: 1px solid #dfe2eb;
++}
++.question-detail-header h1 { margin-bottom: 0.75rem; }
++.detail-actions { flex-shrink: 0; }
++.danger-link { color: #a21d2e; }
++
++.practice-card,
++.reveal-workspace,
++.content-card { padding: 1.5rem; }
++.practice-card { margin-bottom: 1.25rem; }
++.practice-card .rich-text { font-size: 1.1rem; }
++.reveal-workspace { margin-bottom: 1.25rem; }
++.reveal-toolbar { align-items: center; margin-bottom: 1rem; }
++.reveal-toolbar h2 { margin: 0.25rem 0 0; }
++.reveal-empty {
++    padding: 1.25rem;
++    border-radius: 0.75rem;
++    color: #526078;
++    background: #f3f4f9;
++}
++.reveal-step {
++    padding: 1.25rem 0;
++    border-top: 1px solid #e2e5ef;
++}
++.reveal-step h3 { margin: 0.2rem 0 0.75rem; }
++.reveal-step h4 { margin-bottom: 0.25rem; }
++.step-number {
++    margin: 0;
++    color: #526078;
++    font-size: 0.8rem;
++    font-weight: 800;
++    letter-spacing: 0.06em;
++    text-transform: uppercase;
++}
++.reset-reveal { margin-top: 1rem; }
++
++.rich-text > :first-child { margin-top: 0; }
++.rich-text > :last-child { margin-bottom: 0; }
++.muted { color: #6b7384; }
++.content-card-wide { grid-column: 1 / -1; }
++
++pre {
++    max-width: 100%;
++    padding: 1rem;
++    overflow-x: auto;
++    border-radius: 0.75rem;
++    color: #f7f8ff;
++    background: #1d2333;
++    white-space: pre-wrap;
++}
++
++.simple-reveal details {
++    margin-top: 0.8rem;
++    border: 1px solid #dfe2eb;
++    border-radius: 0.75rem;
++}
++.simple-reveal summary {
++    padding: 1rem;
++    cursor: pointer;
++    font-weight: 750;
++}
++.details-content { padding: 0 1rem 1rem; }
++
++.button-danger { background: #a21d2e; }
++.danger-card { border-color: #e7b4bb; }
++
++@media (max-width: 52rem) {
++    .filter-grid,
++    .type-grid,
++    .compact-question-grid,
++    .stats-grid { grid-template-columns: 1fr; }
++    .question-grid,
++    .detail-grid { grid-template-columns: 1fr; }
++    .content-card-wide { grid-column: auto; }
++    .page-header-split,
++    .question-detail-header,
++    .reveal-toolbar { align-items: stretch; flex-direction: column; }
++    .detail-actions { align-items: center; }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 435ab51..e751124 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -14,6 +14,7 @@
+         <div class="nav-actions">
+             {% if user.is_authenticated %}
+                 <a href="{% url 'dashboard' %}">Dashboard</a>
++                <a href="{% url 'questions:list' %}">Questions</a>
+                 <form method="post" action="{% url 'logout' %}">
+                     {% csrf_token %}
+                     <button class="link-button" type="submit">Log out</button>
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 31ad230..7bd3560 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -3,17 +3,57 @@
+ {% block title %}Dashboard | Adaptive Interview Coach{% endblock %}
+ 
+ {% block content %}
+-<section>
+-    <p class="eyebrow">Dashboard</p>
+-    <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
+-    <p class="lead">
+-        Your interview goals, study queue and progress will appear here as the next
+-        milestones are implemented.
+-    </p>
++<section class="page-header page-header-split dashboard-header">
++    <div>
++        <p class="eyebrow">Dashboard</p>
++        <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
++        <p class="lead">Build the interview material you want to recall under pressure.</p>
++    </div>
++    <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
++</section>
+ 
+-    <div class="empty-state">
+-        <h2>No interview goals yet</h2>
+-        <p>Milestone 1 will add goal creation and the structured question bank.</p>
++<div class="stats-grid">
++    <div class="stat-card">
++        <span class="stat-value">{{ question_count }}</span>
++        <span class="stat-label">Questions saved</span>
++    </div>
++    <div class="stat-card">
++        <span class="stat-value">{{ active_question_count }}</span>
++        <span class="stat-label">Active questions</span>
++    </div>
++    <div class="stat-card stat-card-muted">
++        <span class="stat-value">—</span>
++        <span class="stat-label">Reviews due · coming next</span>
+     </div>
++</div>
++
++<section class="dashboard-section">
++    <div class="section-heading">
++        <div>
++            <p class="eyebrow">Question library</p>
++            <h2>Recently updated</h2>
++        </div>
++        {% if recent_questions %}<a href="{% url 'questions:list' %}">View all</a>{% endif %}
++    </div>
++
++    {% if recent_questions %}
++        <div class="question-grid compact-question-grid">
++            {% for question in recent_questions %}
++                <article class="question-card">
++                    <div class="question-card-meta">
++                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++                    </div>
++                    <h3><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h3>
++                    <p>{{ question.prompt|truncatewords:18 }}</p>
++                </article>
++            {% endfor %}
++        </div>
++    {% else %}
++        <div class="empty-state empty-state-wide">
++            <h2>Start with one real interview question</h2>
++            <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
++            <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
++        </div>
++    {% endif %}
+ </section>
+ {% endblock %}
+diff --git a/templates/questions/_question_header.html b/templates/questions/_question_header.html
+new file mode 100644
+index 0000000..f02d463
+--- /dev/null
++++ b/templates/questions/_question_header.html
+@@ -0,0 +1,17 @@
++<header class="question-detail-header">
++    <div>
++        <div class="question-card-meta">
++            <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++            <span class="badge badge-neutral">{{ question.get_status_display }}</span>
++            {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
++        </div>
++        <h1>{{ question.title }}</h1>
++        <p class="question-context">
++            {% if question.company %}{{ question.company }} · {% endif %}Updated {{ question.updated_at|date:"j F Y" }}
++        </p>
++    </div>
++    <div class="button-row detail-actions">
++        <a class="button button-secondary" href="{% url 'questions:edit' question.pk %}">Edit</a>
++        <a class="danger-link" href="{% url 'questions:delete' question.pk %}">Delete</a>
++    </div>
++</header>
+diff --git a/templates/questions/behavioural_question_detail.html b/templates/questions/behavioural_question_detail.html
+new file mode 100644
+index 0000000..bcea13a
+--- /dev/null
++++ b/templates/questions/behavioural_question_detail.html
+@@ -0,0 +1,39 @@
++{% extends "base.html" %}
++
++{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++{% include "questions/_question_header.html" %}
++
++<section class="practice-card">
++    <p class="eyebrow">Interview question</p>
++    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
++</section>
++
++<div class="detail-grid">
++    <section class="content-card content-card-wide">
++        <p class="eyebrow">STAR answer</p>
++        {% if specific.star_answer %}
++            <div class="rich-text">{{ specific.star_answer|linebreaks }}</div>
++        {% else %}
++            <p class="muted">No STAR answer saved yet.</p>
++        {% endif %}
++    </section>
++    <section class="content-card">
++        <p class="eyebrow">Competencies / principles</p>
++        {% if specific.leadership_principles %}
++            <div class="rich-text">{{ specific.leadership_principles|linebreaks }}</div>
++        {% else %}<p class="muted">None added.</p>{% endif %}
++    </section>
++    <section class="content-card">
++        <p class="eyebrow">Supporting story notes</p>
++        {% if specific.stories %}<div class="rich-text">{{ specific.stories|linebreaks }}</div>{% else %}<p class="muted">None added.</p>{% endif %}
++    </section>
++    <section class="content-card content-card-wide">
++        <p class="eyebrow">Likely follow-ups</p>
++        {% if specific.follow_ups %}<div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% else %}<p class="muted">No follow-ups saved yet.</p>{% endif %}
++    </section>
++</div>
++
++<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
++{% endblock %}
+diff --git a/templates/questions/choose_question_type.html b/templates/questions/choose_question_type.html
+new file mode 100644
+index 0000000..59dffa6
+--- /dev/null
++++ b/templates/questions/choose_question_type.html
+@@ -0,0 +1,31 @@
++{% extends "base.html" %}
++
++{% block title %}Choose Question Type | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="page-header">
++    <p class="eyebrow">New question</p>
++    <h1>What are you preparing?</h1>
++    <p class="lead">Choose a structure that matches how the interview will test you.</p>
++</section>
++
++<div class="type-grid">
++    <a class="type-card" href="{% url 'questions:create' 'technical' %}">
++        <span class="type-icon" aria-hidden="true">&lt;/&gt;</span>
++        <h2>Technical</h2>
++        <p>Capture the pattern, intuition, brute force, optimal approach, complexity and code.</p>
++    </a>
++    <a class="type-card" href="{% url 'questions:create' 'behavioural' %}">
++        <span class="type-icon" aria-hidden="true">★</span>
++        <h2>Behavioural</h2>
++        <p>Build STAR answers, supporting stories, competencies and follow-up questions.</p>
++    </a>
++    <a class="type-card" href="{% url 'questions:create' 'debug' %}">
++        <span class="type-icon" aria-hidden="true">!</span>
++        <h2>Repository debugging</h2>
++        <p>Practise finding real bugs from symptoms, failing tests and broken code.</p>
++    </a>
++</div>
++
++<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
++{% endblock %}
+diff --git a/templates/questions/debug_question_detail.html b/templates/questions/debug_question_detail.html
+new file mode 100644
+index 0000000..a2c1006
+--- /dev/null
++++ b/templates/questions/debug_question_detail.html
+@@ -0,0 +1,33 @@
++{% extends "base.html" %}
++
++{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++{% include "questions/_question_header.html" %}
++
++<section class="practice-card">
++    <p class="eyebrow">Debugging scenario</p>
++    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
++    {% if specific.repository %}<p class="metadata-line"><strong>Context:</strong> {{ specific.repository }}</p>{% endif %}
++    {% if specific.broken_code %}<pre><code>{{ specific.broken_code }}</code></pre>{% endif %}
++</section>
++
++<section class="reveal-workspace simple-reveal">
++    <p class="eyebrow">Find the bug before revealing it</p>
++    <details>
++        <summary>Reveal diagnosis</summary>
++        <div class="details-content">
++            {% if specific.bug_type %}<p><strong>Bug type:</strong> {{ specific.get_bug_type_display }}</p>{% endif %}
++            {% if specific.fix %}<div class="rich-text">{{ specific.fix|linebreaks }}</div>{% else %}<p class="muted">No fix saved yet.</p>{% endif %}
++        </div>
++    </details>
++    {% if specific.tests %}
++        <details>
++            <summary>Reveal relevant tests</summary>
++            <div class="details-content"><pre><code>{{ specific.tests }}</code></pre></div>
++        </details>
++    {% endif %}
++</section>
++
++<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
++{% endblock %}
+diff --git a/templates/questions/question_confirm_delete.html b/templates/questions/question_confirm_delete.html
+new file mode 100644
+index 0000000..0532828
+--- /dev/null
++++ b/templates/questions/question_confirm_delete.html
+@@ -0,0 +1,18 @@
++{% extends "base.html" %}
++
++{% block title %}Delete {{ question.title }} | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="form-card danger-card">
++    <p class="eyebrow">Delete question</p>
++    <h1>Delete “{{ question.title }}”?</h1>
++    <p>This permanently removes the question and its structured answer. This cannot be undone.</p>
++    <form method="post">
++        {% csrf_token %}
++        <div class="button-row form-actions">
++            <button class="button button-danger" type="submit">Delete question</button>
++            <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
++        </div>
++    </form>
++</section>
++{% endblock %}
+diff --git a/templates/questions/question_form.html b/templates/questions/question_form.html
+new file mode 100644
+index 0000000..7a6ed43
+--- /dev/null
++++ b/templates/questions/question_form.html
+@@ -0,0 +1,36 @@
++{% extends "base.html" %}
++
++{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="page-header compact-header">
++    <p class="eyebrow">{{ question_type_label }} question</p>
++    <h1>{% if is_editing %}Edit question{% else %}Add to your library{% endif %}</h1>
++    <p class="lead">Save the reasoning you want to be able to recall—not just the final answer.</p>
++</section>
++
++<form class="form-card form-card-wide" method="post" novalidate>
++    {% csrf_token %}
++    {% if form.non_field_errors %}
++        <div class="form-errors">{{ form.non_field_errors }}</div>
++    {% endif %}
++
++    {% for field in form %}
++        <div class="form-field">
++            <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-hidden="true">*</span>{% endif %}</label>
++            {{ field }}
++            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
++            {{ field.errors }}
++        </div>
++    {% endfor %}
++
++    <div class="button-row form-actions">
++        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
++        {% if is_editing %}
++            <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
++        {% else %}
++            <a class="button button-secondary" href="{% url 'questions:choose_type' %}">Choose another type</a>
++        {% endif %}
++    </div>
++</form>
++{% endblock %}
+diff --git a/templates/questions/question_list.html b/templates/questions/question_list.html
+new file mode 100644
+index 0000000..6d4f70f
+--- /dev/null
++++ b/templates/questions/question_list.html
+@@ -0,0 +1,96 @@
++{% extends "base.html" %}
++
++{% block title %}Question Library | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="page-header page-header-split">
++    <div>
++        <p class="eyebrow">Question library</p>
++        <h1>Your interview material</h1>
++        <p class="lead">Build structured questions you can practise, reveal progressively and review later.</p>
++    </div>
++    <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
++</section>
++
++<form class="filter-panel" method="get" role="search">
++    <div class="filter-grid">
++        <div class="form-field filter-search">
++            <label for="question-search">Search</label>
++            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic, company…">
++        </div>
++        <div class="form-field">
++            <label for="question-type">Type</label>
++            <select id="question-type" name="type">
++                <option value="">All types</option>
++                {% for value, label in question_types %}
++                    <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
++                {% endfor %}
++            </select>
++        </div>
++        <div class="form-field">
++            <label for="question-difficulty">Difficulty</label>
++            <select id="question-difficulty" name="difficulty">
++                <option value="">All levels</option>
++                {% for value, label in difficulties %}
++                    <option value="{{ value }}" {% if filters.difficulty == value %}selected{% endif %}>{{ label }}</option>
++                {% endfor %}
++            </select>
++        </div>
++        <div class="form-field">
++            <label for="question-status">Status</label>
++            <select id="question-status" name="status">
++                <option value="">All statuses</option>
++                {% for value, label in statuses %}
++                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
++                {% endfor %}
++            </select>
++        </div>
++    </div>
++    <div class="button-row">
++        <button class="button button-small" type="submit">Apply filters</button>
++        <a class="button button-small button-secondary" href="{% url 'questions:list' %}">Clear</a>
++    </div>
++</form>
++
++{% if page.object_list %}
++    <div class="question-grid">
++        {% for question in page.object_list %}
++            <article class="question-card">
++                <div class="question-card-meta">
++                    <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++                    <span class="badge badge-neutral">{{ question.get_status_display }}</span>
++                    {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
++                </div>
++                <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
++                <p>{{ question.prompt|truncatewords:24 }}</p>
++                <div class="question-card-footer">
++                    <span>{% if question.company %}{{ question.company }}{% else %}General preparation{% endif %}</span>
++                    <span>Updated {{ question.updated_at|date:"j M" }}</span>
++                </div>
++            </article>
++        {% endfor %}
++    </div>
++
++    {% if page.paginator.num_pages > 1 %}
++        <nav class="pagination" aria-label="Question library pages">
++            {% if page.has_previous %}
++                <a href="?page={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}">Previous</a>
++            {% endif %}
++            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++            {% if page.has_next %}
++                <a href="?page={{ page.next_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}">Next</a>
++            {% endif %}
++        </nav>
++    {% endif %}
++{% else %}
++    <div class="empty-state empty-state-wide">
++        <h2>{% if filters.q or filters.type or filters.difficulty or filters.status %}No matching questions{% else %}Your library is empty{% endif %}</h2>
++        <p>{% if filters.q or filters.type or filters.difficulty or filters.status %}Try clearing a filter or searching for something else.{% else %}Start with one question you genuinely need to explain in an interview.{% endif %}</p>
++        {% if filters.q or filters.type or filters.difficulty or filters.status %}
++            <a class="button button-secondary" href="{% url 'questions:list' %}">Clear filters</a>
++        {% else %}
++            <a class="button" href="{% url 'questions:choose_type' %}">Add your first question</a>
++        {% endif %}
++    </div>
++{% endif %}
++{% endblock %}
+diff --git a/templates/questions/technical_question_detail.html b/templates/questions/technical_question_detail.html
+new file mode 100644
+index 0000000..d9d0c0b
+--- /dev/null
++++ b/templates/questions/technical_question_detail.html
+@@ -0,0 +1,118 @@
++{% extends "base.html" %}
++
++{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++{% include "questions/_question_header.html" %}
++
++<section class="practice-card">
++    <p class="eyebrow">Problem</p>
++    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
++</section>
++
++<section class="reveal-workspace" data-progressive-reveal>
++    <div class="reveal-toolbar">
++        <div>
++            <p class="eyebrow">Progressive reveal</p>
++            <h2>Try first. Reveal only what you need.</h2>
++        </div>
++        <button class="button" type="button" data-reveal-next>Reveal next step</button>
++    </div>
++
++    <div class="reveal-empty" data-reveal-empty>
++        <p>Your saved reasoning is hidden. Explain the problem aloud or sketch your approach before revealing a hint.</p>
++    </div>
++
++    <div class="reveal-steps">
++        {% if specific.first_hint %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Step 1</p><h3>First hint</h3>
++                <div class="rich-text">{{ specific.first_hint|linebreaks }}</div>
++            </article>
++        {% endif %}
++        {% if specific.pattern %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Next clue</p><h3>Pattern</h3><p>{{ specific.pattern }}</p>
++            </article>
++        {% endif %}
++        {% if specific.data_structure %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Next clue</p><h3>Data structure</h3><p>{{ specific.data_structure }}</p>
++            </article>
++        {% endif %}
++        {% if specific.brute_force %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Approach</p><h3>Brute force</h3>
++                <div class="rich-text">{{ specific.brute_force|linebreaks }}</div>
++            </article>
++        {% endif %}
++        {% if specific.intuition or specific.optimal_approach %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Solution</p><h3>Optimal approach</h3>
++                {% if specific.intuition %}<h4>Intuition</h4><div class="rich-text">{{ specific.intuition|linebreaks }}</div>{% endif %}
++                {% if specific.optimal_approach %}<h4>Steps</h4><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
++            </article>
++        {% endif %}
++        {% if specific.complexity %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Analysis</p><h3>Complexity</h3><p>{{ specific.complexity }}</p>
++            </article>
++        {% endif %}
++        {% if specific.code %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Implementation</p><h3>Code</h3><pre><code>{{ specific.code }}</code></pre>
++            </article>
++        {% endif %}
++        {% if specific.mistakes %}
++            <article class="reveal-step" data-reveal-step hidden>
++                <p class="step-number">Reflection</p><h3>Mistakes to avoid</h3>
++                <div class="rich-text">{{ specific.mistakes|linebreaks }}</div>
++            </article>
++        {% endif %}
++    </div>
++
++    <button class="link-button reset-reveal" type="button" data-reveal-reset hidden>Hide everything and try again</button>
++</section>
++
++{% if specific.topic %}<p class="metadata-line"><strong>Topic:</strong> {{ specific.topic }}</p>{% endif %}
++<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
++
++<script>
++(function () {
++    const workspace = document.querySelector("[data-progressive-reveal]");
++    if (!workspace) return;
++
++    const steps = Array.from(workspace.querySelectorAll("[data-reveal-step]"));
++    const nextButton = workspace.querySelector("[data-reveal-next]");
++    const resetButton = workspace.querySelector("[data-reveal-reset]");
++    const emptyState = workspace.querySelector("[data-reveal-empty]");
++    let visibleCount = 0;
++
++    function updateControls() {
++        emptyState.hidden = visibleCount > 0;
++        resetButton.hidden = visibleCount === 0;
++        nextButton.hidden = visibleCount >= steps.length;
++        if (visibleCount < steps.length) {
++            nextButton.textContent = visibleCount === 0 ? "Reveal first hint" : "Reveal next step";
++        }
++    }
++
++    nextButton.addEventListener("click", function () {
++        if (visibleCount >= steps.length) return;
++        steps[visibleCount].hidden = false;
++        steps[visibleCount].scrollIntoView({ behavior: "smooth", block: "nearest" });
++        visibleCount += 1;
++        updateControls();
++    });
++
++    resetButton.addEventListener("click", function () {
++        steps.forEach(function (step) { step.hidden = true; });
++        visibleCount = 0;
++        updateControls();
++        workspace.scrollIntoView({ behavior: "smooth", block: "start" });
++    });
++
++    updateControls();
++})();
++</script>
++{% endblock %}
