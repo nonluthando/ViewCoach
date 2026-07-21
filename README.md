@@ -1,27 +1,43 @@
 # Adaptive Interview Preparation Coach
 
-A Django application that will combine structured interview practice, deterministic study planning and grounded retrieval-augmented explanations.
+A Django application for creating structured interview material, practising it progressively and later receiving a focused study plan based on what matters now.
 
-This repository currently contains **Milestone 0 only**:
+The repository currently contains **Milestones 0 and 1**.
+
+## Implemented
+
+### Milestone 0 — Production foundation
 
 - Django 5.2 foundation;
 - PostgreSQL in local, test and production environments;
 - custom email-based user model;
 - registration, login, logout and protected dashboard;
 - database-aware health endpoint;
-- pytest baseline;
-- GitHub Actions CI;
+- pytest, Ruff and GitHub Actions CI;
 - Render blueprint draft.
 
-No interview-goal, question-bank, planning or AI domain code belongs in this milestone.
+### Milestone 1 — Structured question library
+
+- polymorphic base `Question` model;
+- technical, behavioural and repository-debugging question types;
+- type-specific create, edit and detail experiences;
+- private user-owned libraries;
+- search and filters for type, status and difficulty;
+- progressive reveal for technical questions;
+- debugging diagnosis reveal;
+- admin support, migration and authorization tests;
+- dashboard question summary.
+
+Spaced repetition, reviews, the Focus Engine, goals and AI are intentionally not part of this milestone.
 
 ## Architecture decisions
 
 - Modular Django monolith.
-- PostgreSQL from the beginning; no SQLite fallback.
+- PostgreSQL from the beginning; no application SQLite fallback.
 - Custom user model before the first migration.
 - Server-rendered Django interface first.
-- Deterministic domain logic will remain separate from AI behaviour.
+- Concrete base question plus typed child models.
+- Deterministic study logic remains separate from future AI behaviour.
 
 See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/adr/`](docs/adr/).
 
@@ -30,9 +46,9 @@ See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/
 ### 1. Create a Python environment
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
+python3 -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 ```
 
@@ -59,31 +75,31 @@ docker compose up -d postgres
 ### 4. Apply migrations
 
 ```bash
-python manage.py migrate
+python3 manage.py migrate
 ```
 
 ### 5. Start Django
 
 ```bash
-python manage.py runserver
+python3 manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/`.
+Open `http://127.0.0.1:8000/` and visit `/questions/` after signing in.
 
 ## Tests
 
-The tests also use PostgreSQL. Django creates and removes a separate test database on the configured PostgreSQL server.
+The committed test settings use PostgreSQL. Django creates and removes a separate test database on the configured PostgreSQL server.
 
 ```bash
-pytest
+python3 -m pytest
 ruff check .
-python manage.py makemigrations --check --dry-run
+python3 manage.py makemigrations --check --dry-run
 ```
 
 ## Create an administrator
 
 ```bash
-python manage.py createsuperuser
+python3 manage.py createsuperuser
 ```
 
 The login identifier is the email address.

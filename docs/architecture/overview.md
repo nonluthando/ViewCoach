@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Milestone 0 creates only the application shell and authentication foundation. It does not introduce interview goals, question-bank entities, planning rules or AI integrations.
+Milestone 1 establishes the structured question library: the product's first interview-preparation domain. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
 
 ## System shape
 
@@ -13,16 +13,16 @@ Browser
    |
 Django views and forms
    |
-Application services       (introduced with domain milestones)
+Domain modules
    |
-Deterministic domain rules (introduced with planning)
+Application services       (introduced when workflows cross model boundaries)
    |
 Django ORM
    |
 PostgreSQL
 ```
 
-RAG and external AI-provider integration will later be added as bounded subsystems inside the monolith, not as premature microservices.
+RAG and external AI-provider integration may later be added as bounded subsystems inside the monolith, not as premature microservices.
 
 ## Current modules
 
@@ -36,17 +36,32 @@ Owns identity and authentication-specific behaviour:
 - user administration;
 - signup route.
 
-It must not accumulate interview preferences, goals, practice history or AI memory. Those belong to later domain modules.
+It must not accumulate question content, review history or AI memory.
+
+### `apps.questions`
+
+Owns user-created interview preparation material:
+
+- concrete base `Question` records;
+- `TechnicalQuestion`, `BehaviouralQuestion` and `DebugQuestion` child records;
+- type-specific forms and detail experiences;
+- library search and filtering;
+- question ownership and authorization;
+- progressive answer reveal.
+
+The base table stores fields shared by every question. Typed child tables store only fields meaningful to that interview format. New formats can be introduced as new child models without adding unrelated nullable columns to every existing question.
+
+The module does not own spaced repetition or mastery. A later review module will reference questions and store review events separately.
 
 ### `apps.core`
 
 Owns application-level pages and technical endpoints that do not belong to a product domain:
 
 - public landing page;
-- protected dashboard shell;
+- dashboard composition;
 - database-aware health endpoint.
 
-It must not become a general dumping ground. Shared product logic should live in the domain that owns it.
+The dashboard may read from domain modules to present summaries, but domain rules must remain in the owning module.
 
 ### `config`
 
@@ -56,6 +71,10 @@ Owns deployment and framework configuration:
 - WSGI and ASGI entry points;
 - local, test and production settings.
 
+## Ownership boundary
+
+Every question belongs to one user. User-facing queries always filter by the authenticated owner. Requests for another user's question return `404` so the application does not disclose whether that record exists.
+
 ## Settings strategy
 
 - `base.py`: settings shared by every environment.
@@ -63,25 +82,17 @@ Owns deployment and framework configuration:
 - `test.py`: PostgreSQL tests, deterministic password hashing and in-memory email.
 - `production.py`: required secrets, HTTPS controls, WhiteNoise and managed PostgreSQL.
 
-SQLite is deliberately not used, because PostgreSQL-specific behaviour will later include pgvector and database constraints that should be exercised during development and CI.
-
-## Authentication decision
-
-The application uses a custom `User` model from the first migration. Email is the unique login identity and the inherited username field is removed.
-
-Future user-specific profile data should normally use one-to-one or foreign-key models rather than expanding the authentication table indiscriminately.
+SQLite is deliberately not configured as an application environment because future PostgreSQL-specific behaviour should be exercised during development and CI.
 
 ## Future module direction
 
-Later milestones may add:
+Likely later modules include:
 
-- `goals`;
-- `question_bank`;
-- `practice`;
-- `planning`;
-- `knowledge`;
-- `ai`;
-- `mock_interviews`;
-- `evaluation`.
+- `reviews` for attempts, recall ratings and spaced repetition;
+- `study` for review sessions and interview modes;
+- `planning` for the Focus Engine;
+- `goals` for lightweight interview context and deadlines;
+- `analytics` for pattern mastery and coverage;
+- `ai` for optional enhancement workflows.
 
-Each module should own its models, services, selectors, rules and tests. Views should coordinate requests, not calculate mastery or call AI providers directly.
+Views coordinate HTTP requests. They should not calculate mastery, scheduling intervals or AI prompts directly.

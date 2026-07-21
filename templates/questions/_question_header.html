@@ -1,0 +1,17 @@
+<header class="question-detail-header">
+    <div>
+        <div class="question-card-meta">
+            <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+            <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+            {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+        </div>
+        <h1>{{ question.title }}</h1>
+        <p class="question-context">
+            {% if question.company %}{{ question.company }} · {% endif %}Updated {{ question.updated_at|date:"j F Y" }}
+        </p>
+    </div>
+    <div class="button-row detail-actions">
+        <a class="button button-secondary" href="{% url 'questions:edit' question.pk %}">Edit</a>
+        <a class="danger-link" href="{% url 'questions:delete' question.pk %}">Delete</a>
+    </div>
+</header>

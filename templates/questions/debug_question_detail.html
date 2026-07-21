@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+{% include "questions/_question_header.html" %}
+
+<section class="practice-card">
+    <p class="eyebrow">Debugging scenario</p>
+    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
+    {% if specific.repository %}<p class="metadata-line"><strong>Context:</strong> {{ specific.repository }}</p>{% endif %}
+    {% if specific.broken_code %}<pre><code>{{ specific.broken_code }}</code></pre>{% endif %}
+</section>
+
+<section class="reveal-workspace simple-reveal">
+    <p class="eyebrow">Find the bug before revealing it</p>
+    <details>
+        <summary>Reveal diagnosis</summary>
+        <div class="details-content">
+            {% if specific.bug_type %}<p><strong>Bug type:</strong> {{ specific.get_bug_type_display }}</p>{% endif %}
+            {% if specific.fix %}<div class="rich-text">{{ specific.fix|linebreaks }}</div>{% else %}<p class="muted">No fix saved yet.</p>{% endif %}
+        </div>
+    </details>
+    {% if specific.tests %}
+        <details>
+            <summary>Reveal relevant tests</summary>
+            <div class="details-content"><pre><code>{{ specific.tests }}</code></pre></div>
+        </details>
+    {% endif %}
+</section>
+
+<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
+{% endblock %}

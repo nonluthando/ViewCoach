@@ -3,17 +3,57 @@
 {% block title %}Dashboard | Adaptive Interview Coach{% endblock %}
 
 {% block content %}
-<section>
-    <p class="eyebrow">Dashboard</p>
-    <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
-    <p class="lead">
-        Your interview goals, study queue and progress will appear here as the next
-        milestones are implemented.
-    </p>
-
-    <div class="empty-state">
-        <h2>No interview goals yet</h2>
-        <p>Milestone 1 will add goal creation and the structured question bank.</p>
+<section class="page-header page-header-split dashboard-header">
+    <div>
+        <p class="eyebrow">Dashboard</p>
+        <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
+        <p class="lead">Build the interview material you want to recall under pressure.</p>
     </div>
+    <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+</section>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-value">{{ question_count }}</span>
+        <span class="stat-label">Questions saved</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ active_question_count }}</span>
+        <span class="stat-label">Active questions</span>
+    </div>
+    <div class="stat-card stat-card-muted">
+        <span class="stat-value">—</span>
+        <span class="stat-label">Reviews due · coming next</span>
+    </div>
+</div>
+
+<section class="dashboard-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Question library</p>
+            <h2>Recently updated</h2>
+        </div>
+        {% if recent_questions %}<a href="{% url 'questions:list' %}">View all</a>{% endif %}
+    </div>
+
+    {% if recent_questions %}
+        <div class="question-grid compact-question-grid">
+            {% for question in recent_questions %}
+                <article class="question-card">
+                    <div class="question-card-meta">
+                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                    </div>
+                    <h3><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h3>
+                    <p>{{ question.prompt|truncatewords:18 }}</p>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state empty-state-wide">
+            <h2>Start with one real interview question</h2>
+            <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
+            <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
+        </div>
+    {% endif %}
 </section>
 {% endblock %}

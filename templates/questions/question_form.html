@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header compact-header">
+    <p class="eyebrow">{{ question_type_label }} question</p>
+    <h1>{% if is_editing %}Edit question{% else %}Add to your library{% endif %}</h1>
+    <p class="lead">Save the reasoning you want to be able to recall—not just the final answer.</p>
+</section>
+
+<form class="form-card form-card-wide" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+        <div class="form-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    {% for field in form %}
+        <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-hidden="true">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+            {{ field.errors }}
+        </div>
+    {% endfor %}
+
+    <div class="button-row form-actions">
+        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
+        {% if is_editing %}
+            <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
+        {% else %}
+            <a class="button button-secondary" href="{% url 'questions:choose_type' %}">Choose another type</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}
