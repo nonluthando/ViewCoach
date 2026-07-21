@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from django.urls import reverse
 
@@ -67,6 +69,7 @@ def test_user_can_create_technical_question(client, user):
     response = client.post(
         reverse("questions:create", args=["technical"]),
         {
+            "submission_token": str(uuid.uuid4()),
             "title": "Sliding window",
             "prompt": "Find the longest valid window.",
             "company": "",
@@ -92,12 +95,47 @@ def test_user_can_create_technical_question(client, user):
     assert created.question_type == Question.Type.TECHNICAL
 
 
+
+def test_repeated_create_submission_only_creates_one_question(client, user):
+    client.force_login(user)
+    submission_token = str(uuid.uuid4())
+    payload = {
+        "submission_token": submission_token,
+        "title": "Two Sum",
+        "prompt": "Return the indices of two numbers that add to the target.",
+        "company": "",
+        "difficulty": "EASY",
+        "status": "ACTIVE",
+        "topic": "DSA",
+        "first_hint": "Track values already seen.",
+        "pattern": "Hash Map",
+        "data_structure": "HashMap",
+        "intuition": "Store each value while looking for its complement.",
+        "brute_force": "Check every pair.",
+        "optimal_approach": "Use a map from value to index.",
+        "complexity": "O(n)",
+        "mistakes": "Using the same index twice.",
+        "code": "",
+    }
+    url = reverse("questions:create", args=["technical"])
+
+    first_response = client.post(url, payload)
+    second_response = client.post(url, payload)
+
+    questions = TechnicalQuestion.objects.filter(owner=user, title="Two Sum")
+    assert first_response.status_code == 302
+    assert second_response.status_code == 302
+    assert questions.count() == 1
+    assert first_response.url == reverse("questions:detail", args=[questions.get().pk])
+    assert second_response.url == first_response.url
+
 def test_user_can_create_behavioural_question(client, user):
     client.force_login(user)
 
     response = client.post(
         reverse("questions:create", args=["behavioural"]),
         {
+            "submission_token": str(uuid.uuid4()),
             "title": "Failure story",
             "prompt": "Tell me about a failure.",
             "company": "",
@@ -119,6 +157,7 @@ def test_user_can_create_debug_question(client, user):
     response = client.post(
         reverse("questions:create", args=["debug"]),
         {
+            "submission_token": str(uuid.uuid4()),
             "title": "Null handling",
             "prompt": "A test fails when the value is null.",
             "company": "",

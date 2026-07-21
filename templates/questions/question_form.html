@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% endblock %}
+{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% if not is_editing %}
+<script>
+    (() => {
+        const form = document.getElementById("question-form");
+        const submitButton = document.getElementById("question-submit");
+
+        form.addEventListener("submit", () => {
+            if (!form.checkValidity() || submitButton.disabled) {
+                return;
+            }
+
+            submitButton.disabled = true;
+            submitButton.setAttribute("aria-disabled", "true");
+            submitButton.textContent = "Creating…";
+        });
+    })();
+</script>
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <section class="page-header compact-header">
@@ -9,8 +27,9 @@
     <p class="lead">Save the reasoning you want to be able to recall—not just the final answer.</p>
 </section>
 
-<form class="form-card form-card-wide" method="post" novalidate>
+<form class="form-card form-card-wide" id="question-form" method="post" novalidate>
     {% csrf_token %}
+    {% if not is_editing %}<input type="hidden" name="submission_token" value="{{ submission_token }}">{% endif %}
     {% if form.non_field_errors %}
         <div class="form-errors">{{ form.non_field_errors }}</div>
     {% endif %}
@@ -25,7 +44,7 @@
     {% endfor %}
 
     <div class="button-row form-actions">
-        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
+        <button class="button" id="question-submit" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
         {% if is_editing %}
             <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
         {% else %}
@@ -33,4 +52,22 @@
         {% endif %}
     </div>
 </form>
+{% if not is_editing %}
+<script>
+    (() => {
+        const form = document.getElementById("question-form");
+        const submitButton = document.getElementById("question-submit");
+
+        form.addEventListener("submit", () => {
+            if (!form.checkValidity() || submitButton.disabled) {
+                return;
+            }
+
+            submitButton.disabled = true;
+            submitButton.setAttribute("aria-disabled", "true");
+            submitButton.textContent = "Creating…";
+        });
+    })();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,6 +1,9 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -99,14 +102,40 @@ def question_create(request, question_type_slug):
 
     if request.method == "POST":
         form = form_class(request.POST)
+        submission_token = request.POST.get("submission_token", "")
+
         if form.is_valid():
-            question = form.save(commit=False)
-            question.owner = request.user
-            question.save()
-            messages.success(request, "Question added to your library.")
-            return redirect("questions:detail", pk=question.pk)
+            try:
+                creation_token = uuid.UUID(submission_token)
+            except (AttributeError, TypeError, ValueError):
+                form.add_error(
+                    None,
+                    "This form could not be verified. Refresh the page and try again.",
+                )
+            else:
+                question = form.save(commit=False)
+                question.owner = request.user
+                question.creation_token = creation_token
+
+                try:
+                    with transaction.atomic():
+                        question.save()
+                except IntegrityError:
+                    existing_question = Question.objects.filter(
+                        owner=request.user,
+                        creation_token=creation_token,
+                    ).first()
+                    if existing_question is None:
+                        raise
+
+                    messages.info(request, "That question was already added.")
+                    return redirect("questions:detail", pk=existing_question.pk)
+
+                messages.success(request, "Question added to your library.")
+                return redirect("questions:detail", pk=question.pk)
     else:
         form = form_class()
+        submission_token = str(uuid.uuid4())
 
     return render(
         request,
@@ -115,6 +144,7 @@ def question_create(request, question_type_slug):
             "form": form,
             "question_type_label": Question.Type(question_type).label,
             "is_editing": False,
+            "submission_token": submission_token,
         },
     )
 
