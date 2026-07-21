@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+{% include "questions/_question_header.html" %}
+
+<section class="practice-card">
+    <p class="eyebrow">Interview question</p>
+    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
+</section>
+
+<div class="detail-grid">
+    <section class="content-card content-card-wide">
+        <p class="eyebrow">STAR answer</p>
+        {% if specific.star_answer %}
+            <div class="rich-text">{{ specific.star_answer|linebreaks }}</div>
+        {% else %}
+            <p class="muted">No STAR answer saved yet.</p>
+        {% endif %}
+    </section>
+    <section class="content-card">
+        <p class="eyebrow">Competencies / principles</p>
+        {% if specific.leadership_principles %}
+            <div class="rich-text">{{ specific.leadership_principles|linebreaks }}</div>
+        {% else %}<p class="muted">None added.</p>{% endif %}
+    </section>
+    <section class="content-card">
+        <p class="eyebrow">Supporting story notes</p>
+        {% if specific.stories %}<div class="rich-text">{{ specific.stories|linebreaks }}</div>{% else %}<p class="muted">None added.</p>{% endif %}
+    </section>
+    <section class="content-card content-card-wide">
+        <p class="eyebrow">Likely follow-ups</p>
+        {% if specific.follow_ups %}<div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% else %}<p class="muted">No follow-ups saved yet.</p>{% endif %}
+    </section>
+</div>
+
+<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
+{% endblock %}

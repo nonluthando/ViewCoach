@@ -1,0 +1,269 @@
+diff --git a/apps/questions/migrations/0002_question_creation_token.py b/apps/questions/migrations/0002_question_creation_token.py
+new file mode 100644
+index 0000000..18ba395
+--- /dev/null
++++ b/apps/questions/migrations/0002_question_creation_token.py
+@@ -0,0 +1,30 @@
++import uuid
++
++from django.db import migrations, models
++
++
++def populate_creation_tokens(apps, schema_editor):
++    Question = apps.get_model("questions", "Question")
++    for question in Question.objects.filter(creation_token__isnull=True).iterator():
++        question.creation_token = uuid.uuid4()
++        question.save(update_fields=["creation_token"])
++
++
++class Migration(migrations.Migration):
++    dependencies = [
++        ("questions", "0001_initial"),
++    ]
++
++    operations = [
++        migrations.AddField(
++            model_name="question",
++            name="creation_token",
++            field=models.UUIDField(editable=False, null=True),
++        ),
++        migrations.RunPython(populate_creation_tokens, migrations.RunPython.noop),
++        migrations.AlterField(
++            model_name="question",
++            name="creation_token",
++            field=models.UUIDField(default=uuid.uuid4, editable=False, unique=True),
++        ),
++    ]
+diff --git a/apps/questions/models.py b/apps/questions/models.py
+index 31a39e9..e39a85c 100644
+--- a/apps/questions/models.py
++++ b/apps/questions/models.py
+@@ -1,3 +1,5 @@
++import uuid
++
+ from django.conf import settings
+ from django.core.exceptions import ObjectDoesNotExist, ValidationError
+ from django.db import models
+@@ -19,6 +21,7 @@ class Question(models.Model):
+         ACTIVE = "ACTIVE", "Active"
+         ARCHIVED = "ARCHIVED", "Archived"
+ 
++    creation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+     owner = models.ForeignKey(
+         settings.AUTH_USER_MODEL,
+         on_delete=models.CASCADE,
+diff --git a/apps/questions/tests/test_views.py b/apps/questions/tests/test_views.py
+index 7a3337d..4f03c0b 100644
+--- a/apps/questions/tests/test_views.py
++++ b/apps/questions/tests/test_views.py
+@@ -1,3 +1,5 @@
++import uuid
++
+ import pytest
+ from django.urls import reverse
+ 
+@@ -67,6 +69,7 @@ def test_user_can_create_technical_question(client, user):
+     response = client.post(
+         reverse("questions:create", args=["technical"]),
+         {
++            "submission_token": str(uuid.uuid4()),
+             "title": "Sliding window",
+             "prompt": "Find the longest valid window.",
+             "company": "",
+@@ -92,12 +95,47 @@ def test_user_can_create_technical_question(client, user):
+     assert created.question_type == Question.Type.TECHNICAL
+ 
+ 
++
++def test_repeated_create_submission_only_creates_one_question(client, user):
++    client.force_login(user)
++    submission_token = str(uuid.uuid4())
++    payload = {
++        "submission_token": submission_token,
++        "title": "Two Sum",
++        "prompt": "Return the indices of two numbers that add to the target.",
++        "company": "",
++        "difficulty": "EASY",
++        "status": "ACTIVE",
++        "topic": "DSA",
++        "first_hint": "Track values already seen.",
++        "pattern": "Hash Map",
++        "data_structure": "HashMap",
++        "intuition": "Store each value while looking for its complement.",
++        "brute_force": "Check every pair.",
++        "optimal_approach": "Use a map from value to index.",
++        "complexity": "O(n)",
++        "mistakes": "Using the same index twice.",
++        "code": "",
++    }
++    url = reverse("questions:create", args=["technical"])
++
++    first_response = client.post(url, payload)
++    second_response = client.post(url, payload)
++
++    questions = TechnicalQuestion.objects.filter(owner=user, title="Two Sum")
++    assert first_response.status_code == 302
++    assert second_response.status_code == 302
++    assert questions.count() == 1
++    assert first_response.url == reverse("questions:detail", args=[questions.get().pk])
++    assert second_response.url == first_response.url
++
+ def test_user_can_create_behavioural_question(client, user):
+     client.force_login(user)
+ 
+     response = client.post(
+         reverse("questions:create", args=["behavioural"]),
+         {
++            "submission_token": str(uuid.uuid4()),
+             "title": "Failure story",
+             "prompt": "Tell me about a failure.",
+             "company": "",
+@@ -119,6 +157,7 @@ def test_user_can_create_debug_question(client, user):
+     response = client.post(
+         reverse("questions:create", args=["debug"]),
+         {
++            "submission_token": str(uuid.uuid4()),
+             "title": "Null handling",
+             "prompt": "A test fails when the value is null.",
+             "company": "",
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+index 932f39d..f7ff865 100644
+--- a/apps/questions/views.py
++++ b/apps/questions/views.py
+@@ -1,6 +1,9 @@
++import uuid
++
+ from django.contrib import messages
+ from django.contrib.auth.decorators import login_required
+ from django.core.paginator import Paginator
++from django.db import IntegrityError, transaction
+ from django.db.models import Q
+ from django.http import Http404
+ from django.shortcuts import get_object_or_404, redirect, render
+@@ -99,14 +102,40 @@ def question_create(request, question_type_slug):
+ 
+     if request.method == "POST":
+         form = form_class(request.POST)
++        submission_token = request.POST.get("submission_token", "")
++
+         if form.is_valid():
+-            question = form.save(commit=False)
+-            question.owner = request.user
+-            question.save()
+-            messages.success(request, "Question added to your library.")
+-            return redirect("questions:detail", pk=question.pk)
++            try:
++                creation_token = uuid.UUID(submission_token)
++            except (AttributeError, TypeError, ValueError):
++                form.add_error(
++                    None,
++                    "This form could not be verified. Refresh the page and try again.",
++                )
++            else:
++                question = form.save(commit=False)
++                question.owner = request.user
++                question.creation_token = creation_token
++
++                try:
++                    with transaction.atomic():
++                        question.save()
++                except IntegrityError:
++                    existing_question = Question.objects.filter(
++                        owner=request.user,
++                        creation_token=creation_token,
++                    ).first()
++                    if existing_question is None:
++                        raise
++
++                    messages.info(request, "That question was already added.")
++                    return redirect("questions:detail", pk=existing_question.pk)
++
++                messages.success(request, "Question added to your library.")
++                return redirect("questions:detail", pk=question.pk)
+     else:
+         form = form_class()
++        submission_token = str(uuid.uuid4())
+ 
+     return render(
+         request,
+@@ -115,6 +144,7 @@ def question_create(request, question_type_slug):
+             "form": form,
+             "question_type_label": Question.Type(question_type).label,
+             "is_editing": False,
++            "submission_token": submission_token,
+         },
+     )
+ 
+diff --git a/templates/questions/question_form.html b/templates/questions/question_form.html
+index 7a6ed43..c521142 100644
+--- a/templates/questions/question_form.html
++++ b/templates/questions/question_form.html
+@@ -1,6 +1,24 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% endblock %}
++{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% if not is_editing %}
++<script>
++    (() => {
++        const form = document.getElementById("question-form");
++        const submitButton = document.getElementById("question-submit");
++
++        form.addEventListener("submit", () => {
++            if (!form.checkValidity() || submitButton.disabled) {
++                return;
++            }
++
++            submitButton.disabled = true;
++            submitButton.setAttribute("aria-disabled", "true");
++            submitButton.textContent = "Creating…";
++        });
++    })();
++</script>
++{% endif %}
++{% endblock %}
+ 
+ {% block content %}
+ <section class="page-header compact-header">
+@@ -9,8 +27,9 @@
+     <p class="lead">Save the reasoning you want to be able to recall—not just the final answer.</p>
+ </section>
+ 
+-<form class="form-card form-card-wide" method="post" novalidate>
++<form class="form-card form-card-wide" id="question-form" method="post" novalidate>
+     {% csrf_token %}
++    {% if not is_editing %}<input type="hidden" name="submission_token" value="{{ submission_token }}">{% endif %}
+     {% if form.non_field_errors %}
+         <div class="form-errors">{{ form.non_field_errors }}</div>
+     {% endif %}
+@@ -25,7 +44,7 @@
+     {% endfor %}
+ 
+     <div class="button-row form-actions">
+-        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
++        <button class="button" id="question-submit" type="submit">{% if is_editing %}Save changes{% else %}Create question{% endif %}</button>
+         {% if is_editing %}
+             <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
+         {% else %}
+@@ -33,4 +52,22 @@
+         {% endif %}
+     </div>
+ </form>
++{% if not is_editing %}
++<script>
++    (() => {
++        const form = document.getElementById("question-form");
++        const submitButton = document.getElementById("question-submit");
++
++        form.addEventListener("submit", () => {
++            if (!form.checkValidity() || submitButton.disabled) {
++                return;
++            }
++
++            submitButton.disabled = true;
++            submitButton.setAttribute("aria-disabled", "true");
++            submitButton.textContent = "Creating…";
++        });
++    })();
++</script>
++{% endif %}
+ {% endblock %}

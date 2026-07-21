@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Choose Question Type | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <p class="eyebrow">New question</p>
+    <h1>What are you preparing?</h1>
+    <p class="lead">Choose a structure that matches how the interview will test you.</p>
+</section>
+
+<div class="type-grid">
+    <a class="type-card" href="{% url 'questions:create' 'technical' %}">
+        <span class="type-icon" aria-hidden="true">&lt;/&gt;</span>
+        <h2>Technical</h2>
+        <p>Capture the pattern, intuition, brute force, optimal approach, complexity and code.</p>
+    </a>
+    <a class="type-card" href="{% url 'questions:create' 'behavioural' %}">
+        <span class="type-icon" aria-hidden="true">★</span>
+        <h2>Behavioural</h2>
+        <p>Build STAR answers, supporting stories, competencies and follow-up questions.</p>
+    </a>
+    <a class="type-card" href="{% url 'questions:create' 'debug' %}">
+        <span class="type-icon" aria-hidden="true">!</span>
+        <h2>Repository debugging</h2>
+        <p>Practise finding real bugs from symptoms, failing tests and broken code.</p>
+    </a>
+</div>
+
+<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Question Library | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header page-header-split">
+    <div>
+        <p class="eyebrow">Question library</p>
+        <h1>Your interview material</h1>
+        <p class="lead">Build structured questions you can practise, reveal progressively and review later.</p>
+    </div>
+    <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+</section>
+
+<form class="filter-panel" method="get" role="search">
+    <div class="filter-grid">
+        <div class="form-field filter-search">
+            <label for="question-search">Search</label>
+            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic, company…">
+        </div>
+        <div class="form-field">
+            <label for="question-type">Type</label>
+            <select id="question-type" name="type">
+                <option value="">All types</option>
+                {% for value, label in question_types %}
+                    <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="question-difficulty">Difficulty</label>
+            <select id="question-difficulty" name="difficulty">
+                <option value="">All levels</option>
+                {% for value, label in difficulties %}
+                    <option value="{{ value }}" {% if filters.difficulty == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-field">
+            <label for="question-status">Status</label>
+            <select id="question-status" name="status">
+                <option value="">All statuses</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="button-row">
+        <button class="button button-small" type="submit">Apply filters</button>
+        <a class="button button-small button-secondary" href="{% url 'questions:list' %}">Clear</a>
+    </div>
+</form>
+
+{% if page.object_list %}
+    <div class="question-grid">
+        {% for question in page.object_list %}
+            <article class="question-card">
+                <div class="question-card-meta">
+                    <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                    <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+                    {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+                </div>
+                <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
+                <p>{{ question.prompt|truncatewords:24 }}</p>
+                <div class="question-card-footer">
+                    <span>{% if question.company %}{{ question.company }}{% else %}General preparation{% endif %}</span>
+                    <span>Updated {{ question.updated_at|date:"j M" }}</span>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+
+    {% if page.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="Question library pages">
+            {% if page.has_previous %}
+                <a href="?page={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}">Previous</a>
+            {% endif %}
+            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+            {% if page.has_next %}
+                <a href="?page={{ page.next_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}">Next</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% else %}
+    <div class="empty-state empty-state-wide">
+        <h2>{% if filters.q or filters.type or filters.difficulty or filters.status %}No matching questions{% else %}Your library is empty{% endif %}</h2>
+        <p>{% if filters.q or filters.type or filters.difficulty or filters.status %}Try clearing a filter or searching for something else.{% else %}Start with one question you genuinely need to explain in an interview.{% endif %}</p>
+        {% if filters.q or filters.type or filters.difficulty or filters.status %}
+            <a class="button button-secondary" href="{% url 'questions:list' %}">Clear filters</a>
+        {% else %}
+            <a class="button" href="{% url 'questions:choose_type' %}">Add your first question</a>
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}

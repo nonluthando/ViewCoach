@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}{{ question.title }} | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+{% include "questions/_question_header.html" %}
+
+<section class="practice-card">
+    <p class="eyebrow">Problem</p>
+    <div class="rich-text">{{ question.prompt|linebreaks }}</div>
+</section>
+
+<section class="reveal-workspace" data-progressive-reveal>
+    <div class="reveal-toolbar">
+        <div>
+            <p class="eyebrow">Progressive reveal</p>
+            <h2>Try first. Reveal only what you need.</h2>
+        </div>
+        <button class="button" type="button" data-reveal-next>Reveal next step</button>
+    </div>
+
+    <div class="reveal-empty" data-reveal-empty>
+        <p>Your saved reasoning is hidden. Explain the problem aloud or sketch your approach before revealing a hint.</p>
+    </div>
+
+    <div class="reveal-steps">
+        {% if specific.first_hint %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Step 1</p><h3>First hint</h3>
+                <div class="rich-text">{{ specific.first_hint|linebreaks }}</div>
+            </article>
+        {% endif %}
+        {% if specific.pattern %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Next clue</p><h3>Pattern</h3><p>{{ specific.pattern }}</p>
+            </article>
+        {% endif %}
+        {% if specific.data_structure %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Next clue</p><h3>Data structure</h3><p>{{ specific.data_structure }}</p>
+            </article>
+        {% endif %}
+        {% if specific.brute_force %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Approach</p><h3>Brute force</h3>
+                <div class="rich-text">{{ specific.brute_force|linebreaks }}</div>
+            </article>
+        {% endif %}
+        {% if specific.intuition or specific.optimal_approach %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Solution</p><h3>Optimal approach</h3>
+                {% if specific.intuition %}<h4>Intuition</h4><div class="rich-text">{{ specific.intuition|linebreaks }}</div>{% endif %}
+                {% if specific.optimal_approach %}<h4>Steps</h4><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
+            </article>
+        {% endif %}
+        {% if specific.complexity %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Analysis</p><h3>Complexity</h3><p>{{ specific.complexity }}</p>
+            </article>
+        {% endif %}
+        {% if specific.code %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Implementation</p><h3>Code</h3><pre><code>{{ specific.code }}</code></pre>
+            </article>
+        {% endif %}
+        {% if specific.mistakes %}
+            <article class="reveal-step" data-reveal-step hidden>
+                <p class="step-number">Reflection</p><h3>Mistakes to avoid</h3>
+                <div class="rich-text">{{ specific.mistakes|linebreaks }}</div>
+            </article>
+        {% endif %}
+    </div>
+
+    <button class="link-button reset-reveal" type="button" data-reveal-reset hidden>Hide everything and try again</button>
+</section>
+
+{% if specific.topic %}<p class="metadata-line"><strong>Topic:</strong> {{ specific.topic }}</p>{% endif %}
+<p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
+
+<script>
+(function () {
+    const workspace = document.querySelector("[data-progressive-reveal]");
+    if (!workspace) return;
+
+    const steps = Array.from(workspace.querySelectorAll("[data-reveal-step]"));
+    const nextButton = workspace.querySelector("[data-reveal-next]");
+    const resetButton = workspace.querySelector("[data-reveal-reset]");
+    const emptyState = workspace.querySelector("[data-reveal-empty]");
+    let visibleCount = 0;
+
+    function updateControls() {
+        emptyState.hidden = visibleCount > 0;
+        resetButton.hidden = visibleCount === 0;
+        nextButton.hidden = visibleCount >= steps.length;
+        if (visibleCount < steps.length) {
+            nextButton.textContent = visibleCount === 0 ? "Reveal first hint" : "Reveal next step";
+        }
+    }
+
+    nextButton.addEventListener("click", function () {
+        if (visibleCount >= steps.length) return;
+        steps[visibleCount].hidden = false;
+        steps[visibleCount].scrollIntoView({ behavior: "smooth", block: "nearest" });
+        visibleCount += 1;
+        updateControls();
+    });
+
+    resetButton.addEventListener("click", function () {
+        steps.forEach(function (step) { step.hidden = true; });
+        visibleCount = 0;
+        updateControls();
+        workspace.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    updateControls();
+})();
+</script>
+{% endblock %}

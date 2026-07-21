@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ question.title }} | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="form-card danger-card">
+    <p class="eyebrow">Delete question</p>
+    <h1>Delete “{{ question.title }}”?</h1>
+    <p>This permanently removes the question and its structured answer. This cannot be undone.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="button-row form-actions">
+            <button class="button button-danger" type="submit">Delete question</button>
+            <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
