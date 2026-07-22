@@ -18,7 +18,9 @@ def dashboard(request):
         "core/dashboard.html",
         {
             "question_count": questions.count(),
-            "active_question_count": questions.filter(status=Question.Status.ACTIVE).count(),
+            "ready_question_count": questions.filter(
+                status=Question.Status.READY_FOR_REVIEW
+            ).count(),
             "recent_questions": questions.select_related(
                 "technicalquestion",
                 "behaviouralquestion",

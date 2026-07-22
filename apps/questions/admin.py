@@ -1,13 +1,20 @@
 from django.contrib import admin
 
-from .models import BehaviouralQuestion, DebugQuestion, Question, TechnicalQuestion
+from .models import (
+    BehaviouralQuestion,
+    DebugQuestion,
+    Question,
+    QuestionImportBatch,
+    QuestionImportItem,
+    TechnicalQuestion,
+)
 
 
 class TypedQuestionAdmin(admin.ModelAdmin):
     list_display = ("title", "owner", "status", "company", "updated_at")
     list_filter = ("status", "difficulty", "company")
     search_fields = ("title", "prompt", "owner__email", "company")
-    readonly_fields = ("question_type", "created_at", "updated_at")
+    readonly_fields = ("question_type", "import_batch", "created_at", "updated_at")
     autocomplete_fields = ("owner",)
 
     def save_model(self, request, obj, form, change):
@@ -44,6 +51,7 @@ class QuestionAdmin(admin.ModelAdmin):
     search_fields = ("title", "prompt", "owner__email", "company")
     readonly_fields = (
         "owner",
+        "import_batch",
         "title",
         "prompt",
         "question_type",
@@ -59,3 +67,40 @@ class QuestionAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+class QuestionImportItemInline(admin.TabularInline):
+    model = QuestionImportItem
+    extra = 0
+    readonly_fields = (
+        "position",
+        "generated_title",
+        "question_text",
+        "question_type",
+        "is_included",
+        "duplicate_reason",
+    )
+    can_delete = False
+
+
+@admin.register(QuestionImportBatch)
+class QuestionImportBatchAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "owner",
+        "source_type",
+        "status",
+        "created_question_count",
+        "created_at",
+    )
+    list_filter = ("source_type", "status", "default_question_type")
+    search_fields = ("owner__email", "source_filename")
+    readonly_fields = (
+        "idempotency_key",
+        "created_question_count",
+        "created_at",
+        "updated_at",
+        "imported_at",
+        "archived_at",
+    )
+    inlines = (QuestionImportItemInline,)

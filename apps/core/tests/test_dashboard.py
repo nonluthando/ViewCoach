@@ -20,5 +20,5 @@ def test_dashboard_shows_question_counts_and_recent_questions(client):
 
     assert response.status_code == 200
     assert response.context["question_count"] == 1
-    assert response.context["active_question_count"] == 1
+    assert response.context["ready_question_count"] == 0
     assert question.title in response.content.decode()

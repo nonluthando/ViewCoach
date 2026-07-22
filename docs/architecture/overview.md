@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Milestone 1 establishes the structured question library: the product's first interview-preparation domain. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
+Milestones 1 and 1.1 establish the structured question library and reviewable bulk question import. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
 
 ## System shape
 
@@ -47,7 +47,9 @@ Owns user-created interview preparation material:
 - type-specific forms and detail experiences;
 - library search and filtering;
 - question ownership and authorization;
-- progressive answer reveal.
+- progressive answer reveal;
+- resumable, reviewable imports from pasted text, TXT, Markdown, CSV, DOCX and text-based PDF;
+- explicit readiness validation before questions enter future review queues.
 
 The base table stores fields shared by every question. Typed child tables store only fields meaningful to that interview format. New formats can be introduced as new child models without adding unrelated nullable columns to every existing question.
 

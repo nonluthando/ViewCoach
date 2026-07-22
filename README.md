@@ -2,7 +2,7 @@
 
 A Django application for creating structured interview material, practising it progressively and later receiving a focused study plan based on what matters now.
 
-The repository currently contains **Milestones 0 and 1**.
+The repository currently contains **Milestones 0, 1 and 1.1**.
 
 ## Implemented
 
@@ -28,7 +28,17 @@ The repository currently contains **Milestones 0 and 1**.
 - admin support, migration and authorization tests;
 - dashboard question summary.
 
-Spaced repetition, reviews, the Focus Engine, goals and AI are intentionally not part of this milestone.
+### Milestone 1.1 — Bulk question import
+
+- pasted text, TXT, Markdown, CSV, DOCX and text-based PDF imports;
+- resumable review batches with editable generated titles;
+- per-item type overrides and duplicate detection;
+- transactional, idempotent question creation;
+- temporary source deletion after successful import;
+- imported questions marked **Needs notes**;
+- individual and bulk **Mark ready** validation.
+
+Spaced repetition, review scheduling, the Focus Engine, goals and AI are intentionally not part of these milestones.
 
 ## Architecture decisions
 
