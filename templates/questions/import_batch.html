@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Question Import | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header page-header-split">
+    <div>
+        <p class="eyebrow">Question import</p>
+        <h1>{% if batch.source_filename %}{{ batch.source_filename }}{% else %}Pasted question list{% endif %}</h1>
+        <p class="lead">{{ batch.get_status_display }} · Created {{ batch.created_at|date:"j F Y, H:i" }}</p>
+    </div>
+    <a href="{% url 'questions:import_history' %}">Import history</a>
+</section>
+
+{% if batch.status == "FAILED" %}
+    <div class="empty-state empty-state-wide">
+        <h2>We could not extract these questions</h2>
+        <p>{{ batch.failure_message }}</p>
+        <div class="button-row">
+            <a class="button" href="{% url 'questions:import_start' %}">Try another source</a>
+            <a class="button button-secondary" href="{% url 'questions:import_delete' batch.pk %}">Delete batch</a>
+        </div>
+    </div>
+{% elif batch.status == "IMPORTED" or batch.status == "ARCHIVED" %}
+    <div class="import-summary">
+        <p><strong>{{ batch.created_question_count }}</strong> questions were created with the status <strong>Needs notes</strong>.</p>
+        <p>The original upload and extracted preview items have been deleted.</p>
+    </div>
+
+    {% if created_questions %}
+        <div class="question-grid">
+            {% for question in created_questions %}
+                <article class="question-card">
+                    <div class="question-card-meta">
+                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                        <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+                    </div>
+                    <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
+                    <p>{{ question.prompt|truncatewords:24 }}</p>
+                </article>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if batch.status == "IMPORTED" %}
+        <form class="form-actions" method="post" action="{% url 'questions:import_archive' batch.pk %}">
+            {% csrf_token %}
+            <button class="button button-secondary" type="submit">Archive import record</button>
+        </form>
+    {% endif %}
+{% else %}
+    <div class="import-summary">
+        <p><strong>{{ batch.items.count }}</strong> questions extracted. Edit titles, correct the text, change individual types, or exclude anything you do not want.</p>
+        <p>Duplicate questions are automatically excluded.</p>
+    </div>
+
+    <form method="post" id="import-review-form">
+        {% csrf_token %}
+        <input type="hidden" name="confirmation_token" value="{{ batch.idempotency_key }}">
+        {{ formset.management_form }}
+        {% if formset.non_form_errors %}<div class="form-errors">{{ formset.non_form_errors }}</div>{% endif %}
+
+        <div class="import-item-list">
+            {% for form in formset %}
+                <article class="import-item-card {% if form.instance.duplicate_reason %}import-item-duplicate{% endif %}">
+                    {{ form.id }}
+                    <div class="import-item-heading">
+                        <span class="import-position">Question {{ form.instance.position }}</span>
+                        <label class="include-toggle">{{ form.is_included }} {{ form.is_included.label }}</label>
+                    </div>
+
+                    {% if form.instance.duplicate_reason %}
+                        <p class="duplicate-warning">{{ form.instance.duplicate_reason }}</p>
+                    {% endif %}
+
+                    <div class="import-item-grid">
+                        <div class="form-field">
+                            <label for="{{ form.generated_title.id_for_label }}">{{ form.generated_title.label }}</label>
+                            {{ form.generated_title }}
+                            {{ form.generated_title.errors }}
+                        </div>
+                        <div class="form-field">
+                            <label for="{{ form.question_type.id_for_label }}">{{ form.question_type.label }}</label>
+                            {{ form.question_type }}
+                            {{ form.question_type.errors }}
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="{{ form.question_text.id_for_label }}">{{ form.question_text.label }}</label>
+                        {{ form.question_text }}
+                        {{ form.question_text.errors }}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+
+        <div class="button-row form-actions sticky-actions">
+            <button class="button button-secondary" name="action" value="save" type="submit">Save review</button>
+        </div>
+
+        <div class="import-confirm-panel">
+            <div>
+                <h2>Create the selected questions?</h2>
+                <p>Your latest edits will be saved first. Questions will appear in the library as <strong>Needs notes</strong>, and the original source will be deleted.</p>
+            </div>
+            <button class="button" id="import-confirm-button" name="action" value="confirm" type="submit">Create questions</button>
+        </div>
+    </form>
+
+    <p><a class="danger-link" href="{% url 'questions:import_delete' batch.pk %}">Delete unfinished batch</a></p>
+
+    <script>
+        (() => {
+            const form = document.getElementById("import-review-form");
+            const button = document.getElementById("import-confirm-button");
+            form.addEventListener("submit", (event) => {
+                if (event.submitter !== button || button.disabled) return;
+                button.disabled = true;
+                button.setAttribute("aria-disabled", "true");
+                button.textContent = "Creating…";
+            });
+        })();
+    </script>
+{% endif %}
+{% endblock %}

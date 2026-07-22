@@ -1,24 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% if not is_editing %}
-<script>
-    (() => {
-        const form = document.getElementById("question-form");
-        const submitButton = document.getElementById("question-submit");
-
-        form.addEventListener("submit", () => {
-            if (!form.checkValidity() || submitButton.disabled) {
-                return;
-            }
-
-            submitButton.disabled = true;
-            submitButton.setAttribute("aria-disabled", "true");
-            submitButton.textContent = "Creating…";
-        });
-    })();
-</script>
-{% endif %}
-{% endblock %}
+{% block title %}{% if is_editing %}Edit{% else %}New{% endif %} {{ question_type_label }} Question | Adaptive Interview Coach{% endblock %}
 
 {% block content %}
 <section class="page-header compact-header">

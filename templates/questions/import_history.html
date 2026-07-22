@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Import History | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header page-header-split">
+    <div>
+        <p class="eyebrow">Question imports</p>
+        <h1>Import history</h1>
+        <p class="lead">Return to unfinished batches or inspect the questions created by earlier imports.</p>
+    </div>
+    <a class="button" href="{% url 'questions:import_start' %}">New import</a>
+</section>
+
+{% if batches %}
+    <div class="import-history-list">
+        {% for batch in batches %}
+            <article class="import-history-card">
+                <div>
+                    <div class="question-card-meta">
+                        <span class="badge badge-neutral">{{ batch.get_source_type_display }}</span>
+                        <span class="badge badge-neutral">{{ batch.get_status_display }}</span>
+                    </div>
+                    <h2><a href="{% url 'questions:import_batch' batch.pk %}">{% if batch.source_filename %}{{ batch.source_filename }}{% else %}Pasted question list{% endif %}</a></h2>
+                    <p>{{ batch.created_at|date:"j F Y, H:i" }}{% if batch.created_question_count %} · {{ batch.created_question_count }} questions created{% endif %}</p>
+                </div>
+                <a href="{% url 'questions:import_batch' batch.pk %}">{% if batch.is_editable %}Continue review{% else %}View batch{% endif %}</a>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state empty-state-wide">
+        <h2>No imports yet</h2>
+        <p>Upload a list once instead of creating each question manually.</p>
+        <a class="button" href="{% url 'questions:import_start' %}">Import questions</a>
+    </div>
+{% endif %}
+{% endblock %}

@@ -8,10 +8,23 @@
         <h1>{{ question.title }}</h1>
         <p class="question-context">
             {% if question.company %}{{ question.company }} · {% endif %}Updated {{ question.updated_at|date:"j F Y" }}
+            {% if question.import_batch %} · <a href="{% url 'questions:import_batch' question.import_batch_id %}">Imported batch</a>{% endif %}
         </p>
     </div>
     <div class="button-row detail-actions">
+        {% if question.status == "NEEDS_NOTES" %}
+            <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
+                {% csrf_token %}
+                <button class="button" type="submit">Mark ready</button>
+            </form>
+        {% endif %}
         <a class="button button-secondary" href="{% url 'questions:edit' question.pk %}">Edit</a>
         <a class="danger-link" href="{% url 'questions:delete' question.pk %}">Delete</a>
     </div>
 </header>
+
+{% if question.status == "NEEDS_NOTES" and readiness_errors %}
+    <aside class="readiness-notice" aria-label="Missing notes">
+        <strong>Needs notes:</strong> add {{ readiness_errors|join:", " }} before marking this question ready.
+    </aside>
+{% endif %}

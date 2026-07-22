@@ -9,7 +9,10 @@
         <h1>Your interview material</h1>
         <p class="lead">Build structured questions you can practise, reveal progressively and review later.</p>
     </div>
-    <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+    <div class="button-row">
+        <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import questions</a>
+        <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+    </div>
 </section>
 
 <form class="filter-panel" method="get" role="search">
@@ -49,27 +52,40 @@
     <div class="button-row">
         <button class="button button-small" type="submit">Apply filters</button>
         <a class="button button-small button-secondary" href="{% url 'questions:list' %}">Clear</a>
+        <a href="{% url 'questions:import_history' %}">Import history</a>
     </div>
 </form>
 
 {% if page.object_list %}
-    <div class="question-grid">
-        {% for question in page.object_list %}
-            <article class="question-card">
-                <div class="question-card-meta">
-                    <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-                    <span class="badge badge-neutral">{{ question.get_status_display }}</span>
-                    {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
-                </div>
-                <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
-                <p>{{ question.prompt|truncatewords:24 }}</p>
-                <div class="question-card-footer">
-                    <span>{% if question.company %}{{ question.company }}{% else %}General preparation{% endif %}</span>
-                    <span>Updated {{ question.updated_at|date:"j M" }}</span>
-                </div>
-            </article>
-        {% endfor %}
-    </div>
+    <form method="post" action="{% url 'questions:bulk_mark_ready' %}">
+        {% csrf_token %}
+        <div class="bulk-toolbar">
+            <span>Select completed questions to move them into the future review queue.</span>
+            <button class="button button-small" type="submit">Mark selected ready</button>
+        </div>
+
+        <div class="question-grid">
+            {% for question in page.object_list %}
+                <article class="question-card question-card-selectable">
+                    <label class="question-select">
+                        <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+                        <span>Select</span>
+                    </label>
+                    <div class="question-card-meta">
+                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                        <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+                        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+                    </div>
+                    <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
+                    <p>{{ question.prompt|truncatewords:24 }}</p>
+                    <div class="question-card-footer">
+                        <span>{% if question.company %}{{ question.company }}{% elif question.import_batch %}Imported{% else %}General preparation{% endif %}</span>
+                        <span>Updated {{ question.updated_at|date:"j M" }}</span>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </form>
 
     {% if page.paginator.num_pages > 1 %}
         <nav class="pagination" aria-label="Question library pages">
@@ -85,11 +101,14 @@
 {% else %}
     <div class="empty-state empty-state-wide">
         <h2>{% if filters.q or filters.type or filters.difficulty or filters.status %}No matching questions{% else %}Your library is empty{% endif %}</h2>
-        <p>{% if filters.q or filters.type or filters.difficulty or filters.status %}Try clearing a filter or searching for something else.{% else %}Start with one question you genuinely need to explain in an interview.{% endif %}</p>
+        <p>{% if filters.q or filters.type or filters.difficulty or filters.status %}Try clearing a filter or searching for something else.{% else %}Create one question or import a list to build your library quickly.{% endif %}</p>
         {% if filters.q or filters.type or filters.difficulty or filters.status %}
             <a class="button button-secondary" href="{% url 'questions:list' %}">Clear filters</a>
         {% else %}
-            <a class="button" href="{% url 'questions:choose_type' %}">Add your first question</a>
+            <div class="button-row">
+                <a class="button" href="{% url 'questions:choose_type' %}">Add your first question</a>
+                <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import a list</a>
+            </div>
         {% endif %}
     </div>
 {% endif %}

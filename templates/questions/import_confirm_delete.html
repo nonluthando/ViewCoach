@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Import Batch | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="form-card">
+    <p class="eyebrow">Delete unfinished import</p>
+    <h1>Delete this batch?</h1>
+    <p>The extracted questions and temporary source file will be permanently removed.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="button-row">
+            <button class="button button-danger" type="submit">Delete batch</button>
+            <a class="button button-secondary" href="{% url 'questions:import_batch' batch.pk %}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
