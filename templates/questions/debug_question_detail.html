@@ -9,6 +9,7 @@
     <p class="eyebrow">Debugging scenario</p>
     <div class="rich-text">{{ question.prompt|linebreaks }}</div>
     {% if specific.repository %}<p class="metadata-line"><strong>Context:</strong> {{ specific.repository }}</p>{% endif %}
+    {% if specific.failing_test_or_symptom %}<p><strong>Failing test / symptom:</strong> {{ specific.failing_test_or_symptom }}</p>{% endif %}
     {% if specific.broken_code %}<pre><code>{{ specific.broken_code }}</code></pre>{% endif %}
 </section>
 
@@ -18,7 +19,10 @@
         <summary>Reveal diagnosis</summary>
         <div class="details-content">
             {% if specific.bug_type %}<p><strong>Bug type:</strong> {{ specific.get_bug_type_display }}</p>{% endif %}
-            {% if specific.fix %}<div class="rich-text">{{ specific.fix|linebreaks }}</div>{% else %}<p class="muted">No fix saved yet.</p>{% endif %}
+            {% if specific.likely_bug %}<h3>Likely bug</h3><div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>{% endif %}
+            {% if specific.reasoning %}<h3>Reasoning</h3><div class="rich-text">{{ specific.reasoning|linebreaks }}</div>{% endif %}
+            {% if specific.fix %}<h3>Fix</h3><div class="rich-text">{{ specific.fix|linebreaks }}</div>{% else %}<p class="muted">No fix saved yet.</p>{% endif %}
+            {% if specific.common_mistake %}<h3>Common mistake</h3><div class="rich-text">{{ specific.common_mistake|linebreaks }}</div>{% endif %}
         </div>
     </details>
     {% if specific.tests %}
@@ -29,5 +33,6 @@
     {% endif %}
 </section>
 
+{% include "questions/_personal_notes.html" %}
 <p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
 {% endblock %}

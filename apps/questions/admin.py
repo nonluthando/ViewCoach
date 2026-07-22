@@ -2,23 +2,26 @@ from django.contrib import admin
 
 from .models import (
     BehaviouralQuestion,
+    ConceptQuestion,
     DebugQuestion,
     Question,
     QuestionImportBatch,
     QuestionImportItem,
     TechnicalQuestion,
+    UserQuestionNote,
+    UserQuestionState,
 )
 
 
 class TypedQuestionAdmin(admin.ModelAdmin):
-    list_display = ("title", "owner", "status", "company", "updated_at")
-    list_filter = ("status", "difficulty", "company")
+    list_display = ("title", "owner", "is_system", "status", "company", "updated_at")
+    list_filter = ("is_system", "status", "difficulty", "company")
     search_fields = ("title", "prompt", "owner__email", "company")
     readonly_fields = ("question_type", "import_batch", "created_at", "updated_at")
     autocomplete_fields = ("owner",)
 
     def save_model(self, request, obj, form, change):
-        if not change and not obj.owner_id:
+        if not change and not obj.is_system and not obj.owner_id:
             obj.owner = request.user
         super().save_model(request, obj, form, change)
 
@@ -27,6 +30,13 @@ class TypedQuestionAdmin(admin.ModelAdmin):
 class TechnicalQuestionAdmin(TypedQuestionAdmin):
     list_display = TypedQuestionAdmin.list_display + ("topic", "pattern")
     search_fields = TypedQuestionAdmin.search_fields + ("topic", "pattern")
+
+
+@admin.register(ConceptQuestion)
+class ConceptQuestionAdmin(TypedQuestionAdmin):
+    list_display = TypedQuestionAdmin.list_display + ("category",)
+    list_filter = TypedQuestionAdmin.list_filter + ("category",)
+    search_fields = TypedQuestionAdmin.search_fields + ("canonical_answer", "category")
 
 
 @admin.register(BehaviouralQuestion)
@@ -104,3 +114,16 @@ class QuestionImportBatchAdmin(admin.ModelAdmin):
         "archived_at",
     )
     inlines = (QuestionImportItemInline,)
+
+
+@admin.register(UserQuestionState)
+class UserQuestionStateAdmin(admin.ModelAdmin):
+    list_display = ("user", "question", "status", "bookmarked", "updated_at")
+    list_filter = ("status", "bookmarked")
+    search_fields = ("user__email", "question__title")
+
+
+@admin.register(UserQuestionNote)
+class UserQuestionNoteAdmin(admin.ModelAdmin):
+    list_display = ("user", "question", "updated_at")
+    search_fields = ("user__email", "question__title", "notes")

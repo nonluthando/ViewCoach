@@ -29,6 +29,8 @@ urlpatterns = [
     ),
     path("<int:pk>/", views.question_detail, name="detail"),
     path("<int:pk>/edit/", views.question_edit, name="edit"),
+    path("<int:pk>/notes/", views.question_notes, name="notes"),
+    path("<int:pk>/bookmark/", views.question_toggle_bookmark, name="toggle_bookmark"),
     path("<int:pk>/mark-ready/", views.question_mark_ready, name="mark_ready"),
     path("<int:pk>/delete/", views.question_delete, name="delete"),
 ]

@@ -15,6 +15,7 @@ from .forms import (
     QUESTION_FORM_BY_TYPE,
     QuestionImportItemFormSet,
     QuestionImportStartForm,
+    UserQuestionNoteForm,
 )
 from .importing import (
     ImportExtractionError,
@@ -22,22 +23,32 @@ from .importing import (
     create_import_batch,
     refresh_batch_duplicates,
 )
-from .models import Question, QuestionImportBatch
+from .models import Question, QuestionImportBatch, UserQuestionNote, UserQuestionState
 
 TYPE_BY_SLUG = {
     "technical": Question.Type.TECHNICAL,
+    "concept": Question.Type.CONCEPT,
     "behavioural": Question.Type.BEHAVIOURAL,
     "debug": Question.Type.DEBUG,
 }
 
 
-def _owned_questions(user):
-    return Question.objects.filter(owner=user).select_related(
+def _question_queryset():
+    return Question.objects.select_related(
         "technicalquestion",
+        "conceptquestion",
         "behaviouralquestion",
         "debugquestion",
         "import_batch",
     )
+
+
+def _accessible_questions(user):
+    return _question_queryset().filter(Q(owner=user) | Q(is_system=True))
+
+
+def _owned_questions(user):
+    return _question_queryset().filter(owner=user, is_system=False)
 
 
 def _owned_batches(user):
@@ -53,12 +64,13 @@ def _question_type_from_slug(question_type_slug: str) -> str:
 
 @login_required
 def question_list(request):
-    questions = _owned_questions(request.user)
+    questions = _accessible_questions(request.user)
 
     search_term = request.GET.get("q", "").strip()
     question_type = request.GET.get("type", "").strip()
     difficulty = request.GET.get("difficulty", "").strip()
     status = request.GET.get("status", "").strip()
+    source = request.GET.get("source", "").strip()
 
     if search_term:
         questions = questions.filter(
@@ -71,6 +83,8 @@ def question_list(request):
             | Q(technicalquestion__intuition__icontains=search_term)
             | Q(technicalquestion__optimal_approach__icontains=search_term)
             | Q(technicalquestion__mistakes__icontains=search_term)
+            | Q(conceptquestion__canonical_answer__icontains=search_term)
+            | Q(conceptquestion__category__icontains=search_term)
             | Q(behaviouralquestion__leadership_principles__icontains=search_term)
             | Q(behaviouralquestion__stories__icontains=search_term)
             | Q(debugquestion__repository__icontains=search_term)
@@ -86,6 +100,10 @@ def question_list(request):
         questions = questions.filter(difficulty=difficulty)
     if status in valid_statuses:
         questions = questions.filter(status=status)
+    if source == "built_in":
+        questions = questions.filter(is_system=True)
+    elif source == "mine":
+        questions = questions.filter(owner=request.user, is_system=False)
 
     paginator = Paginator(questions, 20)
     page = paginator.get_page(request.GET.get("page"))
@@ -103,6 +121,7 @@ def question_list(request):
                 "type": question_type,
                 "difficulty": difficulty,
                 "status": status,
+                "source": source,
             },
         },
     )
@@ -202,10 +221,13 @@ def question_create(request, question_type_slug):
 
 @login_required
 def question_detail(request, pk):
-    question = get_object_or_404(_owned_questions(request.user), pk=pk)
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
     specific = question.specific
+    state = UserQuestionState.objects.filter(user=request.user, question=question).first()
+    note = UserQuestionNote.objects.filter(user=request.user, question=question).first()
     template_by_type = {
         Question.Type.TECHNICAL: "questions/technical_question_detail.html",
+        Question.Type.CONCEPT: "questions/concept_question_detail.html",
         Question.Type.BEHAVIOURAL: "questions/behavioural_question_detail.html",
         Question.Type.DEBUG: "questions/debug_question_detail.html",
     }
@@ -220,6 +242,8 @@ def question_detail(request, pk):
             "question": question,
             "specific": specific,
             "readiness_errors": question.readiness_errors(),
+            "user_state": state,
+            "user_note": note,
         },
     )
 
@@ -281,6 +305,41 @@ def question_delete(request, pk):
         return redirect("questions:list")
 
     return render(request, "questions/question_confirm_delete.html", {"question": question})
+
+
+@login_required
+def question_notes(request, pk):
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+    note, _ = UserQuestionNote.objects.get_or_create(user=request.user, question=question)
+    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+
+    if request.method == "POST":
+        form = UserQuestionNoteForm(request.POST, instance=note)
+        if form.is_valid():
+            form.save()
+            state.mark_in_progress()
+            state.save()
+            messages.success(request, "Your notes were saved.")
+            return redirect("questions:detail", pk=question.pk)
+    else:
+        form = UserQuestionNoteForm(instance=note)
+
+    return render(
+        request,
+        "questions/question_notes_form.html",
+        {"question": question, "form": form},
+    )
+
+
+@login_required
+@require_POST
+def question_toggle_bookmark(request, pk):
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+    state.bookmarked = not state.bookmarked
+    state.save(update_fields=["bookmarked", "updated_at"])
+    messages.success(request, "Saved to your library." if state.bookmarked else "Removed from saved questions.")
+    return redirect("questions:detail", pk=question.pk)
 
 
 @login_required

@@ -128,3 +128,13 @@ The included `render.yaml` is a deployment draft. Review the current Render plan
 ## First-migration warning
 
 `accounts.User` is referenced by `AUTH_USER_MODEL` and is created in `accounts/0001_initial.py`. Do not run Django's default migrations before this model exists. Replacing the user model after dependent migrations have been applied is intentionally avoided.
+
+## Built-in question library
+
+ViewCoach ships with a curated starter library. After applying migrations locally, seed or refresh it with:
+
+```bash
+python manage.py seed_question_bank
+```
+
+The command is idempotent and is also run by `build.sh` during Render deployments. The curated core bank contains 100 questions: 30 technical, 50 concept, 10 debugging and 10 behavioural. Built-in questions are shared and read-only; each user stores private bookmarks, progress and notes separately.

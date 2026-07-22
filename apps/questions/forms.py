@@ -5,10 +5,12 @@ from django.forms import modelformset_factory
 
 from .models import (
     BehaviouralQuestion,
+    ConceptQuestion,
     DebugQuestion,
     Question,
     QuestionImportItem,
     TechnicalQuestion,
+    UserQuestionNote,
 )
 
 MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024
@@ -56,6 +58,50 @@ class TechnicalQuestionForm(StyledModelForm):
             "prompt": "Write the problem exactly as you want to practise recalling it.",
             "first_hint": "The smallest useful nudge. Do not reveal the full approach.",
             "mistakes": "Record incorrect assumptions, bugs or traps you want to avoid next time.",
+        }
+
+
+class ConceptQuestionForm(StyledModelForm):
+    class Meta:
+        model = ConceptQuestion
+        fields = [
+            "title",
+            "prompt",
+            "category",
+            "canonical_answer",
+            "example",
+            "common_misconception",
+            "code_snippet",
+        ]
+        labels = {
+            "prompt": "Question",
+            "canonical_answer": "Canonical answer",
+            "code_snippet": "Optional code snippet",
+        }
+        widgets = {
+            "prompt": forms.Textarea(attrs={"rows": 5}),
+            "canonical_answer": forms.Textarea(attrs={"rows": 10}),
+            "example": forms.Textarea(attrs={"rows": 5}),
+            "common_misconception": forms.Textarea(attrs={"rows": 5}),
+            "code_snippet": forms.Textarea(attrs={"rows": 10, "class": "code-input"}),
+        }
+
+
+class UserQuestionNoteForm(StyledModelForm):
+    class Meta:
+        model = UserQuestionNote
+        fields = ["notes", "mistakes", "code_notes", "behavioural_notes"]
+        labels = {
+            "notes": "My notes",
+            "mistakes": "Mistakes to remember",
+            "code_notes": "My code / implementation notes",
+            "behavioural_notes": "My story notes",
+        }
+        widgets = {
+            "notes": forms.Textarea(attrs={"rows": 8}),
+            "mistakes": forms.Textarea(attrs={"rows": 5}),
+            "code_notes": forms.Textarea(attrs={"rows": 8, "class": "code-input"}),
+            "behavioural_notes": forms.Textarea(attrs={"rows": 8}),
         }
 
 
@@ -118,6 +164,7 @@ class DebugQuestionForm(StyledModelForm):
 
 QUESTION_FORM_BY_TYPE = {
     Question.Type.TECHNICAL: TechnicalQuestionForm,
+    Question.Type.CONCEPT: ConceptQuestionForm,
     Question.Type.BEHAVIOURAL: BehaviouralQuestionForm,
     Question.Type.DEBUG: DebugQuestionForm,
 }

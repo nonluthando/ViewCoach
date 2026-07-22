@@ -35,5 +35,25 @@
     </section>
 </div>
 
+{% if specific.star_outline %}
+<section class="content-card content-card-wide">
+    <p class="eyebrow">STAR outline</p>
+    <dl>
+        {% for label, guidance in specific.star_outline.items %}<dt><strong>{{ label|title }}</strong></dt><dd>{{ guidance }}</dd>{% endfor %}
+    </dl>
+</section>
+{% endif %}
+{% if specific.personal_detail_prompts %}
+<section class="content-card content-card-wide"><p class="eyebrow">Prompts for your real story</p><ul>{% for item in specific.personal_detail_prompts %}<li>{{ item }}</li>{% endfor %}</ul></section>
+{% endif %}
+{% if specific.follow_up_questions %}
+<section class="content-card content-card-wide"><p class="eyebrow">Likely follow-ups</p><ul>{% for item in specific.follow_up_questions %}<li>{{ item }}</li>{% endfor %}</ul></section>
+{% endif %}
+{% if specific.common_mistakes %}
+<section class="content-card content-card-wide"><p class="eyebrow">Common mistakes</p><ul>{% for item in specific.common_mistakes %}<li>{{ item }}</li>{% endfor %}</ul></section>
+{% endif %}
+
+{% include "questions/_personal_notes.html" %}
+
 <p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
 {% endblock %}
