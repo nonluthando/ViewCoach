@@ -6,6 +6,7 @@ app_name = "questions"
 
 urlpatterns = [
     path("", views.question_list, name="list"),
+    path("bulk/save-built-in/", views.bulk_save_built_in, name="bulk_save_built_in"),
     path("bulk/mark-ready/", views.bulk_mark_ready, name="bulk_mark_ready"),
     path("new/", views.choose_question_type, name="choose_type"),
     path("new/<slug:question_type_slug>/", views.question_create, name="create"),

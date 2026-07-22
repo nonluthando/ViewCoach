@@ -109,3 +109,55 @@ def test_question_bank_json_has_unique_keys_and_expected_count():
     assert len(questions) == 100
     assert len(keys) == len(set(keys))
     assert len(titles) == len(set(titles))
+
+def test_saved_built_in_question_appears_in_my_library(client, user):
+    call_command("seed_question_bank")
+    question = Question.objects.get(system_key="technical-two-sum")
+    client.force_login(user)
+
+    client.post(reverse("questions:toggle_bookmark", args=[question.pk]))
+
+    response = client.get(reverse("questions:list"), {"source": "mine"})
+
+    assert response.status_code == 200
+    assert question.title in response.content.decode()
+    state = UserQuestionState.objects.get(user=user, question=question)
+    assert state.bookmarked is True
+
+
+def test_bulk_save_built_in_questions(client, user):
+    call_command("seed_question_bank")
+    questions = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
+    client.force_login(user)
+
+    response = client.post(
+        reverse("questions:bulk_save_built_in"),
+        {"selected_built_in_questions": [question.pk for question in questions]},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert UserQuestionState.objects.filter(
+        user=user,
+        question__in=questions,
+        bookmarked=True,
+    ).count() == 2
+    assert "Saved 2 built-in questions to your library." in response.content.decode()
+
+
+def test_saved_filter_only_shows_bookmarked_built_in_questions(client, user):
+    call_command("seed_question_bank")
+    saved_question = Question.objects.get(system_key="technical-two-sum")
+    unsaved_question = Question.objects.get(system_key="technical-valid-palindrome")
+    UserQuestionState.objects.create(
+        user=user,
+        question=saved_question,
+        bookmarked=True,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("questions:list"), {"source": "saved"})
+    content = response.content.decode()
+
+    assert saved_question.title in content
+    assert unsaved_question.title not in content

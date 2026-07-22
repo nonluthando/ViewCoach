@@ -25,9 +25,10 @@
         <div class="form-field">
             <label for="question-source">Library</label>
             <select id="question-source" name="source">
-                <option value="">Built-in + mine</option>
+                <option value="">All questions</option>
                 <option value="built_in" {% if filters.source == "built_in" %}selected{% endif %}>Built-in</option>
-                <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My questions</option>
+                <option value="saved" {% if filters.source == "saved" %}selected{% endif %}>Saved built-in</option>
+                <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
             </select>
         </div>
         <div class="form-field">
@@ -66,25 +67,39 @@
 </form>
 
 {% if page.object_list %}
-    <form method="post" action="{% url 'questions:bulk_mark_ready' %}">
+    <form method="post">
         {% csrf_token %}
         <div class="bulk-toolbar">
-            <span>Select completed questions to move them into the future review queue.</span>
-            <button class="button button-small" type="submit">Mark selected ready</button>
+            <span>Save built-in questions or move your completed questions into the future review queue.</span>
+            <div class="button-row">
+                <button
+                    class="button button-small button-secondary"
+                    type="submit"
+                    formaction="{% url 'questions:bulk_save_built_in' %}"
+                >Save selected built-in</button>
+                <button
+                    class="button button-small"
+                    type="submit"
+                    formaction="{% url 'questions:bulk_mark_ready' %}"
+                >Mark my selected ready</button>
+            </div>
         </div>
 
         <div class="question-grid">
             {% for question in page.object_list %}
                 <article class="question-card question-card-selectable">
-                    {% if not question.is_system %}
                     <label class="question-select">
-                        <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
-                        <span>Select</span>
+                        {% if question.is_system %}
+                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+                            <span>{% if question.is_bookmarked %}Saved{% else %}Select to save{% endif %}</span>
+                        {% else %}
+                            <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+                            <span>Select</span>
+                        {% endif %}
                     </label>
-                    {% endif %}
                     <div class="question-card-meta">
                         <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.is_bookmarked %}<span class="badge badge-neutral">Saved</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
                         {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
                     </div>
                     <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>

@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -64,7 +64,14 @@ def _question_type_from_slug(question_type_slug: str) -> str:
 
 @login_required
 def question_list(request):
-    questions = _accessible_questions(request.user)
+    bookmarked_state = UserQuestionState.objects.filter(
+        user=request.user,
+        question_id=OuterRef("pk"),
+        bookmarked=True,
+    )
+    questions = _accessible_questions(request.user).annotate(
+        is_bookmarked=Exists(bookmarked_state)
+    )
 
     search_term = request.GET.get("q", "").strip()
     question_type = request.GET.get("type", "").strip()
@@ -102,8 +109,10 @@ def question_list(request):
         questions = questions.filter(status=status)
     if source == "built_in":
         questions = questions.filter(is_system=True)
+    elif source == "saved":
+        questions = questions.filter(is_system=True, is_bookmarked=True)
     elif source == "mine":
-        questions = questions.filter(owner=request.user, is_system=False)
+        questions = questions.filter(Q(owner=request.user) | Q(is_bookmarked=True))
 
     paginator = Paginator(questions, 20)
     page = paginator.get_page(request.GET.get("page"))
@@ -125,6 +134,49 @@ def question_list(request):
             },
         },
     )
+
+
+@login_required
+@require_POST
+def bulk_save_built_in(request):
+    selected_ids = request.POST.getlist("selected_built_in_questions")
+
+    if not selected_ids:
+        messages.info(request, "Select at least one built-in question.")
+        return redirect("questions:list")
+
+    questions = list(
+        _accessible_questions(request.user).filter(
+            pk__in=selected_ids,
+            is_system=True,
+        )
+    )
+
+    saved_count = 0
+    with transaction.atomic():
+        for question in questions:
+            state, _ = UserQuestionState.objects.get_or_create(
+                user=request.user,
+                question=question,
+            )
+            if not state.bookmarked:
+                state.bookmarked = True
+                state.save(update_fields=["bookmarked", "updated_at"])
+                saved_count += 1
+
+    already_saved_count = len(questions) - saved_count
+    if saved_count:
+        messages.success(
+            request,
+            f"Saved {saved_count} built-in question{'s' if saved_count != 1 else ''} to your library.",
+        )
+    if already_saved_count:
+        messages.info(
+            request,
+            f"{already_saved_count} selected question{'s were' if already_saved_count != 1 else ' was'} already saved.",
+        )
+
+    return redirect("questions:list")
 
 
 @login_required
