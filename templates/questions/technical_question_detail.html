@@ -53,9 +53,14 @@
                 {% if specific.optimal_approach %}<h4>Steps</h4><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
             </article>
         {% endif %}
-        {% if specific.complexity %}
+        {% if specific.brute_force_time_complexity or specific.optimal_time_complexity or specific.complexity %}
             <article class="reveal-step" data-reveal-step hidden>
-                <p class="step-number">Analysis</p><h3>Complexity</h3><p>{{ specific.complexity }}</p>
+                <p class="step-number">Analysis</p><h3>Complexity</h3>
+                {% if specific.brute_force_time_complexity %}<p><strong>Brute force time:</strong> {{ specific.brute_force_time_complexity }}</p>{% endif %}
+                {% if specific.brute_force_space_complexity %}<p><strong>Brute force space:</strong> {{ specific.brute_force_space_complexity }}</p>{% endif %}
+                {% if specific.optimal_time_complexity %}<p><strong>Optimal time:</strong> {{ specific.optimal_time_complexity }}</p>{% endif %}
+                {% if specific.optimal_space_complexity %}<p><strong>Optimal space:</strong> {{ specific.optimal_space_complexity }}</p>{% endif %}
+                {% if specific.complexity and not specific.optimal_time_complexity %}<p>{{ specific.complexity }}</p>{% endif %}
             </article>
         {% endif %}
         {% if specific.code %}
@@ -75,6 +80,7 @@
 </section>
 
 {% if specific.topic %}<p class="metadata-line"><strong>Topic:</strong> {{ specific.topic }}</p>{% endif %}
+{% include "questions/_personal_notes.html" %}
 <p class="back-link"><a href="{% url 'questions:list' %}">← Back to question library</a></p>
 
 <script>

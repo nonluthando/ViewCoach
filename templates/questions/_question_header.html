@@ -2,28 +2,37 @@
     <div>
         <div class="question-card-meta">
             <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-            <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+            {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
             {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
         </div>
         <h1>{{ question.title }}</h1>
         <p class="question-context">
-            {% if question.company %}{{ question.company }} · {% endif %}Updated {{ question.updated_at|date:"j F Y" }}
+            {% if question.company %}{{ question.company }} · {% endif %}
+            {% if question.is_system %}Curated by ViewCoach{% else %}Updated {{ question.updated_at|date:"j F Y" }}{% endif %}
             {% if question.import_batch %} · <a href="{% url 'questions:import_batch' question.import_batch_id %}">Imported batch</a>{% endif %}
         </p>
     </div>
     <div class="button-row detail-actions">
-        {% if question.status == "NEEDS_NOTES" %}
-            <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
+        {% if question.is_system %}
+            <form method="post" action="{% url 'questions:toggle_bookmark' question.pk %}">
                 {% csrf_token %}
-                <button class="button" type="submit">Mark ready</button>
+                <button class="button button-secondary" type="submit">{% if user_state and user_state.bookmarked %}Remove saved{% else %}Save question{% endif %}</button>
             </form>
+            <a class="button" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit my notes{% else %}Add my notes{% endif %}</a>
+        {% else %}
+            {% if question.status == "NEEDS_NOTES" %}
+                <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
+                    {% csrf_token %}
+                    <button class="button" type="submit">Mark ready</button>
+                </form>
+            {% endif %}
+            <a class="button button-secondary" href="{% url 'questions:edit' question.pk %}">Edit</a>
+            <a class="danger-link" href="{% url 'questions:delete' question.pk %}">Delete</a>
         {% endif %}
-        <a class="button button-secondary" href="{% url 'questions:edit' question.pk %}">Edit</a>
-        <a class="danger-link" href="{% url 'questions:delete' question.pk %}">Delete</a>
     </div>
 </header>
 
-{% if question.status == "NEEDS_NOTES" and readiness_errors %}
+{% if not question.is_system and question.status == "NEEDS_NOTES" and readiness_errors %}
     <aside class="readiness-notice" aria-label="Missing notes">
         <strong>Needs notes:</strong> add {{ readiness_errors|join:", " }} before marking this question ready.
     </aside>

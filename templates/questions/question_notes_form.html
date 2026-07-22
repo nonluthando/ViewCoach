@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}My notes · {{ question.title }} | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <p class="eyebrow">Personal notes</p>
+    <h1>{{ question.title }}</h1>
+    <p class="lead">Your notes are private and stay separate from the built-in answer.</p>
+</section>
+<form method="post" class="form-card">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+        <div class="form-field">
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+        </div>
+    {% endfor %}
+    <div class="button-row">
+        <button class="button" type="submit">Save notes</button>
+        <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

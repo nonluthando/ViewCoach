@@ -10,6 +10,7 @@ from pypdf import PdfReader
 
 from .models import (
     BehaviouralQuestion,
+    ConceptQuestion,
     DebugQuestion,
     Question,
     QuestionImportBatch,
@@ -330,6 +331,8 @@ def _create_question_from_item(item, batch):
 
     if item.question_type == Question.Type.TECHNICAL:
         return TechnicalQuestion.objects.create(**common_fields)
+    if item.question_type == Question.Type.CONCEPT:
+        return ConceptQuestion.objects.create(category=ConceptQuestion.Category.OTHER, **common_fields)
     if item.question_type == Question.Type.BEHAVIOURAL:
         return BehaviouralQuestion.objects.create(**common_fields)
     if item.question_type == Question.Type.DEBUG:

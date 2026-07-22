@@ -1,0 +1,17 @@
+<section class="content-card personal-notes-card">
+    <div class="page-header-split">
+        <div>
+            <p class="eyebrow">My notes</p>
+            <h2>Your explanation, mistakes and examples</h2>
+        </div>
+        <a class="button button-secondary button-small" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit notes{% else %}Add notes{% endif %}</a>
+    </div>
+    {% if user_note %}
+        {% if user_note.notes %}<div class="rich-text">{{ user_note.notes|linebreaks }}</div>{% endif %}
+        {% if user_note.mistakes %}<h3>Mistakes to remember</h3><div class="rich-text">{{ user_note.mistakes|linebreaks }}</div>{% endif %}
+        {% if user_note.code_notes %}<h3>My code notes</h3><pre><code>{{ user_note.code_notes }}</code></pre>{% endif %}
+        {% if user_note.behavioural_notes %}<h3>My story notes</h3><div class="rich-text">{{ user_note.behavioural_notes|linebreaks }}</div>{% endif %}
+    {% else %}
+        <p class="muted">No personal notes yet. The canonical answer stays read-only; add your own explanation here.</p>
+    {% endif %}
+</section>

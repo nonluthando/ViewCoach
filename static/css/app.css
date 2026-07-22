@@ -249,6 +249,7 @@ code {
 }
 
 .badge-technical { color: #3442ad; background: #e9ebff; }
+.badge-concept { color: #375f42; background: #e5f5e9; }
 .badge-behavioural { color: #78570c; background: #fff3cf; }
 .badge-debug { color: #8b2935; background: #ffe4e7; }
 .badge-neutral { color: #4f586a; background: #eef0f5; }
@@ -476,3 +477,6 @@ pre {
 
     .import-item-grid { grid-template-columns: 1fr; }
 }
+
+.personal-notes-card { margin-top: 1.5rem; }
+.personal-notes-card h3 { margin-top: 1rem; }
