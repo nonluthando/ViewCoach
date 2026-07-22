@@ -1,0 +1,293 @@
+diff --git a/apps/questions/tests/test_import_views.py b/apps/questions/tests/test_import_views.py
+index 8b25816..fd88b57 100644
+--- a/apps/questions/tests/test_import_views.py
++++ b/apps/questions/tests/test_import_views.py
+@@ -309,7 +309,8 @@ def test_import_review_and_history_pages_render(client, user):
+     assert batch_response.status_code == 200
+     batch_html = batch_response.content.decode()
+     assert "Create questions" in batch_html
+-    assert 'id="import-action"' in batch_html
+-    assert 'data-action="confirm"' in batch_html
++    assert 'name="action" value="save"' in batch_html
++    assert 'name="action" value="confirm"' in batch_html
++    assert 'id="import-action"' not in batch_html
+     assert history_response.status_code == 200
+     assert "Pasted question list" in history_response.content.decode()
+diff --git a/apps/questions/tests/test_seeded_library.py b/apps/questions/tests/test_seeded_library.py
+index d8e9d35..ac5558b 100644
+--- a/apps/questions/tests/test_seeded_library.py
++++ b/apps/questions/tests/test_seeded_library.py
+@@ -109,3 +109,55 @@ def test_question_bank_json_has_unique_keys_and_expected_count():
+     assert len(questions) == 100
+     assert len(keys) == len(set(keys))
+     assert len(titles) == len(set(titles))
++
++def test_saved_built_in_question_appears_in_my_library(client, user):
++    call_command("seed_question_bank")
++    question = Question.objects.get(system_key="technical-two-sum")
++    client.force_login(user)
++
++    client.post(reverse("questions:toggle_bookmark", args=[question.pk]))
++
++    response = client.get(reverse("questions:list"), {"source": "mine"})
++
++    assert response.status_code == 200
++    assert question.title in response.content.decode()
++    state = UserQuestionState.objects.get(user=user, question=question)
++    assert state.bookmarked is True
++
++
++def test_bulk_save_built_in_questions(client, user):
++    call_command("seed_question_bank")
++    questions = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:bulk_save_built_in"),
++        {"selected_built_in_questions": [question.pk for question in questions]},
++        follow=True,
++    )
++
++    assert response.status_code == 200
++    assert UserQuestionState.objects.filter(
++        user=user,
++        question__in=questions,
++        bookmarked=True,
++    ).count() == 2
++    assert "Saved 2 built-in questions to your library." in response.content.decode()
++
++
++def test_saved_filter_only_shows_bookmarked_built_in_questions(client, user):
++    call_command("seed_question_bank")
++    saved_question = Question.objects.get(system_key="technical-two-sum")
++    unsaved_question = Question.objects.get(system_key="technical-valid-palindrome")
++    UserQuestionState.objects.create(
++        user=user,
++        question=saved_question,
++        bookmarked=True,
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("questions:list"), {"source": "saved"})
++    content = response.content.decode()
++
++    assert saved_question.title in content
++    assert unsaved_question.title not in content
+diff --git a/apps/questions/urls.py b/apps/questions/urls.py
+index 7c429c9..b1959fd 100644
+--- a/apps/questions/urls.py
++++ b/apps/questions/urls.py
+@@ -6,6 +6,7 @@ app_name = "questions"
+ 
+ urlpatterns = [
+     path("", views.question_list, name="list"),
++    path("bulk/save-built-in/", views.bulk_save_built_in, name="bulk_save_built_in"),
+     path("bulk/mark-ready/", views.bulk_mark_ready, name="bulk_mark_ready"),
+     path("new/", views.choose_question_type, name="choose_type"),
+     path("new/<slug:question_type_slug>/", views.question_create, name="create"),
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+index 2cc5b7f..9285201 100644
+--- a/apps/questions/views.py
++++ b/apps/questions/views.py
+@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
+ from django.core.exceptions import ValidationError
+ from django.core.paginator import Paginator
+ from django.db import IntegrityError, transaction
+-from django.db.models import Q
++from django.db.models import Exists, OuterRef, Q
+ from django.http import Http404
+ from django.shortcuts import get_object_or_404, redirect, render
+ from django.utils import timezone
+@@ -64,7 +64,14 @@ def _question_type_from_slug(question_type_slug: str) -> str:
+ 
+ @login_required
+ def question_list(request):
+-    questions = _accessible_questions(request.user)
++    bookmarked_state = UserQuestionState.objects.filter(
++        user=request.user,
++        question_id=OuterRef("pk"),
++        bookmarked=True,
++    )
++    questions = _accessible_questions(request.user).annotate(
++        is_bookmarked=Exists(bookmarked_state)
++    )
+ 
+     search_term = request.GET.get("q", "").strip()
+     question_type = request.GET.get("type", "").strip()
+@@ -102,8 +109,10 @@ def question_list(request):
+         questions = questions.filter(status=status)
+     if source == "built_in":
+         questions = questions.filter(is_system=True)
++    elif source == "saved":
++        questions = questions.filter(is_system=True, is_bookmarked=True)
+     elif source == "mine":
+-        questions = questions.filter(owner=request.user, is_system=False)
++        questions = questions.filter(Q(owner=request.user) | Q(is_bookmarked=True))
+ 
+     paginator = Paginator(questions, 20)
+     page = paginator.get_page(request.GET.get("page"))
+@@ -127,6 +136,49 @@ def question_list(request):
+     )
+ 
+ 
++@login_required
++@require_POST
++def bulk_save_built_in(request):
++    selected_ids = request.POST.getlist("selected_built_in_questions")
++
++    if not selected_ids:
++        messages.info(request, "Select at least one built-in question.")
++        return redirect("questions:list")
++
++    questions = list(
++        _accessible_questions(request.user).filter(
++            pk__in=selected_ids,
++            is_system=True,
++        )
++    )
++
++    saved_count = 0
++    with transaction.atomic():
++        for question in questions:
++            state, _ = UserQuestionState.objects.get_or_create(
++                user=request.user,
++                question=question,
++            )
++            if not state.bookmarked:
++                state.bookmarked = True
++                state.save(update_fields=["bookmarked", "updated_at"])
++                saved_count += 1
++
++    already_saved_count = len(questions) - saved_count
++    if saved_count:
++        messages.success(
++            request,
++            f"Saved {saved_count} built-in question{'s' if saved_count != 1 else ''} to your library.",
++        )
++    if already_saved_count:
++        messages.info(
++            request,
++            f"{already_saved_count} selected question{'s were' if already_saved_count != 1 else ' was'} already saved.",
++        )
++
++    return redirect("questions:list")
++
++
+ @login_required
+ @require_POST
+ def bulk_mark_ready(request):
+diff --git a/templates/questions/import_batch.html b/templates/questions/import_batch.html
+index ad70717..501efe7 100644
+--- a/templates/questions/import_batch.html
++++ b/templates/questions/import_batch.html
+@@ -57,7 +57,6 @@
+     <form method="post" id="import-review-form">
+         {% csrf_token %}
+         <input type="hidden" name="confirmation_token" value="{{ batch.idempotency_key }}">
+-        <input type="hidden" id="import-action" name="action" value="save">
+         {{ formset.management_form }}
+         {% if formset.non_form_errors %}<div class="form-errors">{{ formset.non_form_errors }}</div>{% endif %}
+ 
+@@ -96,7 +95,7 @@
+         </div>
+ 
+         <div class="button-row form-actions sticky-actions">
+-            <button class="button button-secondary" data-action="save" type="submit">Save review</button>
++            <button class="button button-secondary" name="action" value="save" type="submit">Save review</button>
+         </div>
+ 
+         <div class="import-confirm-panel">
+@@ -104,27 +103,11 @@
+                 <h2>Create the selected questions?</h2>
+                 <p>Your latest edits will be saved first. Questions will appear in the library as <strong>Needs notes</strong>, and the original source will be deleted.</p>
+             </div>
+-            <button class="button" id="import-confirm-button" data-action="confirm" type="submit">Create questions</button>
++            <button class="button" name="action" value="confirm" type="submit">Create questions</button>
+         </div>
+     </form>
+ 
+     <p><a class="danger-link" href="{% url 'questions:import_delete' batch.pk %}">Delete unfinished batch</a></p>
+ 
+-    <script>
+-        (() => {
+-            const form = document.getElementById("import-review-form");
+-            const button = document.getElementById("import-confirm-button");
+-            const actionInput = document.getElementById("import-action");
+-            form.addEventListener("submit", (event) => {
+-                const requestedAction = event.submitter?.dataset.action || "save";
+-                actionInput.value = requestedAction;
+-
+-                if (requestedAction !== "confirm" || button.disabled) return;
+-                button.disabled = true;
+-                button.setAttribute("aria-disabled", "true");
+-                button.textContent = "Creating…";
+-            });
+-        })();
+-    </script>
+ {% endif %}
+ {% endblock %}
+diff --git a/templates/questions/question_list.html b/templates/questions/question_list.html
+index b5e03e4..dcdcef8 100644
+--- a/templates/questions/question_list.html
++++ b/templates/questions/question_list.html
+@@ -25,9 +25,10 @@
+         <div class="form-field">
+             <label for="question-source">Library</label>
+             <select id="question-source" name="source">
+-                <option value="">Built-in + mine</option>
++                <option value="">All questions</option>
+                 <option value="built_in" {% if filters.source == "built_in" %}selected{% endif %}>Built-in</option>
+-                <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My questions</option>
++                <option value="saved" {% if filters.source == "saved" %}selected{% endif %}>Saved built-in</option>
++                <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
+             </select>
+         </div>
+         <div class="form-field">
+@@ -66,25 +67,39 @@
+ </form>
+ 
+ {% if page.object_list %}
+-    <form method="post" action="{% url 'questions:bulk_mark_ready' %}">
++    <form method="post">
+         {% csrf_token %}
+         <div class="bulk-toolbar">
+-            <span>Select completed questions to move them into the future review queue.</span>
+-            <button class="button button-small" type="submit">Mark selected ready</button>
++            <span>Save built-in questions or move your completed questions into the future review queue.</span>
++            <div class="button-row">
++                <button
++                    class="button button-small button-secondary"
++                    type="submit"
++                    formaction="{% url 'questions:bulk_save_built_in' %}"
++                >Save selected built-in</button>
++                <button
++                    class="button button-small"
++                    type="submit"
++                    formaction="{% url 'questions:bulk_mark_ready' %}"
++                >Mark my selected ready</button>
++            </div>
+         </div>
+ 
+         <div class="question-grid">
+             {% for question in page.object_list %}
+                 <article class="question-card question-card-selectable">
+-                    {% if not question.is_system %}
+                     <label class="question-select">
+-                        <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+-                        <span>Select</span>
++                        {% if question.is_system %}
++                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
++                            <span>{% if question.is_bookmarked %}Saved{% else %}Select to save{% endif %}</span>
++                        {% else %}
++                            <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
++                            <span>Select</span>
++                        {% endif %}
+                     </label>
+-                    {% endif %}
+                     <div class="question-card-meta">
+                         <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
++                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.is_bookmarked %}<span class="badge badge-neutral">Saved</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+                         {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+                     </div>
+                     <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
