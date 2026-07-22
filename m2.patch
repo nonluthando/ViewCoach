@@ -1,0 +1,2193 @@
+diff --git a/.gitignore b/.gitignore
+index 54090b4..4a68154 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -13,3 +13,7 @@ data/raw/*
+ # Local source-probing output should never be committed.
+ prosple_headers.txt
+ prosple_jobs.xml
++
++# Generated canonical datasets and quality reports.
++data/processed/*
++!data/processed/.gitkeep
+diff --git a/README.md b/README.md
+index a7eab0c..8f8dbf0 100644
+--- a/README.md
++++ b/README.md
+@@ -6,39 +6,43 @@ publishes insights about South African graduate and junior technology hiring.
+ 
+ ## Current status
+ 
+-**Milestone 1: Greenhouse raw ingestion**
+-
+-Milestone 0 validated the current source candidates:
+-
+-- Greenhouse Job Board API — primary source
+-- Lever Postings API — secondary source
+-- Discovery careers page — experimental SuccessFactors source
+-- Nedbank careers page — experimental SuccessFactors source
+-- Electrum careers page — experimental custom HTML source
+-- Prosple RSS — rejected for the MVP after a `403` response
+-- Adzuna API — deferred unless more coverage is required
+-
+-The current production ingestion scope is deliberately narrower: Takealot Group,
+-Luno and Impact.com through Greenhouse's public Job Board API.
++**Milestone 2 complete: cleaning and standardisation**
++
++The project can now:
++
++- collect exact raw Greenhouse snapshots from Takealot Group, Luno and Impact.com;
++- verify raw-file integrity from metadata and SHA-256 hashes;
++- clean HTML job descriptions into analysis-ready text;
++- normalise South African locations and selected international countries;
++- classify workplace type, role level and technology relevance;
++- retain the evidence behind classifications;
++- identify the target South African early-career technology market;
++- deduplicate stable postings across collection snapshots;
++- preserve first-seen, last-seen and observation history;
++- write a schema-controlled Parquet dataset; and
++- produce a data-quality report.
++
++The latest verified Milestone 1 collection contained 100 raw jobs across the
++three Greenhouse sources. Live counts change as employers publish and remove
++vacancies.
+ 
+ ## Setup
+ 
+-Create and activate a virtual environment, then install dependencies:
+-
+ ```bash
+ python -m venv .venv
+ source .venv/bin/activate
+ pip install -r requirements.txt
+ ```
+ 
+-Codespaces uses Bash, even when opened from an iPhone or Windows computer. In
+-Windows PowerShell outside Codespaces, activate with:
++Codespaces uses Bash. In Windows PowerShell outside Codespaces, activate with:
+ 
+ ```powershell
+ .venv\Scripts\Activate.ps1
+ ```
+ 
+-## Collect raw Greenhouse snapshots
++## Run the pipeline
++
++### 1. Collect raw Greenhouse snapshots
+ 
+ ```bash
+ python -m src.ingestion.collect
+@@ -50,29 +54,121 @@ Collect one configured board:
+ python -m src.ingestion.collect --source-token takealotgroup
+ ```
+ 
+-Generated snapshots are written beneath:
++### 2. Build the canonical dataset
++
++```bash
++python -m src.transformation.build
++```
++
++Outputs:
+ 
+ ```text
+-data/raw/greenhouse/{board_token}/
++data/processed/
++├── jobs.parquet
++└── quality-report.json
+ ```
+ 
+-Raw data is intentionally ignored by Git. Each snapshot includes an adjacent
+-metadata file with its UTC collection time, endpoint, job count and SHA-256 hash.
+-Identical responses are not written twice.
++`jobs.parquet` retains every standardised job and provides flags for South
++African, technology and target-market roles. Jobs are not silently discarded
++because a classification is uncertain.
+ 
+-## Validate source coverage
++### 3. Run tests
+ 
+ ```bash
+-python scripts/validate_sources.py
++pytest
+ ```
+ 
+-## Run tests
++### 4. Validate source candidates
+ 
+ ```bash
+-pytest
++python scripts/validate_sources.py
++```
++
++## Pipeline architecture
++
++```text
++config/sources.json
++        |
++        v
++Greenhouse collector
++        |
++        +--> exact raw JSON + metadata + SHA-256
++                         |
++                         v
++             snapshot integrity checks
++                         |
++                         v
++            cleaning and classifications
++                         |
++                         v
++              stable-key deduplication
++                         |
++                         +--> data/processed/jobs.parquet
++                         +--> data/processed/quality-report.json
+ ```
+ 
+-See:
++## Repository structure
++
++```text
++.
++├── config/
++│   └── sources.json
++├── data/
++│   ├── raw/
++│   ├── processed/
++│   └── source-test-results/
++├── docs/
++│   ├── data-source-assessment.md
++│   ├── milestone-1-raw-ingestion.md
++│   └── milestone-2-cleaning.md
++├── scripts/
++│   └── validate_sources.py
++├── src/
++│   ├── ingestion/
++│   └── transformation/
++│       ├── build.py
++│       ├── classification.py
++│       ├── cleaning.py
++│       ├── dataset.py
++│       ├── greenhouse.py
++│       ├── schema.py
++│       └── snapshots.py
++└── tests/
++```
+ 
+-- [`docs/data-source-assessment.md`](docs/data-source-assessment.md)
+-- [`docs/milestone-1-raw-ingestion.md`](docs/milestone-1-raw-ingestion.md)
++## Important design decisions
++
++- **Raw data remains immutable.** Transformations never edit source snapshots.
++- **No early destructive filtering.** The canonical dataset keeps all jobs and
++  exposes classification flags.
++- **Classifications are explainable.** Evidence is stored with each label.
++- **Unknown is preferable to guessing.** Missing or ambiguous values remain
++  unspecified and are visible in the quality report.
++- **Deduplication is conservative.** Repeated Greenhouse IDs are merged across
++  snapshots; fuzzy cross-company matching is deferred.
++- **Parquet is the analytical contract.** Milestone 3 and later work will read
++  the canonical file rather than reimplement raw parsing.
++
++## MVP roadmap
++
++| Milestone | Outcome | Status |
++|---|---|---|
++| 0. Source validation | Select viable public sources | Complete |
++| 1. Raw ingestion | Preserve reproducible Greenhouse snapshots | Complete |
++| 2. Cleaning and standardisation | Produce one canonical jobs dataset | Complete |
++| 3. Skills extraction | Derive technologies and requirements | Next |
++| 4. Analytics engine | Build market metrics and analysis tables | Planned |
++| 5. Dashboard | Publish the interactive MVP | Planned |
++
++## Documentation
++
++- [Data-source assessment](docs/data-source-assessment.md)
++- [Milestone 1: raw ingestion](docs/milestone-1-raw-ingestion.md)
++- [Milestone 2: cleaning and standardisation](docs/milestone-2-cleaning.md)
++
++## Responsible-use scope
++
++The project collects only publicly advertised job information. It does not
++submit applications, collect applicant data, bypass authentication, infer
++protected personal attributes, or scrape platforms whose terms or access
++controls make the intended collection inappropriate.
+diff --git a/data/processed/.gitkeep b/data/processed/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docs/milestone-2-cleaning.md b/docs/milestone-2-cleaning.md
+new file mode 100644
+index 0000000..dffa618
+--- /dev/null
++++ b/docs/milestone-2-cleaning.md
+@@ -0,0 +1,241 @@
++# Milestone 2: Cleaning and Standardisation
++
++## Status
++
++Complete.
++
++## Goal
++
++Turn immutable Greenhouse snapshots into one deterministic, analysis-ready
++Parquet dataset without changing or deleting the raw source data.
++
++## Command
++
++```bash
++python -m src.transformation.build
++```
++
++The command reads all Greenhouse metadata sidecars beneath `data/raw`, verifies
++each raw file, transforms every job observation, deduplicates repeated postings
++across snapshots and writes:
++
++```text
++data/processed/
++├── jobs.parquet
++└── quality-report.json
++```
++
++Use alternative directories when testing or rebuilding historical data:
++
++```bash
++python -m src.transformation.build \
++  --raw-root /tmp/job-market-raw \
++  --output-root /tmp/job-market-processed
++```
++
++## Transformation boundary
++
++The raw layer remains authoritative. The transformation layer may read raw JSON
++and metadata, but it never edits snapshots.
++
++```text
++raw metadata + exact raw JSON
++              |
++              v
++    integrity verification
++              |
++              v
++ text and field standardisation
++              |
++              v
++ explainable classification
++              |
++              v
++ stable-key deduplication
++              |
++              v
++ Parquet + quality report
++```
++
++## Canonical record
++
++Each Parquet row represents the latest known observation of one stable
++Greenhouse posting and retains its history and lineage.
++
++### Identity and lineage
++
++- `job_key`
++- `source_provider`
++- `source_name`
++- `source_token`
++- `source_job_id`
++- `source_snapshot_sha256`
++- `source_snapshot_path`
++- `first_seen_at`
++- `last_seen_at`
++- `source_updated_at`
++- `observation_count`
++
++### Clean job fields
++
++- `title`
++- `title_normalized`
++- `company`
++- `department`
++- `office`
++- `description_text`
++- `application_url`
++
++### Location and market fields
++
++- `location_raw`
++- `city`
++- `province`
++- `country`
++- `location_evidence`
++- `is_south_africa`
++- `workplace_type`
++
++### Role classifications
++
++- `role_level`
++- `role_level_evidence`
++- `is_technology_role`
++- `technology_evidence`
++- `is_target_market`
++
++### Data quality
++
++- `data_quality_issues`
++
++Missing optional values do not cause a posting to disappear. The row is retained
++and the issue is recorded.
++
++## Text cleaning
++
++Greenhouse descriptions can contain HTML, HTML entities and inconsistent
++whitespace. The cleaner:
++
++1. decodes escaped entities;
++2. extracts visible text;
++3. excludes script and style contents; and
++4. collapses whitespace.
++
++The original HTML remains available in the raw snapshot.
++
++## Location rules
++
++South African city aliases are normalised to canonical city and province names.
++Examples include:
++
++- `CPT`, `Capetown` and `Cape Town` -> Cape Town, Western Cape;
++- `JHB`, `Sandton` and `Johannesburg` -> Johannesburg, Gauteng;
++- `PTA` and `Pretoria` -> Pretoria, Gauteng; and
++- `DBN`, `Umhlanga` and `Durban` -> Durban, KwaZulu-Natal.
++
++Remote roles are marked as South African only when the location or description
++contains explicit South African evidence. The pipeline does not infer a city for
++an advert that only says `Remote`.
++
++## Workplace classification
++
++The output labels are:
++
++- `hybrid`
++- `remote`
++- `on_site`
++- `unspecified`
++
++Hybrid has precedence when an advert mentions both hybrid and remote work.
++
++## Role-level classification
++
++The output labels are:
++
++- `internship`
++- `graduate`
++- `junior`
++- `senior`
++- `unspecified`
++
++Title evidence is considered first. Explicit description phrases such as
++`graduate programme`, `entry-level role` and `0-2 years` are used only when the
++title does not already provide a level.
++
++## Technology-role classification
++
++Technology classifications use governed title and department patterns for areas
++such as:
++
++- software development;
++- data and analytics;
++- AI and machine learning;
++- cloud, DevOps and platform engineering;
++- cybersecurity;
++- QA and test engineering;
++- business intelligence and systems analysis; and
++- technology product roles.
++
++Known false positives such as `Data Protection Officer`, `Data Capturer` and
++`Software Sales` are excluded. Generic graduate titles can use description
++evidence, but ordinary non-technical titles are not classified from incidental
++technology words in their descriptions.
++
++A posting is marked `is_target_market = true` only when it is:
++
++1. explicitly South African;
++2. classified as a technology role; and
++3. classified as internship, graduate or junior.
++
++The full canonical dataset still retains jobs that do not meet those conditions.
++This prevents early filtering from hiding classification mistakes.
++
++## Deduplication decision
++
++The stable key uses the provider, board token and Greenhouse job ID. When an ID
++is unavailable, the application URL is hashed; content-based identity is the
++last fallback.
++
++Repeated observations of the same posting are collapsed into one row containing:
++
++- the latest observed job fields;
++- first and last collection timestamps; and
++- the number of observations.
++
++Milestone 2 deliberately does not use fuzzy cross-company matching. Similar job
++titles at different employers are not evidence that two adverts are duplicates.
++
++## Quality report
++
++`quality-report.json` records:
++
++- snapshot and observation counts;
++- canonical and duplicate counts;
++- South African, technology and target-market counts;
++- company, role-level and workplace distributions; and
++- counts of recorded data-quality issues.
++
++## Failure behaviour
++
++The build fails rather than silently trusting a snapshot when:
++
++- required metadata is absent;
++- collection time is invalid;
++- the raw file is missing;
++- the SHA-256 hash does not match;
++- the JSON does not contain a jobs list; or
++- the metadata job count differs from the raw list.
++
++## Testing
++
++Tests cover:
++
++- HTML and entity cleaning;
++- location, workplace, level and technology rules;
++- known false positives;
++- canonical Greenhouse transformation;
++- missing-field quality flags;
++- raw snapshot integrity checks;
++- repeat-observation deduplication;
++- quality-report metrics; and
++- real Parquet writing when `pyarrow` is installed.
+diff --git a/requirements.txt b/requirements.txt
+index 94f8e92..8c95904 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,2 +1,3 @@
+ requests==2.32.4
++pyarrow==25.0.0
+ pytest==8.4.1
+diff --git a/src/transformation/__init__.py b/src/transformation/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/src/transformation/build.py b/src/transformation/build.py
+new file mode 100644
+index 0000000..c61e4ed
+--- /dev/null
++++ b/src/transformation/build.py
+@@ -0,0 +1,59 @@
++"""Command-line entry point for Milestone 2 dataset construction."""
++
++from __future__ import annotations
++
++import argparse
++import sys
++from pathlib import Path
++
++from src.transformation.dataset import build_dataset, write_dataset_outputs
++from src.transformation.snapshots import SnapshotReadError
++
++
++PROJECT_ROOT = Path(__file__).resolve().parents[2]
++DEFAULT_RAW_ROOT = PROJECT_ROOT / "data" / "raw"
++DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "data" / "processed"
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(
++        description="Build the canonical jobs Parquet dataset from raw snapshots."
++    )
++    parser.add_argument("--raw-root", type=Path, default=DEFAULT_RAW_ROOT)
++    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
++    return parser.parse_args()
++
++
++def print_summary(result: object, parquet_path: Path, quality_path: Path) -> None:
++    quality_report = result.quality_report
++    print("\nCanonical dataset build summary")
++    print("=" * 72)
++    print(f"Raw snapshots:          {quality_report['raw_snapshot_count']}")
++    print(f"Raw job observations:   {quality_report['raw_job_observation_count']}")
++    print(f"Canonical jobs:         {quality_report['canonical_job_count']}")
++    print(f"Duplicate observations: {quality_report['duplicate_observations_removed']}")
++    print(f"South African jobs:     {quality_report['south_africa_job_count']}")
++    print(f"Technology jobs:        {quality_report['technology_job_count']}")
++    print(f"Target-market jobs:     {quality_report['target_market_job_count']}")
++    print(f"\nDataset:        {parquet_path}")
++    print(f"Quality report: {quality_path}")
++
++
++def main() -> int:
++    args = parse_args()
++    try:
++        result = build_dataset(args.raw_root)
++        parquet_path, quality_path = write_dataset_outputs(
++            result,
++            args.output_root,
++        )
++    except (SnapshotReadError, ValueError, OSError, RuntimeError) as error:
++        print(f"Dataset build failed: {error}", file=sys.stderr)
++        return 1
++
++    print_summary(result, parquet_path, quality_path)
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/src/transformation/classification.py b/src/transformation/classification.py
+new file mode 100644
+index 0000000..e65519a
+--- /dev/null
++++ b/src/transformation/classification.py
+@@ -0,0 +1,302 @@
++"""Explainable, deterministic job and location classifications."""
++
++from __future__ import annotations
++
++import re
++from dataclasses import dataclass
++from typing import Iterable
++
++from src.transformation.cleaning import normalize_whitespace, unique_strings
++
++
++@dataclass(frozen=True)
++class LocationClassification:
++    city: str | None
++    province: str | None
++    country: str | None
++    is_south_africa: bool
++    evidence: tuple[str, ...]
++
++
++@dataclass(frozen=True)
++class LabelClassification:
++    label: str
++    evidence: tuple[str, ...]
++
++
++@dataclass(frozen=True)
++class TechnologyClassification:
++    is_technology_role: bool
++    evidence: tuple[str, ...]
++
++
++_CITY_RULES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
++    ("Cape Town", "Western Cape", (r"\bcape\s*town\b", r"\bcapetown\b", r"\bcpt\b")),
++    ("Stellenbosch", "Western Cape", (r"\bstellenbosch\b",)),
++    ("Johannesburg", "Gauteng", (r"\bjohannesburg\b", r"\bjhb\b", r"\bsandton\b", r"\brosebank\b", r"\brandburg\b", r"\bmidrand\b")),
++    ("Pretoria", "Gauteng", (r"\bpretoria\b", r"\bpta\b")),
++    ("Centurion", "Gauteng", (r"\bcenturion\b",)),
++    ("Durban", "KwaZulu-Natal", (r"\bdurban\b", r"\bdbn\b", r"\bumhlanga\b")),
++    ("Gqeberha", "Eastern Cape", (r"\bgqeberha\b", r"\bport\s+elizabeth\b")),
++    ("Bloemfontein", "Free State", (r"\bbloemfontein\b",)),
++)
++
++_COUNTRY_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("South Africa", (r"\bsouth\s+africa\b", r"\bza\b")),
++    ("United Kingdom", (r"\bunited\s+kingdom\b", r"\buk\b", r"\bengland\b", r"\bscotland\b")),
++    ("United States", (r"\bunited\s+states\b", r"\busa\b", r"\bu\.s\.a?\.?\b")),
++    ("Portugal", (r"\bportugal\b",)),
++    ("Netherlands", (r"\bnetherlands\b",)),
++    ("Germany", (r"\bgermany\b",)),
++    ("Ireland", (r"\bireland\b",)),
++    ("Canada", (r"\bcanada\b",)),
++    ("Australia", (r"\baustralia\b",)),
++    ("Singapore", (r"\bsingapore\b",)),
++    ("Malaysia", (r"\bmalaysia\b",)),
++    ("India", (r"\bindia\b",)),
++    ("Nigeria", (r"\bnigeria\b",)),
++    ("Kenya", (r"\bkenya\b",)),
++    ("Spain", (r"\bspain\b",)),
++    ("France", (r"\bfrance\b",)),
++)
++
++_REMOTE_SOUTH_AFRICA_PATTERNS = (
++    r"remote\s+(?:within|in|from)\s+south\s+africa",
++    r"based\s+in\s+south\s+africa",
++    r"south\s+africa[- ]based",
++    r"candidates?\s+(?:must\s+be\s+)?(?:located|based)\s+in\s+south\s+africa",
++)
++
++_ROLE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("internship", (r"\bintern(?:ship)?\b", r"\bvacation\s+work\b", r"\blearnership\b", r"\bapprentice(?:ship)?\b")),
++    ("graduate", (r"\bgraduate\b", r"\bnew\s+grad\b", r"\bgrad\s+programme\b", r"\bgrad\s+program\b")),
++    (
++        "junior",
++        (
++            r"\bjunior\b",
++            r"\bentry[- ]level\b",
++            r"\bassociate\s+(?:software|data|qa|test|cloud|devops|security|business\s+intelligence)\b",
++            r"\b(?:software|data|qa|test|cloud|devops|security)\s+engineer\s+i\b",
++            r"\b(?:software|web|backend|front[- ]?end|full[- ]?stack)\s+developer\s+i\b",
++        ),
++    ),
++    (
++        "senior",
++        (
++            r"\bsenior\b",
++            r"\bstaff\b",
++            r"\bprincipal\b",
++            r"\blead\b",
++            r"\bmanager\b",
++            r"\bdirector\b",
++            r"\bhead\s+of\b",
++            r"\barchitect\b",
++            r"\bvice\s+president\b",
++            r"\bvp\b",
++            r"\bchief\b",
++        ),
++    ),
++)
++
++_DESCRIPTION_LEVEL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("internship", (r"\bthis\s+internship\b", r"\binternship\s+programme\b")),
++    ("graduate", (r"\bgraduate\s+programme\b", r"\bgraduate\s+program\b", r"\bnew\s+graduate\b")),
++    ("junior", (r"\bentry[- ]level\s+(?:role|position|opportunity)\b", r"\b0\s*(?:-|to)\s*2\s+years?\b")),
++)
++
++_TECH_TITLE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("software", (r"\bsoftware\b", r"\bapplication\s+development\b")),
++    (
++        "developer",
++        (
++            r"\bdeveloper\b",
++            r"\bfront[- ]?end\b",
++            r"\bback[- ]?end\b",
++            r"\bfull[- ]?stack\b",
++            r"\bweb\s+development\b",
++            r"\bmobile\b",
++            r"\bandroid\s+engineer\b",
++            r"\bios\s+engineer\b",
++        ),
++    ),
++    (
++        "data",
++        (
++            r"\bdata\s+(?:analyst|analytics|engineer|engineering|scientist|science|platform|warehouse|lead)\b",
++            r"\banalytics?\b",
++            r"\bdatabase\s+administrator\b",
++        ),
++    ),
++    (
++        "ai_ml",
++        (
++            r"\bmachine\s+learning\b",
++            r"\bartificial\s+intelligence\b",
++            r"\bai\s+engineer\b",
++            r"\bml\s+engineer\b",
++            r"\bgenai\b",
++            r"\bapplied\s+ai\b",
++        ),
++    ),
++    ("automation", (r"\bautomation\b", r"\brpa\b")),
++    ("security", (r"\bcyber(?:security)?\b", r"\binformation\s+security\b", r"\bsecurity\s+(?:analyst|engineer|operations)\b")),
++    ("cloud_devops", (r"\bcloud\b", r"\bdevops\b", r"\bsite\s+reliability\b", r"\bsre\b", r"\bplatform\s+engineer\b")),
++    ("quality_engineering", (r"\bquality\s+assurance\b", r"\bqa\b", r"\btest\s+(?:engineer|automation|analyst)\b")),
++    ("business_intelligence", (r"\bbusiness\s+intelligence\b", r"\bbi\s+(?:analyst|developer|engineer)\b")),
++    (
++        "systems",
++        (
++            r"\bsystems?\s+(?:analyst|engineer)\b",
++            r"\b(?:integration|implementation|solutions?|support)\s+engineer\b",
++            r"\btechnical\s+services?\s+engineer\b",
++            r"\bit\s+(?:analyst|support|engineer|technician|auditor)\b",
++            r"\binformation\s+technology\b",
++            r"\bblockchain\b",
++        ),
++    ),
++    ("business_analysis", (r"\bbusiness\s+analyst\b",)),
++    ("product", (r"\bproduct\s+manager\b", r"\btechnical\s+product\b")),
++)
++
++_GENERIC_EARLY_CAREER = re.compile(
++    r"\b(?:graduate|intern(?:ship)?|junior|entry[- ]level|learnership|apprentice(?:ship)?)\b",
++    re.IGNORECASE,
++)
++
++_DESCRIPTION_TECH_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("software_engineering", (r"\bsoftware\s+(?:engineering|development)\b",)),
++    ("programming", (r"\bprogramming\b", r"\bcoding\b")),
++    ("data", (r"\bdata\s+(?:analytics|engineering|science)\b",)),
++    ("cloud_devops", (r"\bcloud\s+(?:engineering|platform|infrastructure)\b", r"\bdevops\b")),
++    ("security", (r"\bcybersecurity\b", r"\binformation\s+security\b")),
++)
++
++_TECH_FALSE_POSITIVES = (
++    r"\bdata\s+(?:capturer|capture|clerk|privacy|protection)\b",
++    r"\bsoftware\s+sales\b",
++    r"\btechnical\s+recruit(?:er|ment)\b",
++)
++
++_WORKPLACE_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
++    ("hybrid", (r"\bhybrid\b", r"\bflexible\s+hybrid\b")),
++    ("remote", (r"\bremote\b", r"\bwork\s+from\s+home\b", r"\bfully\s+distributed\b")),
++    ("on_site", (r"\bon[- ]?site\b", r"\boffice[- ]based\b", r"\bin[- ]office\b")),
++)
++
++
++def _match_rules(text: str, patterns: Iterable[str]) -> tuple[str, ...]:
++    return unique_strings(
++        match.group(0)
++        for pattern in patterns
++        for match in re.finditer(pattern, text, flags=re.IGNORECASE)
++    )
++
++
++def classify_location(location_raw: str, description_text: str = "") -> LocationClassification:
++    """Normalise location evidence without guessing unsupported cities."""
++
++    location_text = normalize_whitespace(location_raw)
++    city: str | None = None
++    province: str | None = None
++    country: str | None = None
++    evidence: list[str] = []
++
++    for canonical_city, canonical_province, patterns in _CITY_RULES:
++        matches = _match_rules(location_text, patterns)
++        if matches:
++            city = canonical_city
++            province = canonical_province
++            country = "South Africa"
++            evidence.extend(matches)
++            break
++
++    if country is None:
++        for canonical_country, patterns in _COUNTRY_RULES:
++            matches = _match_rules(location_text, patterns)
++            if matches:
++                country = canonical_country
++                evidence.extend(matches)
++                break
++
++    if country is None and _match_rules(description_text, _REMOTE_SOUTH_AFRICA_PATTERNS):
++        country = "South Africa"
++        evidence.extend(_match_rules(description_text, _REMOTE_SOUTH_AFRICA_PATTERNS))
++
++    if city is None and country and "," in location_text:
++        first_segment = normalize_whitespace(location_text.split(",", maxsplit=1)[0])
++        if first_segment and not re.search(r"\bremote\b", first_segment, re.IGNORECASE):
++            city = first_segment
++
++    return LocationClassification(
++        city=city,
++        province=province,
++        country=country,
++        is_south_africa=country == "South Africa",
++        evidence=unique_strings(evidence),
++    )
++
++
++def classify_workplace(title: str, location_raw: str, description_text: str) -> LabelClassification:
++    """Classify workplace type, preferring explicit hybrid evidence."""
++
++    combined_text = " ".join((title, location_raw, description_text))
++    for label, patterns in _WORKPLACE_RULES:
++        matches = _match_rules(combined_text, patterns)
++        if matches:
++            return LabelClassification(label=label, evidence=matches)
++    return LabelClassification(label="unspecified", evidence=())
++
++
++def classify_role_level(title: str, description_text: str) -> LabelClassification:
++    """Classify advertised seniority using title-first deterministic rules."""
++
++    for label, patterns in _ROLE_RULES:
++        matches = _match_rules(title, patterns)
++        if matches:
++            return LabelClassification(label=label, evidence=matches)
++
++    for label, patterns in _DESCRIPTION_LEVEL_RULES:
++        matches = _match_rules(description_text, patterns)
++        if matches:
++            return LabelClassification(label=label, evidence=matches)
++
++    return LabelClassification(label="unspecified", evidence=())
++
++
++def classify_technology_role(
++    title: str,
++    department: str | None,
++    description_text: str,
++) -> TechnologyClassification:
++    """Classify technology roles and retain the evidence behind the result."""
++
++    if _match_rules(title, _TECH_FALSE_POSITIVES):
++        return TechnologyClassification(is_technology_role=False, evidence=())
++
++    evidence: list[str] = []
++    for label, patterns in _TECH_TITLE_RULES:
++        matches = _match_rules(title, patterns)
++        if matches:
++            evidence.append(label)
++            evidence.extend(matches)
++
++    if evidence:
++        return TechnologyClassification(
++            is_technology_role=True,
++            evidence=unique_strings(evidence),
++        )
++
++    if _GENERIC_EARLY_CAREER.search(title):
++        supporting_text = " ".join(
++            value for value in (department or "", description_text) if value
++        )
++        for label, patterns in _DESCRIPTION_TECH_RULES:
++            matches = _match_rules(supporting_text, patterns)
++            if matches:
++                evidence.append(label)
++                evidence.extend(matches)
++
++    return TechnologyClassification(
++        is_technology_role=bool(evidence),
++        evidence=unique_strings(evidence),
++    )
+diff --git a/src/transformation/cleaning.py b/src/transformation/cleaning.py
+new file mode 100644
+index 0000000..2e7b61f
+--- /dev/null
++++ b/src/transformation/cleaning.py
+@@ -0,0 +1,146 @@
++"""Text-cleaning helpers used by deterministic transformations."""
++
++from __future__ import annotations
++
++import html
++import re
++from html.parser import HTMLParser
++from typing import Any, Iterable
++
++
++_WHITESPACE = re.compile(r"\s+")
++_BLOCK_TAGS = {
++    "address",
++    "article",
++    "aside",
++    "blockquote",
++    "br",
++    "div",
++    "dl",
++    "dt",
++    "dd",
++    "figcaption",
++    "figure",
++    "footer",
++    "h1",
++    "h2",
++    "h3",
++    "h4",
++    "h5",
++    "h6",
++    "header",
++    "hr",
++    "li",
++    "main",
++    "nav",
++    "ol",
++    "p",
++    "pre",
++    "section",
++    "table",
++    "tr",
++    "ul",
++}
++
++
++class _VisibleTextParser(HTMLParser):
++    """Extract visible text while excluding script and style contents."""
++
++    def __init__(self) -> None:
++        super().__init__(convert_charrefs=True)
++        self.parts: list[str] = []
++        self.hidden_depth = 0
++
++    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
++        del attrs
++        normalized_tag = tag.casefold()
++        if normalized_tag in {"script", "style"}:
++            self.hidden_depth += 1
++        elif normalized_tag in _BLOCK_TAGS:
++            self.parts.append("\n")
++
++    def handle_endtag(self, tag: str) -> None:
++        normalized_tag = tag.casefold()
++        if normalized_tag in {"script", "style"}:
++            self.hidden_depth = max(0, self.hidden_depth - 1)
++        elif normalized_tag in _BLOCK_TAGS:
++            self.parts.append("\n")
++
++    def handle_data(self, data: str) -> None:
++        if self.hidden_depth == 0:
++            self.parts.append(data)
++
++
++def normalize_whitespace(value: str | None) -> str:
++    """Collapse all whitespace and trim the result."""
++
++    return _WHITESPACE.sub(" ", value or "").strip()
++
++
++def html_to_text(value: str | None) -> str:
++    """Convert possibly HTML-escaped Greenhouse content to plain text."""
++
++    if not value:
++        return ""
++
++    decoded = value
++    for _ in range(2):
++        unescaped = html.unescape(decoded)
++        if unescaped == decoded:
++            break
++        decoded = unescaped
++
++    parser = _VisibleTextParser()
++    parser.feed(decoded)
++    parser.close()
++    return normalize_whitespace(" ".join(parser.parts))
++
++
++def clean_display_text(value: Any) -> str:
++    """Return a safe, human-readable string from an external value."""
++
++    if value is None:
++        return ""
++    return normalize_whitespace(html.unescape(str(value)))
++
++
++def normalized_key(value: str | None) -> str:
++    """Create a lower-case comparison key without changing display text."""
++
++    text = clean_display_text(value).casefold()
++    text = re.sub(r"[^a-z0-9+#.]+", " ", text)
++    return normalize_whitespace(text)
++
++
++def join_named_values(values: Any) -> str | None:
++    """Join unique ``name`` fields from Greenhouse list objects."""
++
++    if not isinstance(values, list):
++        return None
++
++    names: list[str] = []
++    seen: set[str] = set()
++    for value in values:
++        if not isinstance(value, dict):
++            continue
++        name = clean_display_text(value.get("name"))
++        comparison_key = name.casefold()
++        if name and comparison_key not in seen:
++            names.append(name)
++            seen.add(comparison_key)
++
++    return ", ".join(names) or None
++
++
++def unique_strings(values: Iterable[str]) -> tuple[str, ...]:
++    """Preserve order while removing empty and duplicate strings."""
++
++    result: list[str] = []
++    seen: set[str] = set()
++    for value in values:
++        clean_value = normalize_whitespace(value)
++        key = clean_value.casefold()
++        if clean_value and key not in seen:
++            result.append(clean_value)
++            seen.add(key)
++    return tuple(result)
+diff --git a/src/transformation/dataset.py b/src/transformation/dataset.py
+new file mode 100644
+index 0000000..860a348
+--- /dev/null
++++ b/src/transformation/dataset.py
+@@ -0,0 +1,224 @@
++"""Build, deduplicate and persist the canonical jobs dataset."""
++
++from __future__ import annotations
++
++import json
++from collections import Counter, defaultdict
++from dataclasses import dataclass
++from datetime import datetime, timezone
++from pathlib import Path
++from tempfile import NamedTemporaryFile
++from typing import Any, Iterable
++
++from src.transformation.cleaning import unique_strings
++from src.transformation.greenhouse import parse_datetime, transform_greenhouse_job
++from src.transformation.schema import CanonicalJob
++from src.transformation.snapshots import GreenhouseSnapshot, load_greenhouse_snapshots
++
++
++@dataclass(frozen=True)
++class DatasetBuildResult:
++    jobs: tuple[CanonicalJob, ...]
++    quality_report: dict[str, Any]
++
++
++def deduplicate_jobs(observations: Iterable[CanonicalJob]) -> list[CanonicalJob]:
++    """Keep the latest observation while retaining first/last-seen history."""
++
++    grouped: dict[str, list[CanonicalJob]] = defaultdict(list)
++    for observation in observations:
++        grouped[observation.job_key].append(observation)
++
++    canonical_jobs: list[CanonicalJob] = []
++    for job_key in sorted(grouped):
++        group = sorted(
++            grouped[job_key],
++            key=lambda job: (
++                job.last_seen_at,
++                job.source_updated_at or datetime.min.replace(tzinfo=timezone.utc),
++                job.source_snapshot_path,
++            ),
++        )
++        latest = group[-1]
++        first_seen_at = min(job.first_seen_at for job in group)
++        last_seen_at = max(job.last_seen_at for job in group)
++        all_issues = unique_strings(
++            issue for job in group for issue in job.data_quality_issues
++        )
++        canonical_jobs.append(
++            latest.with_observation_window(
++                first_seen_at=first_seen_at,
++                last_seen_at=last_seen_at,
++                observation_count=len(group),
++                data_quality_issues=all_issues,
++            )
++        )
++
++    return canonical_jobs
++
++
++def _count_values(jobs: Iterable[CanonicalJob], field_name: str) -> dict[str, int]:
++    counts = Counter(str(getattr(job, field_name) or "unspecified") for job in jobs)
++    return dict(sorted(counts.items()))
++
++
++def _build_quality_report(
++    snapshots: list[GreenhouseSnapshot],
++    observations: list[CanonicalJob],
++    jobs: list[CanonicalJob],
++) -> dict[str, Any]:
++    issue_counts = Counter(
++        issue for job in jobs for issue in job.data_quality_issues
++    )
++    source_snapshot_counts = Counter(
++        str(snapshot.metadata.get("source_name")) for snapshot in snapshots
++    )
++    company_counts = Counter(job.company for job in jobs)
++
++    snapshot_times = [
++        timestamp
++        for snapshot in snapshots
++        if (timestamp := parse_datetime(snapshot.metadata.get("collected_at"))) is not None
++    ]
++    source_window_start = min(snapshot_times).isoformat() if snapshot_times else None
++    source_window_end = max(snapshot_times).isoformat() if snapshot_times else None
++
++    return {
++        "source_window_start": source_window_start,
++        "source_window_end": source_window_end,
++        "raw_snapshot_count": len(snapshots),
++        "raw_job_observation_count": len(observations),
++        "canonical_job_count": len(jobs),
++        "duplicate_observations_removed": len(observations) - len(jobs),
++        "south_africa_job_count": sum(job.is_south_africa for job in jobs),
++        "technology_job_count": sum(job.is_technology_role for job in jobs),
++        "target_market_job_count": sum(job.is_target_market for job in jobs),
++        "role_level_counts": _count_values(jobs, "role_level"),
++        "workplace_type_counts": _count_values(jobs, "workplace_type"),
++        "company_counts": dict(sorted(company_counts.items())),
++        "source_snapshot_counts": dict(sorted(source_snapshot_counts.items())),
++        "data_quality_issue_counts": dict(sorted(issue_counts.items())),
++    }
++
++
++def _relative_snapshot_path(raw_path: Path, raw_root: Path) -> Path:
++    """Store portable lineage paths rather than machine-specific absolute paths."""
++
++    try:
++        return raw_path.resolve().relative_to(raw_root.resolve())
++    except ValueError:
++        return raw_path
++
++
++def build_dataset(raw_root: Path) -> DatasetBuildResult:
++    """Read saved snapshots and produce deterministic canonical job rows."""
++
++    snapshots = load_greenhouse_snapshots(raw_root)
++    observations = [
++        transform_greenhouse_job(
++            job,
++            snapshot.metadata,
++            _relative_snapshot_path(snapshot.raw_path, raw_root),
++        )
++        for snapshot in snapshots
++        for job in snapshot.jobs
++    ]
++    jobs = deduplicate_jobs(observations)
++    quality_report = _build_quality_report(snapshots, observations, jobs)
++    return DatasetBuildResult(jobs=tuple(jobs), quality_report=quality_report)
++
++
++def _parquet_schema() -> Any:
++    try:
++        import pyarrow as pa
++    except ImportError as error:
++        raise RuntimeError(
++            "Parquet output requires pyarrow. Run: pip install -r requirements.txt"
++        ) from error
++
++    return pa.schema(
++        [
++            ("job_key", pa.string()),
++            ("source_provider", pa.string()),
++            ("source_name", pa.string()),
++            ("source_token", pa.string()),
++            ("source_job_id", pa.string()),
++            ("source_snapshot_sha256", pa.string()),
++            ("source_snapshot_path", pa.string()),
++            ("first_seen_at", pa.timestamp("us", tz="UTC")),
++            ("last_seen_at", pa.timestamp("us", tz="UTC")),
++            ("source_updated_at", pa.timestamp("us", tz="UTC")),
++            ("observation_count", pa.int64()),
++            ("title", pa.string()),
++            ("title_normalized", pa.string()),
++            ("company", pa.string()),
++            ("department", pa.string()),
++            ("office", pa.string()),
++            ("location_raw", pa.string()),
++            ("city", pa.string()),
++            ("province", pa.string()),
++            ("country", pa.string()),
++            ("location_evidence", pa.list_(pa.string())),
++            ("is_south_africa", pa.bool_()),
++            ("workplace_type", pa.string()),
++            ("role_level", pa.string()),
++            ("role_level_evidence", pa.list_(pa.string())),
++            ("is_technology_role", pa.bool_()),
++            ("technology_evidence", pa.list_(pa.string())),
++            ("is_target_market", pa.bool_()),
++            ("description_text", pa.string()),
++            ("application_url", pa.string()),
++            ("data_quality_issues", pa.list_(pa.string())),
++        ]
++    )
++
++
++def write_parquet(path: Path, jobs: Iterable[CanonicalJob]) -> None:
++    """Write a schema-controlled Parquet file atomically."""
++
++    try:
++        import pyarrow as pa
++        import pyarrow.parquet as pq
++    except ImportError as error:
++        raise RuntimeError(
++            "Parquet output requires pyarrow. Run: pip install -r requirements.txt"
++        ) from error
++
++    path.parent.mkdir(parents=True, exist_ok=True)
++    records = [job.to_record() for job in jobs]
++    table = pa.Table.from_pylist(records, schema=_parquet_schema())
++
++    with NamedTemporaryFile(
++        dir=path.parent,
++        suffix=".parquet",
++        delete=False,
++    ) as temporary_file:
++        temporary_path = Path(temporary_file.name)
++
++    try:
++        pq.write_table(table, temporary_path, compression="zstd")
++        temporary_path.replace(path)
++    finally:
++        temporary_path.unlink(missing_ok=True)
++
++
++def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    content = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
++    with NamedTemporaryFile(dir=path.parent, delete=False) as temporary_file:
++        temporary_path = Path(temporary_file.name)
++        temporary_file.write(content.encode("utf-8"))
++    temporary_path.replace(path)
++
++
++def write_dataset_outputs(
++    result: DatasetBuildResult,
++    output_root: Path,
++) -> tuple[Path, Path]:
++    """Write the canonical Parquet dataset and its quality report."""
++
++    parquet_path = output_root / "jobs.parquet"
++    quality_path = output_root / "quality-report.json"
++    write_parquet(parquet_path, result.jobs)
++    _atomic_write_json(quality_path, result.quality_report)
++    return parquet_path, quality_path
+diff --git a/src/transformation/greenhouse.py b/src/transformation/greenhouse.py
+new file mode 100644
+index 0000000..b34f068
+--- /dev/null
++++ b/src/transformation/greenhouse.py
+@@ -0,0 +1,162 @@
++"""Transform Greenhouse job objects into the canonical schema."""
++
++from __future__ import annotations
++
++import hashlib
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any, Mapping
++
++from src.transformation.classification import (
++    classify_location,
++    classify_role_level,
++    classify_technology_role,
++    classify_workplace,
++)
++from src.transformation.cleaning import (
++    clean_display_text,
++    html_to_text,
++    join_named_values,
++    normalized_key,
++    unique_strings,
++)
++from src.transformation.schema import CanonicalJob
++
++
++_TARGET_ROLE_LEVELS = {"internship", "graduate", "junior"}
++
++
++def parse_datetime(value: Any) -> datetime | None:
++    """Parse an ISO-8601 value and normalise it to UTC."""
++
++    if value is None:
++        return None
++    text = clean_display_text(value)
++    if not text:
++        return None
++    try:
++        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
++    except ValueError:
++        return None
++    if parsed.tzinfo is None:
++        parsed = parsed.replace(tzinfo=timezone.utc)
++    return parsed.astimezone(timezone.utc)
++
++
++def _stable_job_key(
++    source_token: str,
++    source_job_id: str,
++    application_url: str,
++    fallback_content: str,
++) -> str:
++    if source_job_id:
++        identity = source_job_id
++    elif application_url:
++        identity = "url-" + hashlib.sha256(application_url.encode("utf-8")).hexdigest()[:24]
++    else:
++        identity = "content-" + hashlib.sha256(fallback_content.encode("utf-8")).hexdigest()[:24]
++    return f"greenhouse:{source_token}:{identity}"
++
++
++def transform_greenhouse_job(
++    job: Mapping[str, Any],
++    metadata: Mapping[str, Any],
++    raw_path: Path,
++) -> CanonicalJob:
++    """Create one fully classified canonical observation."""
++
++    source_name = clean_display_text(metadata.get("source_name"))
++    source_token = clean_display_text(metadata.get("source_token"))
++    snapshot_sha256 = clean_display_text(metadata.get("content_sha256"))
++    collected_at = parse_datetime(metadata.get("collected_at"))
++    if collected_at is None:
++        raise ValueError("Snapshot metadata contains an invalid collected_at value.")
++
++    source_job_id_value = job.get("id")
++    if source_job_id_value is None:
++        source_job_id_value = job.get("internal_job_id")
++    source_job_id = clean_display_text(source_job_id_value)
++
++    title = clean_display_text(job.get("title"))
++    title_normalized = normalized_key(title)
++    application_url = clean_display_text(job.get("absolute_url"))
++    description_text = html_to_text(clean_display_text(job.get("content")))
++    department = join_named_values(job.get("departments"))
++    office = join_named_values(job.get("offices"))
++
++    location_object = job.get("location")
++    location_raw = ""
++    if isinstance(location_object, Mapping):
++        location_raw = clean_display_text(location_object.get("name"))
++    if not location_raw and office:
++        location_raw = office
++
++    location = classify_location(location_raw, description_text)
++    workplace = classify_workplace(title, location_raw, description_text)
++    role_level = classify_role_level(title, description_text)
++    technology = classify_technology_role(title, department, description_text)
++
++    is_target_market = (
++        location.is_south_africa
++        and technology.is_technology_role
++        and role_level.label in _TARGET_ROLE_LEVELS
++    )
++
++    issues: list[str] = []
++    if not source_job_id:
++        issues.append("missing_source_job_id")
++    if not title:
++        issues.append("missing_title")
++    if not application_url:
++        issues.append("missing_application_url")
++    if not location_raw:
++        issues.append("missing_location")
++    if not description_text:
++        issues.append("missing_description")
++
++    source_updated_at = parse_datetime(job.get("updated_at"))
++    if source_updated_at is None:
++        issues.append("missing_or_invalid_source_updated_at")
++
++    fallback_content = "|".join(
++        (source_name, title_normalized, normalized_key(location_raw), description_text[:500])
++    )
++
++    return CanonicalJob(
++        job_key=_stable_job_key(
++            source_token,
++            source_job_id,
++            application_url,
++            fallback_content,
++        ),
++        source_provider="greenhouse",
++        source_name=source_name,
++        source_token=source_token,
++        source_job_id=source_job_id,
++        source_snapshot_sha256=snapshot_sha256,
++        source_snapshot_path=str(raw_path),
++        first_seen_at=collected_at,
++        last_seen_at=collected_at,
++        source_updated_at=source_updated_at,
++        observation_count=1,
++        title=title,
++        title_normalized=title_normalized,
++        company=source_name,
++        department=department,
++        office=office,
++        location_raw=location_raw,
++        city=location.city,
++        province=location.province,
++        country=location.country,
++        location_evidence=location.evidence,
++        is_south_africa=location.is_south_africa,
++        workplace_type=workplace.label,
++        role_level=role_level.label,
++        role_level_evidence=role_level.evidence,
++        is_technology_role=technology.is_technology_role,
++        technology_evidence=technology.evidence,
++        is_target_market=is_target_market,
++        description_text=description_text,
++        application_url=application_url,
++        data_quality_issues=unique_strings(issues),
++    )
+diff --git a/src/transformation/schema.py b/src/transformation/schema.py
+new file mode 100644
+index 0000000..ffa872d
+--- /dev/null
++++ b/src/transformation/schema.py
+@@ -0,0 +1,75 @@
++"""Canonical records produced by the transformation layer."""
++
++from __future__ import annotations
++
++from dataclasses import asdict, dataclass, replace
++from datetime import datetime
++from typing import Any
++
++
++@dataclass(frozen=True)
++class CanonicalJob:
++    """One standardised job posting with source lineage and classifications."""
++
++    job_key: str
++    source_provider: str
++    source_name: str
++    source_token: str
++    source_job_id: str
++    source_snapshot_sha256: str
++    source_snapshot_path: str
++    first_seen_at: datetime
++    last_seen_at: datetime
++    source_updated_at: datetime | None
++    observation_count: int
++    title: str
++    title_normalized: str
++    company: str
++    department: str | None
++    office: str | None
++    location_raw: str
++    city: str | None
++    province: str | None
++    country: str | None
++    location_evidence: tuple[str, ...]
++    is_south_africa: bool
++    workplace_type: str
++    role_level: str
++    role_level_evidence: tuple[str, ...]
++    is_technology_role: bool
++    technology_evidence: tuple[str, ...]
++    is_target_market: bool
++    description_text: str
++    application_url: str
++    data_quality_issues: tuple[str, ...]
++
++    def with_observation_window(
++        self,
++        *,
++        first_seen_at: datetime,
++        last_seen_at: datetime,
++        observation_count: int,
++        data_quality_issues: tuple[str, ...],
++    ) -> "CanonicalJob":
++        """Return a copy containing the complete observation history."""
++
++        return replace(
++            self,
++            first_seen_at=first_seen_at,
++            last_seen_at=last_seen_at,
++            observation_count=observation_count,
++            data_quality_issues=data_quality_issues,
++        )
++
++    def to_record(self) -> dict[str, Any]:
++        """Return a PyArrow-friendly mapping in canonical field order."""
++
++        record = asdict(self)
++        for field_name in (
++            "location_evidence",
++            "role_level_evidence",
++            "technology_evidence",
++            "data_quality_issues",
++        ):
++            record[field_name] = list(record[field_name])
++        return record
+diff --git a/src/transformation/snapshots.py b/src/transformation/snapshots.py
+new file mode 100644
+index 0000000..a4a2d9f
+--- /dev/null
++++ b/src/transformation/snapshots.py
+@@ -0,0 +1,147 @@
++"""Read and verify immutable raw Greenhouse snapshots."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import re
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any, Mapping
++
++from src.transformation.greenhouse import parse_datetime
++
++
++class SnapshotReadError(ValueError):
++    """Raised when a saved raw snapshot violates the ingestion contract."""
++
++
++@dataclass(frozen=True)
++class GreenhouseSnapshot:
++    metadata_path: Path
++    raw_path: Path
++    metadata: Mapping[str, Any]
++    jobs: tuple[Mapping[str, Any], ...]
++
++
++def discover_metadata_paths(raw_root: Path) -> list[Path]:
++    """Return all Greenhouse metadata sidecars in deterministic order."""
++
++    return sorted((raw_root / "greenhouse").glob("*/*.metadata.json"))
++
++
++def read_greenhouse_snapshot(metadata_path: Path) -> GreenhouseSnapshot:
++    """Validate metadata, integrity and the minimum raw JSON structure."""
++
++    try:
++        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
++    except (OSError, json.JSONDecodeError) as error:
++        raise SnapshotReadError(f"Cannot read metadata {metadata_path}: {error}") from error
++
++    if not isinstance(metadata, dict):
++        raise SnapshotReadError(f"Metadata must be an object: {metadata_path}")
++
++    required_fields = (
++        "source",
++        "source_name",
++        "source_token",
++        "collected_at",
++        "content_sha256",
++        "source_job_count",
++        "raw_file",
++    )
++    missing_fields = [field for field in required_fields if field not in metadata]
++    if missing_fields:
++        missing = ", ".join(missing_fields)
++        raise SnapshotReadError(f"Metadata {metadata_path} is missing: {missing}")
++
++    if metadata.get("source") != "greenhouse":
++        raise SnapshotReadError(f"Unsupported source in metadata: {metadata_path}")
++
++    for field_name in ("source_name", "source_token"):
++        field_value = metadata.get(field_name)
++        if not isinstance(field_value, str) or not field_value.strip():
++            raise SnapshotReadError(
++                f"Invalid {field_name} in metadata: {metadata_path}"
++            )
++
++    if parse_datetime(metadata.get("collected_at")) is None:
++        raise SnapshotReadError(f"Invalid collected_at in metadata: {metadata_path}")
++
++    expected_digest = metadata.get("content_sha256")
++    if not isinstance(expected_digest, str) or not re.fullmatch(
++        r"[0-9a-f]{64}", expected_digest
++    ):
++        raise SnapshotReadError(
++            f"Invalid content_sha256 in metadata: {metadata_path}"
++        )
++
++    raw_file = metadata.get("raw_file")
++    if not isinstance(raw_file, str) or not raw_file.strip():
++        raise SnapshotReadError(f"Invalid raw_file in metadata: {metadata_path}")
++    if Path(raw_file).name != raw_file or Path(raw_file).is_absolute():
++        raise SnapshotReadError(
++            f"raw_file must be a filename within its snapshot directory: {metadata_path}"
++        )
++    raw_path = metadata_path.parent / raw_file
++
++    try:
++        raw_bytes = raw_path.read_bytes()
++    except OSError as error:
++        raise SnapshotReadError(f"Cannot read raw snapshot {raw_path}: {error}") from error
++
++    actual_digest = hashlib.sha256(raw_bytes).hexdigest()
++    if actual_digest != expected_digest:
++        raise SnapshotReadError(f"SHA-256 mismatch for raw snapshot: {raw_path}")
++
++    try:
++        payload = json.loads(raw_bytes)
++    except json.JSONDecodeError as error:
++        raise SnapshotReadError(f"Raw snapshot is not valid JSON: {raw_path}") from error
++
++    if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
++        raise SnapshotReadError(f"Raw snapshot must contain a jobs list: {raw_path}")
++
++    jobs: list[Mapping[str, Any]] = []
++    for index, job in enumerate(payload["jobs"]):
++        if not isinstance(job, dict):
++            raise SnapshotReadError(
++                f"Job at index {index} is not an object in snapshot: {raw_path}"
++            )
++        jobs.append(job)
++
++    expected_count = metadata.get("source_job_count")
++    if (
++        not isinstance(expected_count, int)
++        or isinstance(expected_count, bool)
++        or expected_count != len(jobs)
++    ):
++        raise SnapshotReadError(
++            f"source_job_count does not match the jobs list in: {raw_path}"
++        )
++
++    return GreenhouseSnapshot(
++        metadata_path=metadata_path,
++        raw_path=raw_path,
++        metadata=metadata,
++        jobs=tuple(jobs),
++    )
++
++
++def load_greenhouse_snapshots(raw_root: Path) -> list[GreenhouseSnapshot]:
++    """Load every valid Greenhouse snapshot under the raw root."""
++
++    metadata_paths = discover_metadata_paths(raw_root)
++    if not metadata_paths:
++        raise SnapshotReadError(
++            f"No Greenhouse metadata snapshots found beneath: {raw_root}"
++        )
++
++    snapshots = [read_greenhouse_snapshot(path) for path in metadata_paths]
++    return sorted(
++        snapshots,
++        key=lambda snapshot: (
++            parse_datetime(snapshot.metadata.get("collected_at")),
++            str(snapshot.metadata_path),
++        ),
++    )
+diff --git a/tests/fixtures/greenhouse_jobs_m2.json b/tests/fixtures/greenhouse_jobs_m2.json
+new file mode 100644
+index 0000000..7e7d924
+--- /dev/null
++++ b/tests/fixtures/greenhouse_jobs_m2.json
+@@ -0,0 +1,71 @@
++{
++  "jobs": [
++    {
++      "id": 1001,
++      "internal_job_id": 9001,
++      "title": "Junior Software Engineer",
++      "updated_at": "2026-07-22T12:00:00+02:00",
++      "location": {
++        "name": "Cape Town, South Africa"
++      },
++      "absolute_url": "https://job-boards.greenhouse.io/example/jobs/1001",
++      "content": "&lt;p&gt;Join our &lt;strong&gt;hybrid&lt;/strong&gt; engineering team.&lt;/p&gt;&lt;script&gt;ignore me&lt;/script&gt;",
++      "departments": [
++        {
++          "id": 1,
++          "name": "Engineering"
++        }
++      ],
++      "offices": [
++        {
++          "id": 2,
++          "name": "Cape Town"
++        }
++      ]
++    },
++    {
++      "id": 1002,
++      "internal_job_id": 9002,
++      "title": "Data Science Graduate Programme",
++      "updated_at": "2026-07-22T10:00:00Z",
++      "location": {
++        "name": "Remote"
++      },
++      "absolute_url": "https://job-boards.greenhouse.io/example/jobs/1002",
++      "content": "<p>This role is remote within South Africa and introduces graduates to data science.</p>",
++      "departments": [
++        {
++          "id": 3,
++          "name": "Data & Analytics"
++        }
++      ],
++      "offices": []
++    },
++    {
++      "id": 1003,
++      "internal_job_id": 9003,
++      "title": "Senior Account Manager",
++      "updated_at": "2026-07-22T09:00:00Z",
++      "location": {
++        "name": "London, United Kingdom"
++      },
++      "absolute_url": "https://job-boards.greenhouse.io/example/jobs/1003",
++      "content": "<p>Manage strategic customer accounts from our office.</p>",
++      "departments": [
++        {
++          "id": 4,
++          "name": "Commercial"
++        }
++      ],
++      "offices": [
++        {
++          "id": 5,
++          "name": "London"
++        }
++      ]
++    }
++  ],
++  "meta": {
++    "total": 3
++  }
++}
+diff --git a/tests/test_greenhouse_transformation.py b/tests/test_greenhouse_transformation.py
+new file mode 100644
+index 0000000..eee7fab
+--- /dev/null
++++ b/tests/test_greenhouse_transformation.py
+@@ -0,0 +1,82 @@
++import json
++from pathlib import Path
++
++from src.transformation.greenhouse import transform_greenhouse_job
++
++
++FIXTURE = Path(__file__).parent / "fixtures" / "greenhouse_jobs_m2.json"
++
++
++def metadata() -> dict[str, object]:
++    return {
++        "source": "greenhouse",
++        "source_name": "Example Tech",
++        "source_token": "example",
++        "collected_at": "2026-07-22T15:00:00+00:00",
++        "content_sha256": "abc123",
++    }
++
++
++def test_transform_greenhouse_job_builds_target_market_record() -> None:
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++
++    result = transform_greenhouse_job(
++        payload["jobs"][0],
++        metadata(),
++        Path("data/raw/greenhouse/example/snapshot.json"),
++    )
++
++    assert result.job_key == "greenhouse:example:1001"
++    assert result.company == "Example Tech"
++    assert result.title == "Junior Software Engineer"
++    assert result.title_normalized == "junior software engineer"
++    assert result.description_text == "Join our hybrid engineering team."
++    assert result.city == "Cape Town"
++    assert result.province == "Western Cape"
++    assert result.country == "South Africa"
++    assert result.workplace_type == "hybrid"
++    assert result.role_level == "junior"
++    assert result.is_technology_role is True
++    assert result.is_target_market is True
++    assert result.data_quality_issues == ()
++
++
++def test_transform_greenhouse_job_classifies_remote_graduate() -> None:
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++
++    result = transform_greenhouse_job(
++        payload["jobs"][1],
++        metadata(),
++        Path("data/raw/greenhouse/example/snapshot.json"),
++    )
++
++    assert result.city is None
++    assert result.country == "South Africa"
++    assert result.workplace_type == "remote"
++    assert result.role_level == "graduate"
++    assert result.is_technology_role is True
++    assert result.is_target_market is True
++
++
++def test_transform_greenhouse_job_records_missing_fields_instead_of_dropping_job() -> None:
++    result = transform_greenhouse_job(
++        {
++            "title": "Junior Developer",
++            "updated_at": "not-a-date",
++            "location": {"name": "Cape Town"},
++            "content": "",
++        },
++        metadata(),
++        Path("data/raw/greenhouse/example/snapshot.json"),
++    )
++
++    assert result.job_key.startswith("greenhouse:example:content-")
++    assert result.source_job_id == ""
++    assert result.application_url == ""
++    assert result.is_target_market is True
++    assert result.data_quality_issues == (
++        "missing_source_job_id",
++        "missing_application_url",
++        "missing_description",
++        "missing_or_invalid_source_updated_at",
++    )
+diff --git a/tests/test_transformation_classification.py b/tests/test_transformation_classification.py
+new file mode 100644
+index 0000000..a84cfb5
+--- /dev/null
++++ b/tests/test_transformation_classification.py
+@@ -0,0 +1,121 @@
++import pytest
++
++from src.transformation.classification import (
++    classify_location,
++    classify_role_level,
++    classify_technology_role,
++    classify_workplace,
++)
++
++
++def test_classify_south_african_city_and_province() -> None:
++    result = classify_location("Sandton, Johannesburg, South Africa")
++
++    assert result.city == "Johannesburg"
++    assert result.province == "Gauteng"
++    assert result.country == "South Africa"
++    assert result.is_south_africa is True
++    assert "Sandton" in result.evidence
++
++
++def test_classify_remote_south_africa_from_description_without_guessing_city() -> None:
++    result = classify_location(
++        "Remote",
++        "Applicants must be based in South Africa for this position.",
++    )
++
++    assert result.city is None
++    assert result.province is None
++    assert result.country == "South Africa"
++    assert result.is_south_africa is True
++
++
++def test_classify_known_international_country() -> None:
++    result = classify_location("London, United Kingdom")
++
++    assert result.city == "London"
++    assert result.country == "United Kingdom"
++    assert result.is_south_africa is False
++
++
++def test_workplace_prefers_hybrid_when_remote_is_also_mentioned() -> None:
++    result = classify_workplace(
++        "Junior Developer",
++        "Cape Town",
++        "Hybrid role with occasional remote work.",
++    )
++
++    assert result.label == "hybrid"
++    assert result.evidence == ("Hybrid",)
++
++
++def test_role_level_uses_title_before_description() -> None:
++    result = classify_role_level(
++        "Senior Software Engineer",
++        "You will mentor interns and graduates.",
++    )
++
++    assert result.label == "senior"
++    assert result.evidence == ("Senior",)
++
++
++def test_role_level_can_use_explicit_description_evidence() -> None:
++    result = classify_role_level(
++        "Software Engineer",
++        "This is an entry-level role for candidates with 0-2 years of experience.",
++    )
++
++    assert result.label == "junior"
++    assert "entry-level role" in result.evidence
++
++
++def test_technology_classifier_avoids_data_privacy_false_positive() -> None:
++    result = classify_technology_role(
++        "Data Protection Officer",
++        "Legal",
++        "Own privacy compliance and policy.",
++    )
++
++    assert result.is_technology_role is False
++    assert result.evidence == ()
++
++
++def test_generic_graduate_role_uses_description_technology_evidence() -> None:
++    result = classify_technology_role(
++        "Graduate Programme",
++        None,
++        "Rotations include software engineering and cloud infrastructure.",
++    )
++
++    assert result.is_technology_role is True
++    assert "software_engineering" in result.evidence
++
++
++def test_non_technical_title_is_not_reclassified_from_engineering_department() -> None:
++    result = classify_technology_role(
++        "Talent Acquisition Partner",
++        "Engineering",
++        "Recruit software engineers and data analysts.",
++    )
++
++    assert result.is_technology_role is False
++    assert result.evidence == ()
++
++
++@pytest.mark.parametrize(
++    "title",
++    [
++        "Mr D - Android Engineer",
++        "GenAI Engineer - Product Marketing & Adoption",
++        "Internal Systems Engineer (Applied AI)",
++        "Technical Services Engineer III",
++        "Integration Engineer",
++        "Product Data Lead",
++        "Senior Database Administrator",
++        "IT Auditor",
++    ],
++)
++def test_real_market_technology_titles_are_recognised(title: str) -> None:
++    result = classify_technology_role(title, None, "")
++
++    assert result.is_technology_role is True
+diff --git a/tests/test_transformation_cleaning.py b/tests/test_transformation_cleaning.py
+new file mode 100644
+index 0000000..902da83
+--- /dev/null
++++ b/tests/test_transformation_cleaning.py
+@@ -0,0 +1,30 @@
++from src.transformation.cleaning import (
++    html_to_text,
++    join_named_values,
++    normalized_key,
++)
++
++
++def test_html_to_text_decodes_escaped_html_and_removes_hidden_content() -> None:
++    value = (
++        "&lt;p&gt;Build &amp;amp; test&lt;/p&gt;"
++        "&lt;script&gt;do not keep&lt;/script&gt;"
++        "&lt;ul&gt;&lt;li&gt;Python&lt;/li&gt;&lt;li&gt;SQL&lt;/li&gt;&lt;/ul&gt;"
++    )
++
++    assert html_to_text(value) == "Build & test Python SQL"
++
++
++def test_normalized_key_preserves_technology_symbols() -> None:
++    assert normalized_key("  C# / C++ Developer  ") == "c# c++ developer"
++
++
++def test_join_named_values_removes_duplicate_names() -> None:
++    values = [
++        {"name": "Engineering"},
++        {"name": "engineering"},
++        {"name": "Data"},
++        {"other": "ignored"},
++    ]
++
++    assert join_named_values(values) == "Engineering, Data"
+diff --git a/tests/test_transformation_dataset.py b/tests/test_transformation_dataset.py
+new file mode 100644
+index 0000000..195d8e8
+--- /dev/null
++++ b/tests/test_transformation_dataset.py
+@@ -0,0 +1,153 @@
++import hashlib
++import importlib.util
++import json
++from pathlib import Path
++
++import pytest
++
++from src.transformation.dataset import (
++    build_dataset,
++    deduplicate_jobs,
++    write_dataset_outputs,
++)
++from src.transformation.greenhouse import transform_greenhouse_job
++
++
++FIXTURE = Path(__file__).parent / "fixtures" / "greenhouse_jobs_m2.json"
++
++
++def write_snapshot(
++    raw_root: Path,
++    payload: dict[str, object],
++    *,
++    timestamp: str,
++    collected_at: str,
++) -> None:
++    source_directory = raw_root / "greenhouse" / "example"
++    source_directory.mkdir(parents=True, exist_ok=True)
++    raw_bytes = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
++    raw_path = source_directory / f"{timestamp}.json"
++    raw_path.write_bytes(raw_bytes)
++    metadata_path = source_directory / f"{timestamp}.metadata.json"
++    metadata_path.write_text(
++        json.dumps(
++            {
++                "source": "greenhouse",
++                "source_name": "Example Tech",
++                "source_token": "example",
++                "collected_at": collected_at,
++                "content_sha256": hashlib.sha256(raw_bytes).hexdigest(),
++                "source_job_count": len(payload["jobs"]),
++                "raw_file": raw_path.name,
++            }
++        ),
++        encoding="utf-8",
++    )
++
++
++def test_deduplicate_jobs_keeps_latest_record_and_observation_window() -> None:
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    first_metadata = {
++        "source_name": "Example Tech",
++        "source_token": "example",
++        "collected_at": "2026-07-20T10:00:00Z",
++        "content_sha256": "first",
++    }
++    second_metadata = {
++        "source_name": "Example Tech",
++        "source_token": "example",
++        "collected_at": "2026-07-22T10:00:00Z",
++        "content_sha256": "second",
++    }
++    first = transform_greenhouse_job(
++        payload["jobs"][0], first_metadata, Path("first.json")
++    )
++    changed_job = dict(payload["jobs"][0])
++    changed_job["title"] = "Junior Backend Software Engineer"
++    second = transform_greenhouse_job(changed_job, second_metadata, Path("second.json"))
++
++    result = deduplicate_jobs([second, first])
++
++    assert len(result) == 1
++    assert result[0].title == "Junior Backend Software Engineer"
++    assert result[0].observation_count == 2
++    assert result[0].first_seen_at.isoformat() == "2026-07-20T10:00:00+00:00"
++    assert result[0].last_seen_at.isoformat() == "2026-07-22T10:00:00+00:00"
++    assert result[0].source_snapshot_sha256 == "second"
++
++
++def test_build_dataset_reports_deduplication_and_market_counts(tmp_path: Path) -> None:
++    first_payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    second_payload = {
++        "jobs": [
++            {
++                **first_payload["jobs"][0],
++                "title": "Junior Backend Software Engineer",
++                "updated_at": "2026-07-23T08:00:00Z",
++            },
++            first_payload["jobs"][1],
++        ]
++    }
++    write_snapshot(
++        tmp_path,
++        first_payload,
++        timestamp="first",
++        collected_at="2026-07-22T12:00:00Z",
++    )
++    write_snapshot(
++        tmp_path,
++        second_payload,
++        timestamp="second",
++        collected_at="2026-07-23T12:00:00Z",
++    )
++
++    result = build_dataset(tmp_path)
++
++    assert len(result.jobs) == 3
++    report = result.quality_report
++    assert report["source_window_start"] == "2026-07-22T12:00:00+00:00"
++    assert report["source_window_end"] == "2026-07-23T12:00:00+00:00"
++    assert report["raw_snapshot_count"] == 2
++    assert report["raw_job_observation_count"] == 5
++    assert report["canonical_job_count"] == 3
++    assert report["duplicate_observations_removed"] == 2
++    assert report["south_africa_job_count"] == 2
++    assert report["technology_job_count"] == 2
++    assert report["target_market_job_count"] == 2
++    assert report["role_level_counts"] == {
++        "graduate": 1,
++        "junior": 1,
++        "senior": 1,
++    }
++    latest_job = next(job for job in result.jobs if job.source_job_id == "1001")
++    assert latest_job.source_snapshot_path == "greenhouse/example/second.json"
++
++
++@pytest.mark.skipif(
++    importlib.util.find_spec("pyarrow") is None,
++    reason="pyarrow is installed from requirements in the project environment",
++)
++def test_write_dataset_outputs_creates_real_parquet_and_quality_report(
++    tmp_path: Path,
++) -> None:
++    import pyarrow.parquet as pq
++
++    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
++    write_snapshot(
++        tmp_path / "raw",
++        payload,
++        timestamp="snapshot",
++        collected_at="2026-07-22T12:00:00Z",
++    )
++    result = build_dataset(tmp_path / "raw")
++
++    parquet_path, quality_path = write_dataset_outputs(
++        result,
++        tmp_path / "processed",
++    )
++
++    table = pq.read_table(parquet_path)
++    quality = json.loads(quality_path.read_text(encoding="utf-8"))
++    assert table.num_rows == 3
++    assert table.column_names[0] == "job_key"
++    assert quality["canonical_job_count"] == 3
+diff --git a/tests/test_transformation_snapshots.py b/tests/test_transformation_snapshots.py
+new file mode 100644
+index 0000000..1b0c78e
+--- /dev/null
++++ b/tests/test_transformation_snapshots.py
+@@ -0,0 +1,69 @@
++import hashlib
++import json
++from pathlib import Path
++
++import pytest
++
++from src.transformation.snapshots import (
++    SnapshotReadError,
++    load_greenhouse_snapshots,
++    read_greenhouse_snapshot,
++)
++
++
++def write_snapshot(
++    raw_root: Path,
++    fixture_path: Path,
++    *,
++    source_name: str = "Example Tech",
++    source_token: str = "example",
++    collected_at: str = "2026-07-22T12:00:00+00:00",
++) -> Path:
++    source_directory = raw_root / "greenhouse" / source_token
++    source_directory.mkdir(parents=True)
++    raw_bytes = fixture_path.read_bytes()
++    raw_path = source_directory / "snapshot.json"
++    raw_path.write_bytes(raw_bytes)
++    payload = json.loads(raw_bytes)
++    metadata_path = source_directory / "snapshot.metadata.json"
++    metadata_path.write_text(
++        json.dumps(
++            {
++                "source": "greenhouse",
++                "source_name": source_name,
++                "source_token": source_token,
++                "collected_at": collected_at,
++                "content_sha256": hashlib.sha256(raw_bytes).hexdigest(),
++                "source_job_count": len(payload["jobs"]),
++                "raw_file": raw_path.name,
++            }
++        ),
++        encoding="utf-8",
++    )
++    return metadata_path
++
++
++def test_read_greenhouse_snapshot_verifies_hash_and_count(tmp_path: Path) -> None:
++    fixture = Path(__file__).parent / "fixtures" / "greenhouse_jobs_m2.json"
++    metadata_path = write_snapshot(tmp_path, fixture)
++
++    snapshot = read_greenhouse_snapshot(metadata_path)
++
++    assert snapshot.metadata["source_name"] == "Example Tech"
++    assert len(snapshot.jobs) == 3
++    assert snapshot.raw_path.name == "snapshot.json"
++
++
++def test_read_greenhouse_snapshot_rejects_modified_raw_file(tmp_path: Path) -> None:
++    fixture = Path(__file__).parent / "fixtures" / "greenhouse_jobs_m2.json"
++    metadata_path = write_snapshot(tmp_path, fixture)
++    raw_path = metadata_path.parent / "snapshot.json"
++    raw_path.write_text('{"jobs": []}', encoding="utf-8")
++
++    with pytest.raises(SnapshotReadError, match="SHA-256 mismatch"):
++        read_greenhouse_snapshot(metadata_path)
++
++
++def test_load_greenhouse_snapshots_requires_saved_data(tmp_path: Path) -> None:
++    with pytest.raises(SnapshotReadError, match="No Greenhouse metadata"):
++        load_greenhouse_snapshots(tmp_path)
