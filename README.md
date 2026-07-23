@@ -138,3 +138,13 @@ python manage.py seed_question_bank
 ```
 
 The command is idempotent and is also run by `build.sh` during Render deployments. The curated core bank contains 100 questions: 30 technical, 50 concept, 10 debugging and 10 behavioural. Built-in questions are shared and read-only; each user stores private bookmarks, progress and notes separately.
+
+## Built-in learning roadmaps
+
+ViewCoach also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
+
+```bash
+python manage.py seed_roadmaps
+```
+
+The command is idempotent and is run by `build.sh` during Render deployments. The first catalogue contains 12 roadmaps and 419 topics across AI engineering, backend, full-stack, data analysis, prompt engineering, AI agents, Python, Java, Python for data analysis, system design, data structures and algorithms, and LeetCode interview practice.

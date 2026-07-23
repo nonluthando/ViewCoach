@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.questions.apps.QuestionsConfig",
     "apps.reviews.apps.ReviewsConfig",
+    "apps.roadmaps.apps.RoadmapsConfig",
 ]
 
 MIDDLEWARE = [

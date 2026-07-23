@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ roadmap.title }} Roadmap | ViewCoach{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ roadmap.title }}</span>
+</nav>
+
+<section class="roadmap-detail-header">
+    <div class="roadmap-detail-copy">
+        <p class="eyebrow">{{ roadmap.get_kind_display }}</p>
+        <h1>{{ roadmap.title }}</h1>
+        <p class="lead">{{ roadmap.description }}</p>
+    </div>
+    <div class="roadmap-detail-progress">
+        <span class="roadmap-detail-percentage">{{ progress.percentage }}%</span>
+        <span>{{ progress.completed_count }} of {{ progress.total_count }} topics complete</span>
+        <div class="roadmap-progress-track" role="progressbar" aria-label="Roadmap progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress.percentage }}">
+            <span style="width: {{ progress.percentage }}%"></span>
+        </div>
+        {% if user_roadmap %}
+            <strong>{{ user_roadmap.get_status_display }}</strong>
+        {% else %}
+            <form method="post" action="{% url 'roadmaps:start' roadmap.slug %}">
+                {% csrf_token %}
+                <button class="button" type="submit">Start this roadmap</button>
+            </form>
+        {% endif %}
+    </div>
+</section>
+
+<div class="roadmap-summary-strip">
+    <span><strong>{{ sections|length }}</strong> sections</span>
+    <span><strong>{{ progress.total_count }}</strong> topics</span>
+    <span><strong>{{ progress.in_progress_count }}</strong> currently learning</span>
+</div>
+
+<section class="roadmap-outline" aria-label="{{ roadmap.title }} curriculum">
+    {% for section in sections %}
+        <details class="roadmap-section" {% if forloop.first %}open{% endif %}>
+            <summary>
+                <span class="roadmap-section-number">{{ forloop.counter|stringformat:"02d" }}</span>
+                <span class="roadmap-section-heading">
+                    <strong>{{ section.title }}</strong>
+                    <span>{{ section.topic_items|length }} topic{{ section.topic_items|length|pluralize }}</span>
+                </span>
+                <span class="roadmap-section-toggle" aria-hidden="true">+</span>
+            </summary>
+            {% if section.description %}<p class="roadmap-section-description">{{ section.description }}</p>{% endif %}
+            <ol class="roadmap-topic-list">
+                {% for topic in section.topic_items %}
+                    <li id="topic-{{ topic.pk }}" class="roadmap-topic roadmap-topic-{{ topic.current_status|lower }}">
+                        <div class="roadmap-topic-copy">
+                            <span class="roadmap-topic-marker" aria-hidden="true">
+                                {% if topic.current_status == "COMPLETED" %}✓{% elif topic.current_status == "IN_PROGRESS" %}→{% else %}○{% endif %}
+                            </span>
+                            <div>
+                                <strong>{{ topic.title }}</strong>
+                                {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
+                            </div>
+                        </div>
+                        <form class="roadmap-topic-actions" method="post" action="{% url 'roadmaps:update_topic_status' roadmap.slug topic.pk %}">
+                            {% csrf_token %}
+                            <span class="roadmap-status-label">{{ topic.current_progress.get_status_display|default:"Not started" }}</span>
+                            <div class="roadmap-status-buttons" role="group" aria-label="Set status for {{ topic.title }}">
+                                <button class="status-button {% if topic.current_status == 'NOT_STARTED' %}is-current{% endif %}"
+                                        type="submit" name="status" value="NOT_STARTED"
+                                        aria-label="Mark {{ topic.title }} not started" aria-pressed="{% if topic.current_status == 'NOT_STARTED' %}true{% else %}false{% endif %}">○</button>
+                                <button class="status-button {% if topic.current_status == 'IN_PROGRESS' %}is-current{% endif %}"
+                                        type="submit" name="status" value="IN_PROGRESS"
+                                        aria-label="Mark {{ topic.title }} in progress" aria-pressed="{% if topic.current_status == 'IN_PROGRESS' %}true{% else %}false{% endif %}">→</button>
+                                <button class="status-button status-complete {% if topic.current_status == 'COMPLETED' %}is-current{% endif %}"
+                                        type="submit" name="status" value="COMPLETED"
+                                        aria-label="Mark {{ topic.title }} completed" aria-pressed="{% if topic.current_status == 'COMPLETED' %}true{% else %}false{% endif %}">✓</button>
+                            </div>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ol>
+        </details>
+    {% endfor %}
+</section>
+{% endblock %}

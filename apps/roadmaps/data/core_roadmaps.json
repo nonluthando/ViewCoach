@@ -1,0 +1,916 @@
+{
+  "roadmaps": [
+    {
+      "title": "AI Engineer",
+      "slug": "ai-engineer",
+      "kind": "ROLE",
+      "description": "Build the foundations for junior AI engineering work across models, retrieval, agents, platforms and responsible delivery.",
+      "sections": [
+        {
+          "title": "Model foundations",
+          "topics": [
+            "LLMs",
+            "Inference",
+            "Pre-trained models",
+            "Open-source AI",
+            "AI development tools"
+          ]
+        },
+        {
+          "title": "Retrieval and search",
+          "topics": [
+            "Embeddings",
+            "Vector databases",
+            "Semantic search",
+            "Similarity search",
+            "Chunking and retrieval",
+            "RAG",
+            "RAG vs fine-tuning"
+          ]
+        },
+        {
+          "title": "Prompting and agent systems",
+          "topics": [
+            "Prompt engineering",
+            "AI agents",
+            "Function calling and tools",
+            "ReAct prompting"
+          ]
+        },
+        {
+          "title": "Model platforms",
+          "topics": [
+            "OpenAI models and API",
+            "Google Gemini",
+            "Hugging Face"
+          ]
+        },
+        {
+          "title": "Advanced and responsible AI",
+          "topics": [
+            "Multimodal AI",
+            "AI safety and ethics",
+            "Prompt injection",
+            "Privacy and security"
+          ]
+        }
+      ],
+      "position": 1
+    },
+    {
+      "title": "Backend Developer",
+      "slug": "backend-developer",
+      "kind": "ROLE",
+      "description": "A junior backend roadmap covering web fundamentals, data, APIs, security, testing, delivery and production reliability.",
+      "sections": [
+        {
+          "title": "Web and language foundations",
+          "topics": [
+            "Internet fundamentals",
+            "HTTP",
+            "DNS",
+            "Backend programming language",
+            "Python",
+            "Java",
+            "Git",
+            "GitHub"
+          ]
+        },
+        {
+          "title": "Relational data",
+          "topics": [
+            "Relational databases",
+            "PostgreSQL",
+            "SQL",
+            "Database normalisation",
+            "ACID",
+            "Transactions",
+            "Indexes",
+            "ORMs",
+            "N+1 queries"
+          ]
+        },
+        {
+          "title": "Authentication and security",
+          "topics": [
+            "Authentication",
+            "JWT",
+            "OAuth",
+            "Cookies",
+            "API security",
+            "CORS",
+            "SSL/TLS",
+            "OWASP",
+            "Hashing"
+          ]
+        },
+        {
+          "title": "API development",
+          "topics": [
+            "REST APIs",
+            "JSON APIs",
+            "OpenAPI",
+            "WebSockets",
+            "Throttling"
+          ]
+        },
+        {
+          "title": "Performance and asynchronous work",
+          "topics": [
+            "Caching",
+            "Redis",
+            "Message brokers",
+            "Circuit breakers",
+            "Graceful degradation"
+          ]
+        },
+        {
+          "title": "Testing and design",
+          "topics": [
+            "Unit testing",
+            "Integration testing",
+            "Functional testing",
+            "Design patterns",
+            "Test-driven development"
+          ]
+        },
+        {
+          "title": "Architecture and delivery",
+          "topics": [
+            "Monoliths",
+            "Microservices",
+            "Docker",
+            "Web servers",
+            "CI/CD",
+            "Scalability",
+            "Infrastructure basics"
+          ]
+        },
+        {
+          "title": "Production observability",
+          "topics": [
+            "Monitoring",
+            "Logging",
+            "Metrics",
+            "Tracing",
+            "Observability"
+          ]
+        }
+      ],
+      "position": 2
+    },
+    {
+      "title": "Full-Stack Developer",
+      "slug": "full-stack-developer",
+      "kind": "ROLE",
+      "description": "Build complete web products from browser fundamentals through APIs, data, deployment and monitoring.",
+      "sections": [
+        {
+          "title": "Frontend foundations",
+          "topics": [
+            "HTML",
+            "CSS",
+            "JavaScript",
+            "Web interactivity",
+            "npm",
+            "External packages",
+            "Git",
+            "GitHub",
+            "Collaborative development"
+          ]
+        },
+        {
+          "title": "Frontend applications",
+          "topics": [
+            "React",
+            "Tailwind CSS",
+            "Frontend applications"
+          ]
+        },
+        {
+          "title": "Backend and data",
+          "topics": [
+            "Backend programming language",
+            "Node.js",
+            "REST APIs",
+            "CRUD applications",
+            "PostgreSQL",
+            "Redis"
+          ]
+        },
+        {
+          "title": "Authentication and platform",
+          "topics": [
+            "JWT authentication",
+            "Linux",
+            "Complete full-stack applications"
+          ]
+        },
+        {
+          "title": "Cloud and delivery",
+          "topics": [
+            "AWS",
+            "EC2",
+            "S3",
+            "Deployment",
+            "GitHub Actions",
+            "CI/CD",
+            "Monitoring"
+          ]
+        }
+      ],
+      "position": 3
+    },
+    {
+      "title": "Data Analyst",
+      "slug": "data-analyst",
+      "kind": "ROLE",
+      "description": "A practical data-analysis roadmap from data preparation and statistics to reporting, dashboards and model evaluation.",
+      "sections": [
+        {
+          "title": "Analytics workflow",
+          "topics": [
+            "Data analytics fundamentals",
+            "Descriptive analytics",
+            "Diagnostic analytics",
+            "Data collection",
+            "Data cleaning",
+            "Data exploration",
+            "Data visualisation",
+            "Statistical analysis",
+            "Reporting"
+          ]
+        },
+        {
+          "title": "Excel analysis",
+          "topics": [
+            "Excel",
+            "Excel formulas",
+            "Lookup functions",
+            "Aggregation functions",
+            "Pivot tables",
+            "Charts"
+          ]
+        },
+        {
+          "title": "Data tools and sources",
+          "topics": [
+            "Python",
+            "SQL",
+            "Pandas",
+            "CSV files",
+            "Databases",
+            "APIs"
+          ]
+        },
+        {
+          "title": "Data quality and transformation",
+          "topics": [
+            "Missing-data handling",
+            "Duplicate removal",
+            "Outlier detection",
+            "Data transformation"
+          ]
+        },
+        {
+          "title": "Descriptive statistics",
+          "topics": [
+            "Descriptive statistics",
+            "Mean",
+            "Median",
+            "Variance",
+            "Standard deviation"
+          ]
+        },
+        {
+          "title": "Business intelligence and charts",
+          "topics": [
+            "Tableau",
+            "Power BI",
+            "Bar charts",
+            "Line charts",
+            "Scatter plots",
+            "Funnel charts",
+            "Histograms",
+            "Heatmaps"
+          ]
+        },
+        {
+          "title": "Inference and modelling",
+          "topics": [
+            "Hypothesis testing",
+            "Correlation",
+            "Regression",
+            "Distribution analysis",
+            "Logistic regression",
+            "Model evaluation"
+          ]
+        }
+      ],
+      "position": 4
+    },
+    {
+      "title": "Prompt Engineering",
+      "slug": "prompt-engineering",
+      "kind": "SKILL",
+      "description": "Learn how prompts interact with language models, how to test them, and how to make model behaviour more reliable.",
+      "sections": [
+        {
+          "title": "LLM foundations",
+          "topics": [
+            "LLM fundamentals",
+            "Tokens",
+            "Context windows",
+            "Hallucinations",
+            "Model weights and parameters",
+            "Fine-tuning vs prompt engineering"
+          ]
+        },
+        {
+          "title": "Generation controls",
+          "topics": [
+            "Sampling parameters",
+            "Temperature",
+            "Top-P",
+            "Maximum tokens",
+            "Structured outputs"
+          ]
+        },
+        {
+          "title": "Prompting patterns",
+          "topics": [
+            "Zero-shot prompting",
+            "One-shot prompting",
+            "Few-shot prompting",
+            "System prompting",
+            "Contextual prompting",
+            "Step-back prompting",
+            "ReAct prompting",
+            "Prompt debiasing"
+          ]
+        },
+        {
+          "title": "Retrieval, agents and security",
+          "topics": [
+            "RAG",
+            "AI agents",
+            "Prompt injection"
+          ]
+        },
+        {
+          "title": "Evaluation and operations",
+          "topics": [
+            "LLM self-evaluation",
+            "Prompt testing",
+            "Prompt versioning",
+            "Reliability",
+            "Latency and cost optimisation"
+          ]
+        }
+      ],
+      "position": 5
+    },
+    {
+      "title": "AI Agents",
+      "slug": "ai-agents",
+      "kind": "SKILL",
+      "description": "Understand agent loops, tool use, memory, orchestration, evaluation and safe deployment.",
+      "sections": [
+        {
+          "title": "Agent foundations",
+          "topics": [
+            "Agent fundamentals",
+            "LLM-based agents",
+            "Agent loops",
+            "Reasoning and planning"
+          ]
+        },
+        {
+          "title": "Tools and outputs",
+          "topics": [
+            "Tool use",
+            "Function calling",
+            "ReAct",
+            "Structured outputs"
+          ]
+        },
+        {
+          "title": "Memory and retrieval",
+          "topics": [
+            "Short-term memory",
+            "Long-term memory",
+            "Retrieval and RAG",
+            "Vector databases",
+            "Agent state"
+          ]
+        },
+        {
+          "title": "Systems and workflows",
+          "topics": [
+            "Workflows",
+            "Single-agent systems",
+            "Agent orchestration",
+            "Human-in-the-loop"
+          ]
+        },
+        {
+          "title": "Protocols and frameworks",
+          "topics": [
+            "Model Context Protocol",
+            "LangChain",
+            "LangGraph",
+            "LlamaIndex"
+          ]
+        },
+        {
+          "title": "Evaluation and delivery",
+          "topics": [
+            "Agent evaluation",
+            "Observability",
+            "Guardrails",
+            "Prompt injection defence",
+            "Deployment"
+          ]
+        }
+      ],
+      "position": 6
+    },
+    {
+      "title": "Python",
+      "slug": "python",
+      "kind": "SKILL",
+      "description": "Build strong Python fundamentals, data-structure knowledge, testing habits and web-development capability.",
+      "sections": [
+        {
+          "title": "Core language",
+          "topics": [
+            "Functions",
+            "Exceptions",
+            "Lists",
+            "Tuples",
+            "Sets",
+            "Dictionaries",
+            "Modules"
+          ]
+        },
+        {
+          "title": "Python idioms",
+          "topics": [
+            "List comprehensions",
+            "Generator expressions",
+            "Decorators",
+            "Iterators",
+            "Context managers"
+          ]
+        },
+        {
+          "title": "Object-oriented Python",
+          "topics": [
+            "Object-oriented programming",
+            "Classes",
+            "Inheritance",
+            "Dunder methods"
+          ]
+        },
+        {
+          "title": "Data structures and algorithms",
+          "topics": [
+            "Arrays",
+            "Linked lists",
+            "Stacks",
+            "Queues",
+            "Heaps",
+            "Hash tables",
+            "Trees",
+            "Recursion",
+            "Sorting"
+          ]
+        },
+        {
+          "title": "Packaging and typing",
+          "topics": [
+            "Package management",
+            "pip",
+            "Virtual environments",
+            "pyproject.toml",
+            "Static typing",
+            "Pydantic",
+            "mypy",
+            "Ruff"
+          ]
+        },
+        {
+          "title": "Testing and concurrency",
+          "topics": [
+            "Testing",
+            "pytest",
+            "Concurrency",
+            "Threads",
+            "Multiprocessing",
+            "Async programming"
+          ]
+        },
+        {
+          "title": "Web frameworks",
+          "topics": [
+            "Django",
+            "FastAPI"
+          ]
+        }
+      ],
+      "position": 7
+    },
+    {
+      "title": "Java",
+      "slug": "java",
+      "kind": "SKILL",
+      "description": "Build interview-ready Java knowledge from syntax and OOP through Spring, persistence and testing.",
+      "sections": [
+        {
+          "title": "Core Java",
+          "topics": [
+            "Basic syntax",
+            "Arrays",
+            "Strings",
+            "Methods",
+            "Classes and objects",
+            "Access modifiers",
+            "Static keyword"
+          ]
+        },
+        {
+          "title": "Object-oriented programming",
+          "topics": [
+            "Object-oriented programming",
+            "Inheritance",
+            "Abstraction",
+            "Encapsulation",
+            "Interfaces",
+            "Method overloading",
+            "Method overriding",
+            "Static and dynamic binding"
+          ]
+        },
+        {
+          "title": "Modern Java language",
+          "topics": [
+            "Enums",
+            "Records",
+            "Final keyword",
+            "Lambdas",
+            "Optionals"
+          ]
+        },
+        {
+          "title": "Collections and generics",
+          "topics": [
+            "Collections",
+            "ArrayList",
+            "Set",
+            "Map",
+            "Queue",
+            "Stack",
+            "Deque",
+            "Iterator",
+            "Generics"
+          ]
+        },
+        {
+          "title": "Errors, I/O and functional Java",
+          "topics": [
+            "Exception handling",
+            "File and I/O operations",
+            "Functional interfaces",
+            "Stream API"
+          ]
+        },
+        {
+          "title": "Concurrency and memory",
+          "topics": [
+            "Concurrency",
+            "Threads",
+            "Java Memory Model"
+          ]
+        },
+        {
+          "title": "Build, Spring and data",
+          "topics": [
+            "Build tools",
+            "Maven",
+            "Gradle",
+            "Dependency injection",
+            "Spring Boot",
+            "JDBC",
+            "Spring Data JPA",
+            "Hibernate"
+          ]
+        },
+        {
+          "title": "Logging and testing",
+          "topics": [
+            "Logging",
+            "SLF4J",
+            "Logback",
+            "Unit testing",
+            "JUnit",
+            "Mockito",
+            "Integration testing",
+            "REST Assured"
+          ]
+        }
+      ],
+      "position": 8
+    },
+    {
+      "title": "Python for Data Analysis",
+      "slug": "python-data-analysis",
+      "kind": "SKILL",
+      "description": "Use Python, NumPy and pandas to clean, explore, combine, visualise and operationalise data-analysis work.",
+      "sections": [
+        {
+          "title": "Environment and fundamentals",
+          "topics": [
+            "Python fundamentals",
+            "Jupyter Notebook",
+            "NumPy",
+            "Pandas",
+            "Series",
+            "DataFrames"
+          ]
+        },
+        {
+          "title": "Import and inspect data",
+          "topics": [
+            "Importing CSV, Excel and JSON data",
+            "Data inspection",
+            "Indexing and filtering",
+            "Sorting"
+          ]
+        },
+        {
+          "title": "Clean and transform data",
+          "topics": [
+            "Missing values",
+            "Duplicate data",
+            "Data-type conversion",
+            "String cleaning",
+            "Outlier handling",
+            "Data transformation"
+          ]
+        },
+        {
+          "title": "Aggregate and combine",
+          "topics": [
+            "GroupBy",
+            "Aggregation",
+            "Pivot tables",
+            "Merging",
+            "Joining",
+            "Concatenation",
+            "Reshaping"
+          ]
+        },
+        {
+          "title": "Numerical analysis",
+          "topics": [
+            "NumPy arrays",
+            "Vectorised operations",
+            "Descriptive statistics",
+            "Exploratory data analysis",
+            "Correlation",
+            "Statistical testing"
+          ]
+        },
+        {
+          "title": "Visualisation",
+          "topics": [
+            "Matplotlib",
+            "Seaborn",
+            "Plotly"
+          ]
+        },
+        {
+          "title": "Time series and integration",
+          "topics": [
+            "Time-series data",
+            "Datetime handling",
+            "Rolling calculations",
+            "SQL integration",
+            "API data"
+          ]
+        },
+        {
+          "title": "Delivery and projects",
+          "topics": [
+            "Data pipelines",
+            "Performance optimisation",
+            "Reproducible notebooks",
+            "Data-analysis projects"
+          ]
+        }
+      ],
+      "position": 9
+    },
+    {
+      "title": "System Design",
+      "slug": "system-design",
+      "kind": "SKILL",
+      "description": "Learn how to reason about requirements, scale, data, reliability and trade-offs in software systems.",
+      "sections": [
+        {
+          "title": "Design foundations",
+          "topics": [
+            "System design fundamentals",
+            "Functional and non-functional requirements",
+            "Capacity estimation",
+            "Latency and throughput"
+          ]
+        },
+        {
+          "title": "Traffic and scalability",
+          "topics": [
+            "Scalability",
+            "Vertical vs horizontal scaling",
+            "Load balancing",
+            "Caching",
+            "CDNs",
+            "Rate limiting"
+          ]
+        },
+        {
+          "title": "Data and storage",
+          "topics": [
+            "Databases",
+            "SQL vs NoSQL",
+            "Replication",
+            "Partitioning and sharding",
+            "Indexing",
+            "Transactions",
+            "File and object storage"
+          ]
+        },
+        {
+          "title": "Distributed systems",
+          "topics": [
+            "Consistency",
+            "CAP theorem",
+            "Message queues",
+            "Event-driven architecture",
+            "Service discovery"
+          ]
+        },
+        {
+          "title": "Communication and security",
+          "topics": [
+            "API design",
+            "Authentication and authorisation",
+            "WebSockets"
+          ]
+        },
+        {
+          "title": "Architecture and resilience",
+          "topics": [
+            "Microservices",
+            "Monoliths",
+            "Fault tolerance",
+            "Circuit breakers",
+            "Graceful degradation"
+          ]
+        },
+        {
+          "title": "Observability and practice",
+          "topics": [
+            "Logging",
+            "Metrics",
+            "Tracing",
+            "Common system-design exercises"
+          ]
+        }
+      ],
+      "position": 10
+    },
+    {
+      "title": "Data Structures and Algorithms",
+      "slug": "data-structures-algorithms",
+      "kind": "SKILL",
+      "description": "Learn the core structures, algorithms and recurring patterns used in coding interviews.",
+      "sections": [
+        {
+          "title": "Foundations",
+          "topics": [
+            "Big O notation",
+            "Recursion",
+            "Sorting",
+            "Binary search"
+          ]
+        },
+        {
+          "title": "Linear data structures",
+          "topics": [
+            "Arrays",
+            "Strings",
+            "Hash maps",
+            "Hash sets",
+            "Linked lists",
+            "Stacks",
+            "Queues",
+            "Deques",
+            "Heaps"
+          ]
+        },
+        {
+          "title": "Trees and graphs",
+          "topics": [
+            "Trees",
+            "Binary search trees",
+            "Tries",
+            "Graphs"
+          ]
+        },
+        {
+          "title": "Pointer and window patterns",
+          "topics": [
+            "Two pointers",
+            "Sliding window",
+            "Prefix sums",
+            "Fast and slow pointers",
+            "Monotonic stacks",
+            "Intervals"
+          ]
+        },
+        {
+          "title": "Search and graph patterns",
+          "topics": [
+            "Backtracking",
+            "Breadth-first search",
+            "Depth-first search",
+            "Topological sorting",
+            "Union-find",
+            "Shortest paths"
+          ]
+        },
+        {
+          "title": "Optimisation paradigms",
+          "topics": [
+            "Greedy algorithms",
+            "Dynamic programming",
+            "Bit manipulation"
+          ]
+        }
+      ],
+      "position": 11
+    },
+    {
+      "title": "LeetCode Interview Practice",
+      "slug": "leetcode-interview-practice",
+      "kind": "PRACTICE",
+      "description": "Practise the recurring problem families used in technical interviews. Problem-level mastery will be added in a later milestone.",
+      "sections": [
+        {
+          "title": "Array and pointer patterns",
+          "topics": [
+            "Arrays and hashing",
+            "Two pointers",
+            "Sliding window",
+            "Stack",
+            "Binary search"
+          ]
+        },
+        {
+          "title": "Linked and hierarchical structures",
+          "topics": [
+            "Linked lists",
+            "Trees",
+            "Tries",
+            "Heaps and priority queues"
+          ]
+        },
+        {
+          "title": "Search and graph practice",
+          "topics": [
+            "Backtracking",
+            "Graphs",
+            "Advanced graphs"
+          ]
+        },
+        {
+          "title": "Optimisation practice",
+          "topics": [
+            "One-dimensional dynamic programming",
+            "Two-dimensional dynamic programming",
+            "Greedy",
+            "Intervals"
+          ]
+        },
+        {
+          "title": "Mathematical practice",
+          "topics": [
+            "Mathematics and geometry",
+            "Bit manipulation"
+          ]
+        }
+      ],
+      "position": 12
+    }
+  ]
+}
