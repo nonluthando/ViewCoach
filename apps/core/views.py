@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 
 from apps.questions.models import Question
+from apps.reviews.services import review_dashboard_summary
 
 
 def landing_page(request):
@@ -13,6 +14,8 @@ def landing_page(request):
 @login_required
 def dashboard(request):
     questions = Question.objects.filter(owner=request.user)
+    review_summary = review_dashboard_summary(user=request.user)
+
     return render(
         request,
         "core/dashboard.html",
@@ -21,6 +24,11 @@ def dashboard(request):
             "ready_question_count": questions.filter(
                 status=Question.Status.READY_FOR_REVIEW
             ).count(),
+            "due_review_count": review_summary["due_count"],
+            "reviewed_today_count": review_summary[
+                "reviewed_today_count"
+            ],
+            "next_review_state": review_summary["next_state"],
             "recent_questions": questions.select_related(
                 "technicalquestion",
                 "conceptquestion",
