@@ -12,9 +12,7 @@ def test_saving_built_in_creates_complete_owned_copy(client, user):
     source = TechnicalQuestion.objects.get(system_key="technical-two-sum")
     client.force_login(user)
 
-    response = client.post(
-        reverse("questions:toggle_bookmark", args=[source.pk])
-    )
+    response = client.post(reverse("questions:toggle_bookmark", args=[source.pk]))
 
     copied = TechnicalQuestion.objects.get(
         owner=user,
@@ -47,17 +45,18 @@ def test_saving_same_built_in_twice_does_not_duplicate(client, user):
         ).count()
         == 1
     )
-    assert UserQuestionState.objects.get(
-        user=user,
-        question=source,
-    ).bookmarked is True
+    assert (
+        UserQuestionState.objects.get(
+            user=user,
+            question=source,
+        ).bookmarked
+        is True
+    )
 
 
 def test_bulk_save_increases_dashboard_count(client, user):
     call_command("seed_question_bank")
-    sources = list(
-        Question.objects.filter(is_system=True).order_by("pk")[:3]
-    )
+    sources = list(Question.objects.filter(is_system=True).order_by("pk")[:3])
     client.force_login(user)
 
     before = client.get(reverse("dashboard"))
@@ -65,11 +64,7 @@ def test_bulk_save_increases_dashboard_count(client, user):
 
     client.post(
         reverse("questions:bulk_save_built_in"),
-        {
-            "selected_built_in_questions": [
-                question.pk for question in sources
-            ]
-        },
+        {"selected_built_in_questions": [question.pk for question in sources]},
     )
 
     after = client.get(reverse("dashboard"))

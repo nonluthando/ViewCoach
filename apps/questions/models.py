@@ -122,9 +122,7 @@ class Question(models.Model):
             if self.import_batch_id:
                 raise ValidationError("Built-in questions cannot belong to an import batch.")
             if self.source_system_question_id:
-                raise ValidationError(
-                    "Built-in questions cannot be copied from another question."
-                )
+                raise ValidationError("Built-in questions cannot be copied from another question.")
         else:
             if not self.owner_id:
                 raise ValidationError("User-created questions require an owner.")
@@ -133,13 +131,9 @@ class Question(models.Model):
             if self.source_system_question_id:
                 source = self.source_system_question
                 if not source.is_system:
-                    raise ValidationError(
-                        "Question copies must come from a built-in question."
-                    )
+                    raise ValidationError("Question copies must come from a built-in question.")
                 if source.question_type != self.question_type:
-                    raise ValidationError(
-                        "Question copies must preserve their question type."
-                    )
+                    raise ValidationError("Question copies must preserve their question type.")
 
     @property
     def specific(self):

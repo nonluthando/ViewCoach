@@ -18,9 +18,7 @@ DEBUG = False
 
 render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "")
 configured_hosts = [
-    host.strip()
-    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
-    if host.strip()
+    host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if host.strip()
 ]
 ALLOWED_HOSTS = [host for host in [render_hostname, *configured_hosts] if host]
 

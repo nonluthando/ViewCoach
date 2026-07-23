@@ -83,10 +83,7 @@ COPY_FIELDS_BY_TYPE = {
 
 
 def _copied_values(source, field_names):
-    return {
-        field_name: deepcopy(getattr(source, field_name))
-        for field_name in field_names
-    }
+    return {field_name: deepcopy(getattr(source, field_name)) for field_name in field_names}
 
 
 def _copy_personal_data(*, user, source_question, copied_question):

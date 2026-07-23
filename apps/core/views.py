@@ -25,9 +25,7 @@ def dashboard(request):
                 status=Question.Status.READY_FOR_REVIEW
             ).count(),
             "due_review_count": review_summary["due_count"],
-            "reviewed_today_count": review_summary[
-                "reviewed_today_count"
-            ],
+            "reviewed_today_count": review_summary["reviewed_today_count"],
             "next_review_state": review_summary["next_state"],
             "recent_questions": questions.select_related(
                 "technicalquestion",

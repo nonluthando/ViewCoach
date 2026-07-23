@@ -29,7 +29,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created {created_count} user copies; "
-                f"{existing_count} already existed."
+                f"Created {created_count} user copies; {existing_count} already existed."
             )
         )

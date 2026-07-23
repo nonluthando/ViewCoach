@@ -30,9 +30,7 @@ class AccountChangeForm(UserChangeForm):
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
         duplicate_exists = (
-            User.objects.filter(email__iexact=email)
-            .exclude(pk=self.instance.pk)
-            .exists()
+            User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists()
         )
         if duplicate_exists:
             raise forms.ValidationError("An account with this email address already exists.")

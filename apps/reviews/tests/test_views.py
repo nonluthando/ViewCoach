@@ -34,9 +34,7 @@ def test_user_cannot_review_another_users_question(client, user, other_user):
     question = _ready_question(other_user)
     client.force_login(user)
 
-    response = client.get(
-        reverse("reviews:review", args=[question.pk])
-    )
+    response = client.get(reverse("reviews:review", args=[question.pk]))
 
     assert response.status_code == 404
 

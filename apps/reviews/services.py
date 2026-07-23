@@ -1,5 +1,5 @@
 from datetime import timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
 from django.utils import timezone
@@ -143,9 +143,7 @@ def _schedule_values(*, state, rating, now):
             base_interval = Decimal(max(previous_interval, 1))
             interval_days = max(
                 4,
-                _rounded_days(
-                    base_interval * previous_ease * Decimal("1.30")
-                ),
+                _rounded_days(base_interval * previous_ease * Decimal("1.30")),
             )
         due_at = now + timedelta(days=interval_days)
         repetitions = state.repetitions + 1
@@ -196,9 +194,7 @@ def record_review(*, state, rating, now=None):
 
     with transaction.atomic():
         locked_state = (
-            ReviewState.objects.select_for_update()
-            .select_related("question")
-            .get(pk=state.pk)
+            ReviewState.objects.select_for_update().select_related("question").get(pk=state.pk)
         )
         if locked_state.question.owner_id != locked_state.user_id:
             raise ValueError("Review state ownership is invalid.")
