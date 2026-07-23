@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Adaptive Interview Coach{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
 </head>
 <body>
 <header class="site-header">
@@ -15,6 +16,7 @@
             {% if user.is_authenticated %}
                 <a href="{% url 'dashboard' %}">Dashboard</a>
                 <a href="{% url 'questions:list' %}">Questions</a>
+                <a href="{% url 'reviews:queue' %}">Reviews</a>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button class="link-button" type="submit">Log out</button>

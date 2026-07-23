@@ -1,0 +1,182 @@
+/* Milestone 2: deterministic review engine */
+
+.review-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+
+.review-section {
+    margin-top: 2.5rem;
+}
+
+.review-list,
+.history-list {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.review-list-item,
+.history-item,
+.review-instructions,
+.review-answer,
+.review-session-header {
+    border: 1px solid #e2e5ef;
+    border-radius: 1rem;
+    background: #ffffff;
+}
+
+.review-list-item,
+.history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1.25rem;
+}
+
+.review-list-item h3,
+.history-item h2 {
+    margin: 0.65rem 0 0.35rem;
+}
+
+.review-list-item p,
+.history-item p {
+    margin: 0;
+    color: #606a7e;
+}
+
+.compact-review-item {
+    padding-block: 1rem;
+}
+
+.review-session-header,
+.review-instructions {
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.review-session-header h1 {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+}
+
+.review-prompt {
+    font-size: 1.15rem;
+}
+
+.review-instructions h2 {
+    margin-top: 0;
+}
+
+.review-answer {
+    overflow: hidden;
+}
+
+.review-answer > summary {
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    color: #ffffff;
+    background: #3c4bc6;
+    font-weight: 800;
+}
+
+.review-answer-content {
+    padding: 1.5rem;
+}
+
+.rating-panel {
+    padding-top: 1.5rem;
+    margin-top: 2rem;
+    border-top: 1px solid #e2e5ef;
+}
+
+.rating-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.rating-button {
+    display: grid;
+    gap: 0.2rem;
+    padding: 1rem 0.75rem;
+    border: 1px solid #cbd0de;
+    border-radius: 0.75rem;
+    color: #172033;
+    background: #f7f8fb;
+    cursor: pointer;
+    font: inherit;
+    text-align: center;
+}
+
+.rating-button:hover {
+    border-color: #6874cd;
+    transform: translateY(-1px);
+}
+
+.rating-button span {
+    color: #606a7e;
+    font-size: 0.85rem;
+}
+
+.rating-again {
+    border-color: #efb7be;
+    background: #fff0f2;
+}
+
+.rating-hard {
+    border-color: #ead29f;
+    background: #fff8e9;
+}
+
+.rating-good {
+    border-color: #adcdb6;
+    background: #edf8f0;
+}
+
+.rating-easy {
+    border-color: #b5bce8;
+    background: #f0f2ff;
+}
+
+.rating-badge-again {
+    color: #8b2935;
+    background: #ffe4e7;
+}
+
+.rating-badge-hard {
+    color: #78570c;
+    background: #fff3cf;
+}
+
+.rating-badge-good {
+    color: #375f42;
+    background: #e5f5e9;
+}
+
+.rating-badge-easy {
+    color: #3442ad;
+    background: #e9ebff;
+}
+
+@media (max-width: 52rem) {
+    .review-summary-grid,
+    .rating-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .review-list-item,
+    .history-item {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 32rem) {
+    .review-summary-grid,
+    .rating-grid {
+        grid-template-columns: 1fr;
+    }
+}

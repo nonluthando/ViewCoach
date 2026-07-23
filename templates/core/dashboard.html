@@ -21,11 +21,41 @@
         <span class="stat-value">{{ ready_question_count }}</span>
         <span class="stat-label">Ready for review</span>
     </div>
-    <div class="stat-card stat-card-muted">
-        <span class="stat-value">—</span>
-        <span class="stat-label">Reviews due · coming next</span>
+    <div class="stat-card{% if not due_review_count %} stat-card-muted{% endif %}">
+        <span class="stat-value">{{ due_review_count }}</span>
+        <span class="stat-label">Reviews due now</span>
     </div>
 </div>
+
+<section class="dashboard-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Review engine</p>
+            <h2>{% if due_review_count %}Your next review is ready{% else %}Your review queue is clear{% endif %}</h2>
+        </div>
+        <a href="{% url 'reviews:history' %}">{{ reviewed_today_count }} reviewed today</a>
+    </div>
+
+    {% if due_review_count and next_review_state %}
+        <div class="empty-state empty-state-wide">
+            <h2>{{ next_review_state.question.title }}</h2>
+            <p>{{ next_review_state.question.prompt|truncatewords:24 }}</p>
+            <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start due reviews</a>
+        </div>
+    {% elif ready_question_count %}
+        <div class="empty-state empty-state-wide">
+            <h2>Nothing is due right now</h2>
+            <p>Your ready questions are scheduled. The queue will surface them when they are due.</p>
+            <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
+        </div>
+    {% else %}
+        <div class="empty-state empty-state-wide">
+            <h2>No questions are ready for review</h2>
+            <p>Complete the notes on a question and mark it ready to begin spaced review.</p>
+            <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
+        </div>
+    {% endif %}
+</section>
 
 <section class="dashboard-section">
     <div class="section-heading">

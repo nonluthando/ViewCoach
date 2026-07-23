@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Review queue | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header page-header-split dashboard-header">
+    <div>
+        <p class="eyebrow">Review engine</p>
+        <h1>Review what is due.</h1>
+        <p class="lead">Recall first, reveal the answer, then rate how difficult the retrieval felt.</p>
+    </div>
+    <a class="button button-secondary" href="{% url 'reviews:history' %}">Review history</a>
+</section>
+
+<div class="review-summary-grid">
+    <div class="stat-card">
+        <span class="stat-value">{{ summary.due_count }}</span>
+        <span class="stat-label">Due now</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ summary.reviewed_today_count }}</span>
+        <span class="stat-label">Reviewed today</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ summary.scheduled_count }}</span>
+        <span class="stat-label">In the review system</span>
+    </div>
+</div>
+
+<section class="review-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Due queue</p>
+            <h2>Start with the oldest due question</h2>
+        </div>
+        {% if due_states %}
+            <a class="button" href="{% url 'reviews:review' due_states.0.question_id %}">Start review</a>
+        {% endif %}
+    </div>
+
+    {% if due_states %}
+        <div class="review-list">
+            {% for state in due_states %}
+                <article class="review-list-item">
+                    <div>
+                        <div class="question-card-meta">
+                            <span class="badge badge-{{ state.question.question_type|lower }}">{{ state.question.get_question_type_display }}</span>
+                            {% if state.last_reviewed_at %}
+                                <span class="badge badge-neutral">Due {{ state.due_at|timesince }} ago</span>
+                            {% else %}
+                                <span class="badge badge-neutral">New</span>
+                            {% endif %}
+                        </div>
+                        <h3>{{ state.question.title }}</h3>
+                        <p>{{ state.question.prompt|truncatewords:24 }}</p>
+                    </div>
+                    <a class="button button-secondary" href="{% url 'reviews:review' state.question_id %}">Review</a>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state empty-state-wide">
+            <h2>Nothing is due right now</h2>
+            {% if summary.scheduled_count %}
+                <p>Your ready questions are scheduled. Come back when the next one is due.</p>
+            {% else %}
+                <p>Mark a complete question as Ready for review to add it to the queue.</p>
+                <a class="button" href="{% url 'questions:list' %}?source=mine">Open my library</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</section>
+
+{% if upcoming_states %}
+<section class="review-section">
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Coming up</p>
+            <h2>Next scheduled reviews</h2>
+        </div>
+    </div>
+    <div class="review-list">
+        {% for state in upcoming_states %}
+            <article class="review-list-item compact-review-item">
+                <div>
+                    <h3>{{ state.question.title }}</h3>
+                    <p>Due {{ state.due_at|date:"j M Y, H:i" }}</p>
+                </div>
+                <a href="{% url 'reviews:review' state.question_id %}">Review early</a>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

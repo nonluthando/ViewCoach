@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Review history | Adaptive Interview Coach{% endblock %}
+
+{% block content %}
+<section class="page-header page-header-split dashboard-header">
+    <div>
+        <p class="eyebrow">Review history</p>
+        <h1>Your retrieval record.</h1>
+        <p class="lead">Every rating is stored so later milestones can identify weak patterns and changing recall.</p>
+    </div>
+    <a class="button" href="{% url 'reviews:queue' %}">Review queue</a>
+</section>
+
+{% if page %}
+    <div class="history-list">
+        {% for attempt in page %}
+            <article class="history-item">
+                <div>
+                    <div class="question-card-meta">
+                        <span class="badge rating-badge-{{ attempt.rating|lower }}">{{ attempt.get_rating_display }}</span>
+                        <span class="badge badge-neutral">{{ attempt.reviewed_at|date:"j M Y, H:i" }}</span>
+                    </div>
+                    <h2><a href="{% url 'questions:detail' attempt.state.question_id %}">{{ attempt.state.question.title }}</a></h2>
+                    <p>
+                        Interval changed from {{ attempt.previous_interval_days }}
+                        to {{ attempt.scheduled_interval_days }} day{{ attempt.scheduled_interval_days|pluralize }}.
+                    </p>
+                </div>
+                <span>Next: {{ attempt.scheduled_due_at|date:"j M Y, H:i" }}</span>
+            </article>
+        {% empty %}
+            <div class="empty-state empty-state-wide">
+                <h2>No reviews recorded yet</h2>
+                <p>Complete your first due review and it will appear here.</p>
+                <a class="button" href="{% url 'reviews:queue' %}">Open review queue</a>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if page.has_other_pages %}
+        <nav class="pagination" aria-label="Review history pages">
+            {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+            {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+        </nav>
+    {% endif %}
+{% endif %}
+{% endblock %}
