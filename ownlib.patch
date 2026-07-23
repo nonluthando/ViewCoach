@@ -1,0 +1,982 @@
+From 3f9df2dcf31af495daa441c8bf0e9cef355050ab Mon Sep 17 00:00:00 2001
+From: test <test@example.com>
+Date: Thu, 23 Jul 2026 01:21:50 +0000
+Subject: [PATCH] feat: copy built-in questions into user libraries
+
+---
+ apps/core/tests/test_dashboard.py             |  24 +++
+ apps/core/views.py                            |   1 +
+ .../commands/convert_saved_built_ins.py       |  35 ++++
+ .../0006_question_source_system_question.py   |  62 ++++++
+ apps/questions/models.py                      |  29 ++-
+ apps/questions/services.py                    | 191 ++++++++++++++++++
+ apps/questions/tests/test_seeded_library.py   | 117 ++++++++---
+ apps/questions/urls.py                        |   6 +-
+ apps/questions/views.py                       |  97 +++++----
+ templates/core/dashboard.html                 |   2 +-
+ templates/questions/_personal_notes.html      |  48 +++--
+ templates/questions/_question_header.html     |  13 +-
+ templates/questions/question_list.html        |  22 +-
+ 13 files changed, 552 insertions(+), 95 deletions(-)
+ create mode 100644 apps/questions/management/commands/convert_saved_built_ins.py
+ create mode 100644 apps/questions/migrations/0006_question_source_system_question.py
+ create mode 100644 apps/questions/services.py
+
+diff --git a/apps/core/tests/test_dashboard.py b/apps/core/tests/test_dashboard.py
+index 4b8dd4b..1346456 100644
+--- a/apps/core/tests/test_dashboard.py
++++ b/apps/core/tests/test_dashboard.py
+@@ -22,3 +22,27 @@ def test_dashboard_shows_question_counts_and_recent_questions(client):
+     assert response.context["question_count"] == 1
+     assert response.context["ready_question_count"] == 0
+     assert question.title in response.content.decode()
++
++
++def test_dashboard_count_increases_when_built_ins_are_added(client):
++    from django.core.management import call_command
++
++    from apps.questions.models import Question
++
++    user = User.objects.create_user(
++        email="library-count@example.com",
++        password="safe-test-password",
++    )
++    call_command("seed_question_bank")
++    built_ins = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
++    client.force_login(user)
++
++    client.post(
++        reverse("questions:bulk_save_built_in"),
++        {"selected_built_in_questions": [question.pk for question in built_ins]},
++    )
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.context["question_count"] == 2
++    assert Question.objects.filter(owner=user).count() == 2
+diff --git a/apps/core/views.py b/apps/core/views.py
+index 0bc7c97..b975afd 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -23,6 +23,7 @@ def dashboard(request):
+             ).count(),
+             "recent_questions": questions.select_related(
+                 "technicalquestion",
++                "conceptquestion",
+                 "behaviouralquestion",
+                 "debugquestion",
+             )[:5],
+diff --git a/apps/questions/management/commands/convert_saved_built_ins.py b/apps/questions/management/commands/convert_saved_built_ins.py
+new file mode 100644
+index 0000000..e698df0
+--- /dev/null
++++ b/apps/questions/management/commands/convert_saved_built_ins.py
+@@ -0,0 +1,35 @@
++from django.core.management.base import BaseCommand
++
++from apps.questions.models import UserQuestionState
++from apps.questions.services import copy_built_in_question_for_user
++
++
++class Command(BaseCommand):
++    help = "Convert legacy bookmarked built-in questions into owned user copies."
++
++    def handle(self, *args, **options):
++        saved_states = list(
++            UserQuestionState.objects.select_related("user", "question").filter(
++                bookmarked=True,
++                question__is_system=True,
++            )
++        )
++
++        converted_count = 0
++        existing_count = 0
++        for state in saved_states:
++            _, created = copy_built_in_question_for_user(
++                question=state.question,
++                user=state.user,
++            )
++            if created:
++                converted_count += 1
++            else:
++                existing_count += 1
++
++        self.stdout.write(
++            self.style.SUCCESS(
++                f"Converted {converted_count} saved built-in questions; "
++                f"{existing_count} already had copies."
++            )
++        )
+diff --git a/apps/questions/migrations/0006_question_source_system_question.py b/apps/questions/migrations/0006_question_source_system_question.py
+new file mode 100644
+index 0000000..5a2913b
+--- /dev/null
++++ b/apps/questions/migrations/0006_question_source_system_question.py
+@@ -0,0 +1,62 @@
++from django.db import migrations, models
++import django.db.models.deletion
++from django.db.models import Q
++
++
++class Migration(migrations.Migration):
++    dependencies = [
++        ("questions", "0005_expand_debug_repository_context"),
++    ]
++
++    operations = [
++        migrations.AddField(
++            model_name="question",
++            name="source_system_question",
++            field=models.ForeignKey(
++                blank=True,
++                null=True,
++                on_delete=django.db.models.deletion.SET_NULL,
++                related_name="user_copies",
++                to="questions.question",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="question",
++            index=models.Index(
++                fields=["owner", "source_system_question"],
++                name="question_owner_source_idx",
++            ),
++        ),
++        migrations.RemoveConstraint(
++            model_name="question",
++            name="question_system_owner_consistency",
++        ),
++        migrations.AddConstraint(
++            model_name="question",
++            constraint=models.CheckConstraint(
++                condition=(
++                    Q(
++                        is_system=True,
++                        owner__isnull=True,
++                        system_key__isnull=False,
++                        import_batch__isnull=True,
++                        source_system_question__isnull=True,
++                    )
++                    | Q(
++                        is_system=False,
++                        owner__isnull=False,
++                        system_key__isnull=True,
++                    )
++                ),
++                name="question_system_owner_consistency",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="question",
++            constraint=models.UniqueConstraint(
++                condition=Q(source_system_question__isnull=False),
++                fields=("owner", "source_system_question"),
++                name="unique_user_system_question_copy",
++            ),
++        ),
++    ]
+diff --git a/apps/questions/models.py b/apps/questions/models.py
+index 3d58aa6..b50144b 100644
+--- a/apps/questions/models.py
++++ b/apps/questions/models.py
+@@ -45,6 +45,13 @@ class Question(models.Model):
+         null=True,
+         blank=True,
+     )
++    source_system_question = models.ForeignKey(
++        "self",
++        on_delete=models.SET_NULL,
++        related_name="user_copies",
++        null=True,
++        blank=True,
++    )
+     is_system = models.BooleanField(default=False)
+     system_key = models.SlugField(max_length=140, unique=True, null=True, blank=True)
+     title = models.CharField(max_length=180)
+@@ -72,6 +79,10 @@ class Question(models.Model):
+                 fields=["is_system", "question_type"],
+                 name="question_system_type_idx",
+             ),
++            models.Index(
++                fields=["owner", "source_system_question"],
++                name="question_owner_source_idx",
++            ),
+         ]
+         constraints = [
+             models.CheckConstraint(
+@@ -81,6 +92,7 @@ class Question(models.Model):
+                         owner__isnull=True,
+                         system_key__isnull=False,
+                         import_batch__isnull=True,
++                        source_system_question__isnull=True,
+                     )
+                     | Q(
+                         is_system=False,
+@@ -89,7 +101,12 @@ class Question(models.Model):
+                     )
+                 ),
+                 name="question_system_owner_consistency",
+-            )
++            ),
++            models.UniqueConstraint(
++                fields=["owner", "source_system_question"],
++                condition=Q(source_system_question__isnull=False),
++                name="unique_user_system_question_copy",
++            ),
+         ]
+ 
+     def clean(self):
+@@ -104,11 +121,19 @@ class Question(models.Model):
+                 raise ValidationError("Built-in questions require a system key.")
+             if self.import_batch_id:
+                 raise ValidationError("Built-in questions cannot belong to an import batch.")
++            if self.source_system_question_id:
++                raise ValidationError("Built-in questions cannot be copied from another question.")
+         else:
+             if not self.owner_id:
+                 raise ValidationError("User-created questions require an owner.")
+             if self.system_key:
+                 raise ValidationError("User-created questions cannot have a system key.")
++            if self.source_system_question_id:
++                source = self.source_system_question
++                if not source.is_system:
++                    raise ValidationError("Question copies must come from a built-in question.")
++                if source.question_type != self.question_type:
++                    raise ValidationError("Question copies must preserve their question type.")
+ 
+     @property
+     def specific(self):
+@@ -131,6 +156,8 @@ class Question(models.Model):
+     def source_label(self):
+         if self.is_system:
+             return "Built-in"
++        if self.source_system_question_id:
++            return "Added from built-in"
+         if self.import_batch_id:
+             return "Imported"
+         return "My question"
+diff --git a/apps/questions/services.py b/apps/questions/services.py
+new file mode 100644
+index 0000000..2b8062e
+--- /dev/null
++++ b/apps/questions/services.py
+@@ -0,0 +1,191 @@
++from copy import deepcopy
++
++from django.db import IntegrityError, transaction
++
++from .models import (
++    BehaviouralQuestion,
++    ConceptQuestion,
++    DebugQuestion,
++    Question,
++    TechnicalQuestion,
++    UserQuestionNote,
++    UserQuestionState,
++)
++
++
++COMMON_COPY_FIELDS = (
++    "title",
++    "prompt",
++    "company",
++    "difficulty",
++)
++
++TECHNICAL_COPY_FIELDS = (
++    "topic",
++    "first_hint",
++    "pattern",
++    "data_structure",
++    "intuition",
++    "brute_force",
++    "brute_force_time_complexity",
++    "brute_force_space_complexity",
++    "optimal_approach",
++    "optimal_time_complexity",
++    "optimal_space_complexity",
++    "complexity",
++    "mistakes",
++    "progressive_hints",
++    "code",
++)
++
++CONCEPT_COPY_FIELDS = (
++    "category",
++    "canonical_answer",
++    "key_points",
++    "example",
++    "common_misconception",
++    "code_snippet",
++)
++
++BEHAVIOURAL_COPY_FIELDS = (
++    "star_answer",
++    "leadership_principles",
++    "stories",
++    "follow_ups",
++    "competencies",
++    "star_outline",
++    "personal_detail_prompts",
++    "follow_up_questions",
++    "common_mistakes",
++)
++
++DEBUG_COPY_FIELDS = (
++    "repository",
++    "bug_type",
++    "failing_test_or_symptom",
++    "broken_code",
++    "likely_bug",
++    "reasoning",
++    "fix",
++    "tests",
++    "common_mistake",
++)
++
++MODEL_AND_FIELDS_BY_TYPE = {
++    Question.Type.TECHNICAL: (TechnicalQuestion, TECHNICAL_COPY_FIELDS),
++    Question.Type.CONCEPT: (ConceptQuestion, CONCEPT_COPY_FIELDS),
++    Question.Type.BEHAVIOURAL: (BehaviouralQuestion, BEHAVIOURAL_COPY_FIELDS),
++    Question.Type.DEBUG: (DebugQuestion, DEBUG_COPY_FIELDS),
++}
++
++
++def _copy_values(source, field_names):
++    return {
++        field_name: deepcopy(getattr(source, field_name))
++        for field_name in field_names
++    }
++
++
++def _initial_status(source):
++    if source.question_type == Question.Type.TECHNICAL:
++        has_notes = any(
++            value.strip()
++            for value in (
++                source.intuition,
++                source.brute_force,
++                source.optimal_approach,
++            )
++        )
++    elif source.question_type == Question.Type.CONCEPT:
++        has_notes = bool(source.canonical_answer.strip())
++    elif source.question_type == Question.Type.BEHAVIOURAL:
++        has_notes = bool(source.star_answer.strip())
++    else:
++        has_notes = bool(source.fix.strip())
++
++    if has_notes:
++        return Question.Status.READY_FOR_REVIEW
++    return Question.Status.NEEDS_NOTES
++
++
++def _move_existing_personal_notes(*, user, source_question, copied_question):
++    source_note = UserQuestionNote.objects.filter(
++        user=user,
++        question=source_question,
++    ).first()
++    if source_note is None:
++        return
++
++    UserQuestionNote.objects.update_or_create(
++        user=user,
++        question=copied_question,
++        defaults={
++            "notes": source_note.notes,
++            "mistakes": source_note.mistakes,
++            "code_notes": source_note.code_notes,
++            "behavioural_notes": source_note.behavioural_notes,
++        },
++    )
++    source_note.delete()
++
++
++def _consolidate_legacy_user_data(*, user, source_question, copied_question):
++    _move_existing_personal_notes(
++        user=user,
++        source_question=source_question,
++        copied_question=copied_question,
++    )
++    UserQuestionState.objects.filter(
++        user=user,
++        question=source_question,
++    ).delete()
++
++
++def copy_built_in_question_for_user(*, question, user):
++    if not question.is_system:
++        raise ValueError("Only built-in questions can be added to a user library.")
++
++    existing_copy = Question.objects.filter(
++        owner=user,
++        source_system_question=question,
++    ).first()
++    if existing_copy is not None:
++        copied_question = existing_copy.specific
++        _consolidate_legacy_user_data(
++            user=user,
++            source_question=question,
++            copied_question=copied_question,
++        )
++        return copied_question, False
++
++    source = question.specific
++    model_class, type_fields = MODEL_AND_FIELDS_BY_TYPE[question.question_type]
++    copied_values = _copy_values(source, COMMON_COPY_FIELDS + type_fields)
++
++    try:
++        with transaction.atomic():
++            copied_question = model_class.objects.create(
++                owner=user,
++                source_system_question=question,
++                is_system=False,
++                status=_initial_status(source),
++                **copied_values,
++            )
++            _consolidate_legacy_user_data(
++                user=user,
++                source_question=question,
++                copied_question=copied_question,
++            )
++    except IntegrityError:
++        copied_question = Question.objects.get(
++            owner=user,
++            source_system_question=question,
++        ).specific
++        _consolidate_legacy_user_data(
++            user=user,
++            source_question=question,
++            copied_question=copied_question,
++        )
++        return copied_question, False
++
++    return copied_question, True
+diff --git a/apps/questions/tests/test_seeded_library.py b/apps/questions/tests/test_seeded_library.py
+index ac5558b..eedd598 100644
+--- a/apps/questions/tests/test_seeded_library.py
++++ b/apps/questions/tests/test_seeded_library.py
+@@ -61,13 +61,19 @@ def test_built_in_question_is_visible_but_not_editable(client, user):
+     assert edit_response.status_code == 404
+ 
+ 
+-def test_user_can_save_private_notes_on_built_in_question(client, user):
++def test_user_can_save_private_notes_on_owned_built_in_copy(client, user):
+     call_command("seed_question_bank")
+-    question = Question.objects.get(system_key="technical-two-sum")
++    built_in = Question.objects.get(system_key="technical-two-sum")
+     client.force_login(user)
+ 
++    client.post(reverse("questions:add_built_in", args=[built_in.pk]))
++    copied_question = Question.objects.get(
++        owner=user,
++        source_system_question=built_in,
++    )
++
+     response = client.post(
+-        reverse("questions:notes", args=[question.pk]),
++        reverse("questions:notes", args=[copied_question.pk]),
+         {
+             "notes": "Look up the complement before inserting.",
+             "mistakes": "Do not use the same index twice.",
+@@ -76,8 +82,8 @@ def test_user_can_save_private_notes_on_built_in_question(client, user):
+         },
+     )
+ 
+-    note = UserQuestionNote.objects.get(user=user, question=question)
+-    state = UserQuestionState.objects.get(user=user, question=question)
++    note = UserQuestionNote.objects.get(user=user, question=copied_question)
++    state = UserQuestionState.objects.get(user=user, question=copied_question)
+     assert response.status_code == 302
+     assert note.notes == "Look up the complement before inserting."
+     assert state.status == UserQuestionState.Status.IN_PROGRESS
+@@ -110,54 +116,109 @@ def test_question_bank_json_has_unique_keys_and_expected_count():
+     assert len(keys) == len(set(keys))
+     assert len(titles) == len(set(titles))
+ 
+-def test_saved_built_in_question_appears_in_my_library(client, user):
++def test_adding_built_in_question_creates_owned_copy(client, user):
++    call_command("seed_question_bank")
++    built_in = TechnicalQuestion.objects.get(system_key="technical-two-sum")
++    client.force_login(user)
++
++    response = client.post(
++        reverse("questions:add_built_in", args=[built_in.pk]),
++    )
++
++    copied_question = TechnicalQuestion.objects.get(
++        owner=user,
++        source_system_question=built_in,
++    )
++    assert response.status_code == 302
++    assert response.url == reverse("questions:detail", args=[copied_question.pk])
++    assert copied_question.is_system is False
++    assert copied_question.title == built_in.title
++    assert copied_question.prompt == built_in.prompt
++    assert copied_question.intuition == built_in.intuition
++    assert copied_question.code == built_in.code
++    assert copied_question.system_key is None
++
++
++def test_adding_same_built_in_question_twice_does_not_duplicate(client, user):
+     call_command("seed_question_bank")
+-    question = Question.objects.get(system_key="technical-two-sum")
++    built_in = Question.objects.get(system_key="technical-two-sum")
+     client.force_login(user)
+ 
+-    client.post(reverse("questions:toggle_bookmark", args=[question.pk]))
++    client.post(reverse("questions:add_built_in", args=[built_in.pk]))
++    client.post(reverse("questions:add_built_in", args=[built_in.pk]))
++
++    assert Question.objects.filter(
++        owner=user,
++        source_system_question=built_in,
++    ).count() == 1
++
++
++def test_added_built_in_question_appears_in_my_library(client, user):
++    call_command("seed_question_bank")
++    built_in = Question.objects.get(system_key="technical-two-sum")
++    client.force_login(user)
++
++    client.post(reverse("questions:add_built_in", args=[built_in.pk]))
++    copied_question = Question.objects.get(
++        owner=user,
++        source_system_question=built_in,
++    )
+ 
+     response = client.get(reverse("questions:list"), {"source": "mine"})
+ 
+     assert response.status_code == 200
+-    assert question.title in response.content.decode()
+-    state = UserQuestionState.objects.get(user=user, question=question)
+-    assert state.bookmarked is True
++    assert copied_question.title in response.content.decode()
+ 
+ 
+-def test_bulk_save_built_in_questions(client, user):
++def test_bulk_add_built_in_questions_creates_owned_copies(client, user):
+     call_command("seed_question_bank")
+-    questions = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
++    built_ins = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
+     client.force_login(user)
+ 
+     response = client.post(
+         reverse("questions:bulk_save_built_in"),
+-        {"selected_built_in_questions": [question.pk for question in questions]},
++        {"selected_built_in_questions": [question.pk for question in built_ins]},
+         follow=True,
+     )
+ 
+     assert response.status_code == 200
+-    assert UserQuestionState.objects.filter(
+-        user=user,
+-        question__in=questions,
+-        bookmarked=True,
++    assert Question.objects.filter(
++        owner=user,
++        source_system_question__in=built_ins,
+     ).count() == 2
+-    assert "Saved 2 built-in questions to your library." in response.content.decode()
++    assert "Added 2 built-in questions to your library." in response.content.decode()
+ 
+ 
+-def test_saved_filter_only_shows_bookmarked_built_in_questions(client, user):
++def test_added_filter_only_shows_owned_built_in_copies(client, user):
+     call_command("seed_question_bank")
+-    saved_question = Question.objects.get(system_key="technical-two-sum")
+-    unsaved_question = Question.objects.get(system_key="technical-valid-palindrome")
++    first = Question.objects.get(system_key="technical-two-sum")
++    second = Question.objects.get(system_key="technical-valid-palindrome")
++    client.force_login(user)
++
++    client.post(reverse("questions:add_built_in", args=[first.pk]))
++    response = client.get(reverse("questions:list"), {"source": "added"})
++    content = response.content.decode()
++
++    assert first.title in content
++    assert second.title not in content
++
++def test_convert_saved_built_ins_command_creates_owned_copy(user):
++    call_command("seed_question_bank")
++    built_in = Question.objects.get(system_key="technical-two-sum")
+     UserQuestionState.objects.create(
+         user=user,
+-        question=saved_question,
++        question=built_in,
+         bookmarked=True,
+     )
+-    client.force_login(user)
+ 
+-    response = client.get(reverse("questions:list"), {"source": "saved"})
+-    content = response.content.decode()
++    call_command("convert_saved_built_ins")
++
++    assert Question.objects.filter(
++        owner=user,
++        source_system_question=built_in,
++    ).count() == 1
++    assert not UserQuestionState.objects.filter(
++        user=user,
++        question=built_in,
++    ).exists()
+ 
+-    assert saved_question.title in content
+-    assert unsaved_question.title not in content
+diff --git a/apps/questions/urls.py b/apps/questions/urls.py
+index b1959fd..57df3cd 100644
+--- a/apps/questions/urls.py
++++ b/apps/questions/urls.py
+@@ -31,7 +31,11 @@ urlpatterns = [
+     path("<int:pk>/", views.question_detail, name="detail"),
+     path("<int:pk>/edit/", views.question_edit, name="edit"),
+     path("<int:pk>/notes/", views.question_notes, name="notes"),
+-    path("<int:pk>/bookmark/", views.question_toggle_bookmark, name="toggle_bookmark"),
++    path(
++        "<int:pk>/add-to-library/",
++        views.question_add_built_in,
++        name="add_built_in",
++    ),
+     path("<int:pk>/mark-ready/", views.question_mark_ready, name="mark_ready"),
+     path("<int:pk>/delete/", views.question_delete, name="delete"),
+ ]
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+index 9285201..907caff 100644
+--- a/apps/questions/views.py
++++ b/apps/questions/views.py
+@@ -5,9 +5,10 @@ from django.contrib.auth.decorators import login_required
+ from django.core.exceptions import ValidationError
+ from django.core.paginator import Paginator
+ from django.db import IntegrityError, transaction
+-from django.db.models import Exists, OuterRef, Q
++from django.db.models import OuterRef, Q, Subquery
+ from django.http import Http404
+ from django.shortcuts import get_object_or_404, redirect, render
++from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
+@@ -24,6 +25,7 @@ from .importing import (
+     refresh_batch_duplicates,
+ )
+ from .models import Question, QuestionImportBatch, UserQuestionNote, UserQuestionState
++from .services import copy_built_in_question_for_user
+ 
+ TYPE_BY_SLUG = {
+     "technical": Question.Type.TECHNICAL,
+@@ -64,13 +66,12 @@ def _question_type_from_slug(question_type_slug: str) -> str:
+ 
+ @login_required
+ def question_list(request):
+-    bookmarked_state = UserQuestionState.objects.filter(
+-        user=request.user,
+-        question_id=OuterRef("pk"),
+-        bookmarked=True,
+-    )
++    user_copy = Question.objects.filter(
++        owner=request.user,
++        source_system_question_id=OuterRef("pk"),
++    ).values("pk")[:1]
+     questions = _accessible_questions(request.user).annotate(
+-        is_bookmarked=Exists(bookmarked_state)
++        my_copy_id=Subquery(user_copy)
+     )
+ 
+     search_term = request.GET.get("q", "").strip()
+@@ -109,10 +110,13 @@ def question_list(request):
+         questions = questions.filter(status=status)
+     if source == "built_in":
+         questions = questions.filter(is_system=True)
+-    elif source == "saved":
+-        questions = questions.filter(is_system=True, is_bookmarked=True)
++    elif source == "added":
++        questions = questions.filter(
++            owner=request.user,
++            source_system_question__isnull=False,
++        )
+     elif source == "mine":
+-        questions = questions.filter(Q(owner=request.user) | Q(is_bookmarked=True))
++        questions = questions.filter(owner=request.user)
+ 
+     paginator = Paginator(questions, 20)
+     page = paginator.get_page(request.GET.get("page"))
+@@ -146,37 +150,45 @@ def bulk_save_built_in(request):
+         return redirect("questions:list")
+ 
+     questions = list(
+-        _accessible_questions(request.user).filter(
++        _question_queryset().filter(
+             pk__in=selected_ids,
+             is_system=True,
+         )
+     )
+ 
+-    saved_count = 0
+-    with transaction.atomic():
+-        for question in questions:
+-            state, _ = UserQuestionState.objects.get_or_create(
+-                user=request.user,
+-                question=question,
+-            )
+-            if not state.bookmarked:
+-                state.bookmarked = True
+-                state.save(update_fields=["bookmarked", "updated_at"])
+-                saved_count += 1
++    added_count = 0
++    already_added_count = 0
++    for question in questions:
++        _, created = copy_built_in_question_for_user(
++            question=question,
++            user=request.user,
++        )
++        if created:
++            added_count += 1
++        else:
++            already_added_count += 1
+ 
+-    already_saved_count = len(questions) - saved_count
+-    if saved_count:
++    if added_count:
++        question_label = "question" if added_count == 1 else "questions"
+         messages.success(
+             request,
+-            f"Saved {saved_count} built-in question{'s' if saved_count != 1 else ''} to your library.",
++            f"Added {added_count} built-in {question_label} to your library.",
++        )
++    if already_added_count:
++        question_label = (
++            "question" if already_added_count == 1 else "questions"
+         )
+-    if already_saved_count:
++        verb = "was" if already_added_count == 1 else "were"
+         messages.info(
+             request,
+-            f"{already_saved_count} selected question{'s were' if already_saved_count != 1 else ' was'} already saved.",
++            (
++                f"{already_added_count} selected {question_label} "
++                f"{verb} already in your library."
++            ),
+         )
+ 
+-    return redirect("questions:list")
++    library_url = reverse("questions:list")
++    return redirect(f"{library_url}?source=mine")
+ 
+ 
+ @login_required
+@@ -277,6 +289,12 @@ def question_detail(request, pk):
+     specific = question.specific
+     state = UserQuestionState.objects.filter(user=request.user, question=question).first()
+     note = UserQuestionNote.objects.filter(user=request.user, question=question).first()
++    my_copy = None
++    if question.is_system:
++        my_copy = Question.objects.filter(
++            owner=request.user,
++            source_system_question=question,
++        ).first()
+     template_by_type = {
+         Question.Type.TECHNICAL: "questions/technical_question_detail.html",
+         Question.Type.CONCEPT: "questions/concept_question_detail.html",
+@@ -296,6 +314,7 @@ def question_detail(request, pk):
+             "readiness_errors": question.readiness_errors(),
+             "user_state": state,
+             "user_note": note,
++            "my_copy": my_copy,
+         },
+     )
+ 
+@@ -361,7 +380,7 @@ def question_delete(request, pk):
+ 
+ @login_required
+ def question_notes(request, pk):
+-    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
++    question = get_object_or_404(_owned_questions(request.user), pk=pk)
+     note, _ = UserQuestionNote.objects.get_or_create(user=request.user, question=question)
+     state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+ 
+@@ -385,13 +404,19 @@ def question_notes(request, pk):
+ 
+ @login_required
+ @require_POST
+-def question_toggle_bookmark(request, pk):
+-    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+-    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+-    state.bookmarked = not state.bookmarked
+-    state.save(update_fields=["bookmarked", "updated_at"])
+-    messages.success(request, "Saved to your library." if state.bookmarked else "Removed from saved questions.")
+-    return redirect("questions:detail", pk=question.pk)
++def question_add_built_in(request, pk):
++    question = get_object_or_404(_question_queryset(), pk=pk, is_system=True)
++    copied_question, created = copy_built_in_question_for_user(
++        question=question,
++        user=request.user,
++    )
++
++    if created:
++        messages.success(request, "Added to your library.")
++    else:
++        messages.info(request, "This question is already in your library.")
++
++    return redirect("questions:detail", pk=copied_question.pk)
+ 
+ 
+ @login_required
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 7eee2d4..ac7a38d 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -15,7 +15,7 @@
+ <div class="stats-grid">
+     <div class="stat-card">
+         <span class="stat-value">{{ question_count }}</span>
+-        <span class="stat-label">Questions saved</span>
++        <span class="stat-label">Questions in my library</span>
+     </div>
+     <div class="stat-card">
+         <span class="stat-value">{{ ready_question_count }}</span>
+diff --git a/templates/questions/_personal_notes.html b/templates/questions/_personal_notes.html
+index 627b9d3..badef23 100644
+--- a/templates/questions/_personal_notes.html
++++ b/templates/questions/_personal_notes.html
+@@ -1,17 +1,33 @@
+-<section class="content-card personal-notes-card">
+-    <div class="page-header-split">
+-        <div>
+-            <p class="eyebrow">My notes</p>
+-            <h2>Your explanation, mistakes and examples</h2>
++{% if question.is_system %}
++    <section class="content-card personal-notes-card">
++        <p class="eyebrow">My copy</p>
++        <h2>Add this question to write your own notes</h2>
++        <p class="muted">The built-in version stays read-only. Your copy is editable and counts toward your dashboard total.</p>
++        {% if my_copy %}
++            <a class="button button-secondary button-small" href="{% url 'questions:detail' my_copy.pk %}">Open my copy</a>
++        {% else %}
++            <form method="post" action="{% url 'questions:add_built_in' question.pk %}">
++                {% csrf_token %}
++                <button class="button button-secondary button-small" type="submit">Add to my library</button>
++            </form>
++        {% endif %}
++    </section>
++{% else %}
++    <section class="content-card personal-notes-card">
++        <div class="page-header-split">
++            <div>
++                <p class="eyebrow">My notes</p>
++                <h2>Your explanation, mistakes and examples</h2>
++            </div>
++            <a class="button button-secondary button-small" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit notes{% else %}Add notes{% endif %}</a>
+         </div>
+-        <a class="button button-secondary button-small" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit notes{% else %}Add notes{% endif %}</a>
+-    </div>
+-    {% if user_note %}
+-        {% if user_note.notes %}<div class="rich-text">{{ user_note.notes|linebreaks }}</div>{% endif %}
+-        {% if user_note.mistakes %}<h3>Mistakes to remember</h3><div class="rich-text">{{ user_note.mistakes|linebreaks }}</div>{% endif %}
+-        {% if user_note.code_notes %}<h3>My code notes</h3><pre><code>{{ user_note.code_notes }}</code></pre>{% endif %}
+-        {% if user_note.behavioural_notes %}<h3>My story notes</h3><div class="rich-text">{{ user_note.behavioural_notes|linebreaks }}</div>{% endif %}
+-    {% else %}
+-        <p class="muted">No personal notes yet. The canonical answer stays read-only; add your own explanation here.</p>
+-    {% endif %}
+-</section>
++        {% if user_note %}
++            {% if user_note.notes %}<div class="rich-text">{{ user_note.notes|linebreaks }}</div>{% endif %}
++            {% if user_note.mistakes %}<h3>Mistakes to remember</h3><div class="rich-text">{{ user_note.mistakes|linebreaks }}</div>{% endif %}
++            {% if user_note.code_notes %}<h3>My code notes</h3><pre><code>{{ user_note.code_notes }}</code></pre>{% endif %}
++            {% if user_note.behavioural_notes %}<h3>My story notes</h3><div class="rich-text">{{ user_note.behavioural_notes|linebreaks }}</div>{% endif %}
++        {% else %}
++            <p class="muted">No personal notes yet. Add your own explanation here.</p>
++        {% endif %}
++    </section>
++{% endif %}
+diff --git a/templates/questions/_question_header.html b/templates/questions/_question_header.html
+index eb89168..bc5e306 100644
+--- a/templates/questions/_question_header.html
++++ b/templates/questions/_question_header.html
+@@ -14,11 +14,14 @@
+     </div>
+     <div class="button-row detail-actions">
+         {% if question.is_system %}
+-            <form method="post" action="{% url 'questions:toggle_bookmark' question.pk %}">
+-                {% csrf_token %}
+-                <button class="button button-secondary" type="submit">{% if user_state and user_state.bookmarked %}Remove saved{% else %}Save question{% endif %}</button>
+-            </form>
+-            <a class="button" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit my notes{% else %}Add my notes{% endif %}</a>
++            {% if my_copy %}
++                <a class="button" href="{% url 'questions:detail' my_copy.pk %}">Open my copy</a>
++            {% else %}
++                <form method="post" action="{% url 'questions:add_built_in' question.pk %}">
++                    {% csrf_token %}
++                    <button class="button" type="submit">Add to my library</button>
++                </form>
++            {% endif %}
+         {% else %}
+             {% if question.status == "NEEDS_NOTES" %}
+                 <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
+diff --git a/templates/questions/question_list.html b/templates/questions/question_list.html
+index dcdcef8..d49e0b2 100644
+--- a/templates/questions/question_list.html
++++ b/templates/questions/question_list.html
+@@ -27,7 +27,7 @@
+             <select id="question-source" name="source">
+                 <option value="">All questions</option>
+                 <option value="built_in" {% if filters.source == "built_in" %}selected{% endif %}>Built-in</option>
+-                <option value="saved" {% if filters.source == "saved" %}selected{% endif %}>Saved built-in</option>
++                <option value="added" {% if filters.source == "added" %}selected{% endif %}>Added from built-in</option>
+                 <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
+             </select>
+         </div>
+@@ -70,13 +70,13 @@
+     <form method="post">
+         {% csrf_token %}
+         <div class="bulk-toolbar">
+-            <span>Save built-in questions or move your completed questions into the future review queue.</span>
++            <span>Add built-in questions to your library or move completed questions into the future review queue.</span>
+             <div class="button-row">
+                 <button
+                     class="button button-small button-secondary"
+                     type="submit"
+                     formaction="{% url 'questions:bulk_save_built_in' %}"
+-                >Save selected built-in</button>
++                >Add selected built-in</button>
+                 <button
+                     class="button button-small"
+                     type="submit"
+@@ -90,8 +90,12 @@
+                 <article class="question-card question-card-selectable">
+                     <label class="question-select">
+                         {% if question.is_system %}
+-                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+-                            <span>{% if question.is_bookmarked %}Saved{% else %}Select to save{% endif %}</span>
++                            {% if question.my_copy_id %}
++                                <span>In my library</span>
++                            {% else %}
++                                <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
++                                <span>Select to add</span>
++                            {% endif %}
+                         {% else %}
+                             <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+                             <span>Select</span>
+@@ -99,14 +103,18 @@
+                     </label>
+                     <div class="question-card-meta">
+                         <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.is_bookmarked %}<span class="badge badge-neutral">Saved</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
++                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.my_copy_id %}<span class="badge badge-neutral">In my library</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+                         {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+                     </div>
+                     <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
+                     <p>{{ question.prompt|truncatewords:24 }}</p>
+                     <div class="question-card-footer">
+                         <span>{{ question.source_label }}{% if question.company %} · {{ question.company }}{% endif %}</span>
+-                        <span>Updated {{ question.updated_at|date:"j M" }}</span>
++                        {% if question.is_system and question.my_copy_id %}
++                            <a href="{% url 'questions:detail' question.my_copy_id %}">Open my copy</a>
++                        {% else %}
++                            <span>Updated {{ question.updated_at|date:"j M" }}</span>
++                        {% endif %}
+                     </div>
+                 </article>
+             {% endfor %}
+-- 
+2.47.3
+
