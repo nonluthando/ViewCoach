@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -14,7 +13,6 @@ from .services import (
     rating_previews,
     record_review,
     review_dashboard_summary,
-    sync_ready_review_states,
     upcoming_review_states,
 )
 
@@ -95,10 +93,7 @@ def submit_review(request, pk):
         defaults={"due_at": timezone.now()},
     )
     rating = request.POST.get("rating", "")
-    valid_ratings = {
-        value
-        for value, _ in ReviewAttempt.Rating.choices
-    }
+    valid_ratings = {value for value, _ in ReviewAttempt.Rating.choices}
     if rating not in valid_ratings:
         messages.error(request, "Choose how well you recalled the answer.")
         return redirect("reviews:review", pk=question.pk)
