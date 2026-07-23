@@ -18,8 +18,11 @@ ALLOWED_IMPORT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".docx", ".pdf"}
 
 
 class StyledModelForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, owner=None, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if owner is not None and hasattr(self.instance, "owner_id"):
+            self.instance.owner = owner
         for field in self.fields.values():
             existing_classes = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = f"form-control {existing_classes}".strip()
@@ -190,9 +193,7 @@ class QuestionImportStartForm(forms.Form):
         required=False,
         label="Or upload a file",
         help_text="TXT, Markdown, CSV, DOCX, or a text-based PDF. Maximum 5 MB.",
-        widget=forms.ClearableFileInput(
-            attrs={"accept": ".txt,.md,.markdown,.csv,.docx,.pdf"}
-        ),
+        widget=forms.ClearableFileInput(attrs={"accept": ".txt,.md,.markdown,.csv,.docx,.pdf"}),
     )
 
     def __init__(self, *args, **kwargs):

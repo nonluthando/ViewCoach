@@ -69,9 +69,7 @@ def question_list(request):
         question_id=OuterRef("pk"),
         bookmarked=True,
     )
-    questions = _accessible_questions(request.user).annotate(
-        is_bookmarked=Exists(bookmarked_state)
-    )
+    questions = _accessible_questions(request.user).annotate(is_bookmarked=Exists(bookmarked_state))
 
     search_term = request.GET.get("q", "").strip()
     question_type = request.GET.get("type", "").strip()
@@ -168,12 +166,20 @@ def bulk_save_built_in(request):
     if saved_count:
         messages.success(
             request,
-            f"Saved {saved_count} built-in question{'s' if saved_count != 1 else ''} to your library.",
+            (
+                f"Saved {saved_count} built-in "
+                f"question{'s' if saved_count != 1 else ''} "
+                "to your library."
+            ),
         )
     if already_saved_count:
         messages.info(
             request,
-            f"{already_saved_count} selected question{'s were' if already_saved_count != 1 else ' was'} already saved.",
+            (
+                f"{already_saved_count} selected "
+                f"question{'s were' if already_saved_count != 1 else ' was'} "
+                "already saved."
+            ),
         )
 
     return redirect("questions:list")
@@ -196,9 +202,7 @@ def bulk_mark_ready(request):
             question.mark_ready()
             ready_count += 1
         except ValidationError:
-            skipped.append(
-                f"{question.title}: missing {', '.join(question.readiness_errors())}."
-            )
+            skipped.append(f"{question.title}: missing {', '.join(question.readiness_errors())}.")
 
     if ready_count:
         messages.success(
@@ -222,7 +226,10 @@ def question_create(request, question_type_slug):
     form_class = QUESTION_FORM_BY_TYPE[question_type]
 
     if request.method == "POST":
-        form = form_class(request.POST)
+        form = form_class(
+            request.POST,
+            owner=request.user,
+        )
         submission_token = request.POST.get("submission_token", "")
 
         if form.is_valid():
@@ -353,7 +360,7 @@ def question_delete(request, pk):
     if request.method == "POST":
         title = question.title
         question.delete()
-        messages.success(request, f'“{title}” was deleted.')
+        messages.success(request, f"“{title}” was deleted.")
         return redirect("questions:list")
 
     return render(request, "questions/question_confirm_delete.html", {"question": question})
@@ -390,7 +397,9 @@ def question_toggle_bookmark(request, pk):
     state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
     state.bookmarked = not state.bookmarked
     state.save(update_fields=["bookmarked", "updated_at"])
-    messages.success(request, "Saved to your library." if state.bookmarked else "Removed from saved questions.")
+    messages.success(
+        request, "Saved to your library." if state.bookmarked else "Removed from saved questions."
+    )
     return redirect("questions:detail", pk=question.pk)
 
 

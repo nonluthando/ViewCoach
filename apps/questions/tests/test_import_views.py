@@ -109,9 +109,7 @@ def test_confirm_creates_questions_as_needs_notes_and_deletes_preview_items(clie
     assert batch.items.count() == 0
     assert batch.source_text == ""
     assert TechnicalQuestion.objects.filter(owner=user).count() == 2
-    assert set(Question.objects.values_list("status", flat=True)) == {
-        Question.Status.NEEDS_NOTES
-    }
+    assert set(Question.objects.values_list("status", flat=True)) == {Question.Status.NEEDS_NOTES}
 
 
 def test_repeated_confirmation_creates_questions_only_once(client, user):
@@ -240,6 +238,7 @@ def test_imported_batch_is_archived_instead_of_deleted(client, user):
     assert batch.status == QuestionImportBatch.Status.ARCHIVED
     assert batch.archived_at is not None
 
+
 def test_confirm_from_review_saves_latest_edits_before_creating_questions(client, user):
     client.force_login(user)
     client.post(
@@ -267,6 +266,7 @@ def test_confirm_from_review_saves_latest_edits_before_creating_questions(client
     assert created.title == "Conflict story"
     assert created.prompt == "Tell me about a conflict"
 
+
 def test_deleting_user_with_imported_questions_does_not_raise(user):
     batch = QuestionImportBatch.objects.create(
         owner=user,
@@ -285,6 +285,7 @@ def test_deleting_user_with_imported_questions_does_not_raise(user):
 
     assert not QuestionImportBatch.objects.filter(pk=batch.pk).exists()
     assert not Question.objects.filter(title="Two Sum").exists()
+
 
 def test_import_review_and_history_pages_render(client, user):
     batch = QuestionImportBatch.objects.create(

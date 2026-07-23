@@ -78,7 +78,10 @@ class Command(BaseCommand):
                         "optimal_approach": item["optimal_approach"],
                         "optimal_time_complexity": item["optimal_time_complexity"],
                         "optimal_space_complexity": item["optimal_space_complexity"],
-                        "complexity": f"Time: {item['optimal_time_complexity']} Space: {item['optimal_space_complexity']}",
+                        "complexity": (
+                            f"Time: {item['optimal_time_complexity']}, "
+                            f"Space: {item['optimal_space_complexity']}"
+                        ),
                         "mistakes": _join(item["common_mistakes"]),
                         "progressive_hints": hints,
                         "code": item["java_solution"],
@@ -151,4 +154,8 @@ class Command(BaseCommand):
                 updated += not was_created
 
         total = sum(len(payload[name]) for name in required_sections)
-        self.stdout.write(self.style.SUCCESS(f"Seeded {total} built-in questions ({created} created, {updated} updated)."))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Seeded {total} built-in questions ({created} created, {updated} updated)."
+            )
+        )

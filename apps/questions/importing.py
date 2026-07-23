@@ -137,11 +137,7 @@ def extract_questions_from_csv(file_obj):
 
     first_row_normalized = [cell.casefold() for cell in rows[0]]
     question_column_index = next(
-        (
-            index
-            for index, name in enumerate(first_row_normalized)
-            if name in QUESTION_COLUMN_NAMES
-        ),
+        (index for index, name in enumerate(first_row_normalized) if name in QUESTION_COLUMN_NAMES),
         None,
     )
 
@@ -216,9 +212,7 @@ def extract_questions_for_batch(batch):
             QuestionImportBatch.SourceType.TXT,
             QuestionImportBatch.SourceType.MARKDOWN,
         }:
-            return extract_questions_from_plain_text(
-                _decode_text_file(batch.temporary_file.file)
-            )
+            return extract_questions_from_plain_text(_decode_text_file(batch.temporary_file.file))
         if batch.source_type == QuestionImportBatch.SourceType.CSV:
             return extract_questions_from_csv(batch.temporary_file.file)
         if batch.source_type == QuestionImportBatch.SourceType.DOCX:
@@ -232,9 +226,7 @@ def extract_questions_for_batch(batch):
 
 
 def refresh_batch_duplicates(batch):
-    existing_prompts = Question.objects.filter(owner=batch.owner).values_list(
-        "prompt", flat=True
-    )
+    existing_prompts = Question.objects.filter(owner=batch.owner).values_list("prompt", flat=True)
     existing_normalized = {normalize_question_text(prompt) for prompt in existing_prompts}
     seen_in_batch = set()
 
@@ -332,7 +324,9 @@ def _create_question_from_item(item, batch):
     if item.question_type == Question.Type.TECHNICAL:
         return TechnicalQuestion.objects.create(**common_fields)
     if item.question_type == Question.Type.CONCEPT:
-        return ConceptQuestion.objects.create(category=ConceptQuestion.Category.OTHER, **common_fields)
+        return ConceptQuestion.objects.create(
+            category=ConceptQuestion.Category.OTHER, **common_fields
+        )
     if item.question_type == Question.Type.BEHAVIOURAL:
         return BehaviouralQuestion.objects.create(**common_fields)
     if item.question_type == Question.Type.DEBUG:
@@ -345,11 +339,7 @@ def confirm_import_batch(*, batch_id, owner, confirmation_token):
     file_storage = None
 
     with transaction.atomic():
-        batch = (
-            QuestionImportBatch.objects.select_for_update()
-            .filter(owner=owner)
-            .get(pk=batch_id)
-        )
+        batch = QuestionImportBatch.objects.select_for_update().filter(owner=owner).get(pk=batch_id)
 
         if str(batch.idempotency_key) != str(confirmation_token):
             raise ImportExtractionError("This import confirmation could not be verified.")
@@ -367,9 +357,7 @@ def confirm_import_batch(*, batch_id, owner, confirmation_token):
             raise ImportExtractionError("This batch is not ready to be imported.")
 
         refresh_batch_duplicates(batch)
-        items = list(
-            batch.items.filter(is_included=True, duplicate_reason="").order_by("position")
-        )
+        items = list(batch.items.filter(is_included=True, duplicate_reason="").order_by("position"))
         if not items:
             raise ImportExtractionError("Select at least one non-duplicate question.")
 
