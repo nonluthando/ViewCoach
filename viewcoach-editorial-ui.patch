@@ -1,0 +1,1215 @@
+diff --git a/static/css/editorial.css b/static/css/editorial.css
+new file mode 100644
+index 0000000..570156a
+--- /dev/null
++++ b/static/css/editorial.css
+@@ -0,0 +1,772 @@
++:root {
++    --vc-ivory: #f7f4ee;
++    --vc-paper: #fffdf8;
++    --vc-paper-strong: #ffffff;
++    --vc-ink: #211d1b;
++    --vc-muted: #6f6862;
++    --vc-border: #ded8cf;
++    --vc-border-strong: #c9c0b6;
++    --vc-burgundy: #821f2d;
++    --vc-burgundy-dark: #641722;
++    --vc-burgundy-soft: #f5e9eb;
++    --vc-success: #3f6b4b;
++    --vc-success-soft: #edf4ee;
++    --vc-warning: #a66320;
++    --vc-danger: #a63d36;
++    --vc-sidebar-width: 15.5rem;
++    --vc-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
++    --vc-font-serif: Georgia, "Times New Roman", serif;
++}
++
++body {
++    color: var(--vc-ink);
++    background: var(--vc-ivory);
++    font-family: var(--vc-font-sans);
++}
++
++h1,
++h2,
++h3,
++.brand,
++.app-brand {
++    font-family: var(--vc-font-serif);
++}
++
++a {
++    color: var(--vc-burgundy);
++}
++
++.button {
++    border-radius: 0.25rem;
++    background: var(--vc-burgundy);
++}
++
++.button:hover {
++    background: var(--vc-burgundy-dark);
++}
++
++.button-secondary {
++    color: var(--vc-ink);
++    background: #eee8df;
++}
++
++.button-secondary:hover {
++    background: #e4ddd3;
++}
++
++.link-button {
++    color: var(--vc-burgundy);
++}
++
++.message {
++    border: 1px solid #bed0c1;
++    border-radius: 0.25rem;
++    color: #284b31;
++    background: var(--vc-success-soft);
++}
++
++.app-shell {
++    min-height: 100vh;
++}
++
++.app-sidebar {
++    position: fixed;
++    inset: 0 auto 0 0;
++    z-index: 20;
++    display: flex;
++    width: var(--vc-sidebar-width);
++    flex-direction: column;
++    border-right: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.app-brand {
++    display: block;
++    padding: 1.7rem 1.5rem 1.45rem;
++    border-bottom: 1px solid var(--vc-border);
++    color: var(--vc-burgundy-dark);
++    font-size: 1.55rem;
++    font-weight: 700;
++    letter-spacing: -0.025em;
++    text-decoration: none;
++}
++
++.app-navigation {
++    display: grid;
++    gap: 0.25rem;
++    padding: 1.25rem 0.75rem;
++}
++
++.app-nav-link {
++    display: flex;
++    min-height: 2.75rem;
++    align-items: center;
++    gap: 0.8rem;
++    padding: 0.65rem 0.8rem;
++    border-left: 3px solid transparent;
++    color: #393431;
++    font-size: 0.94rem;
++    font-weight: 650;
++    text-decoration: none;
++}
++
++.app-nav-link:hover {
++    color: var(--vc-burgundy-dark);
++    background: #f2ede6;
++}
++
++.app-nav-link.is-active {
++    border-left-color: var(--vc-burgundy);
++    color: var(--vc-burgundy-dark);
++    background: #efe9e2;
++}
++
++.app-nav-icon {
++    display: inline-grid;
++    width: 1.35rem;
++    height: 1.35rem;
++    place-items: center;
++    font-size: 0.75rem;
++    font-weight: 800;
++}
++
++.app-sidebar-footer {
++    display: grid;
++    gap: 0.75rem;
++    padding: 1rem;
++    margin-top: auto;
++    border-top: 1px solid var(--vc-border);
++}
++
++.app-account {
++    display: grid;
++    grid-template-columns: 2.3rem minmax(0, 1fr);
++    gap: 0.75rem;
++    align-items: center;
++}
++
++.app-account-avatar,
++.mobile-account-avatar {
++    display: grid;
++    place-items: center;
++    border-radius: 50%;
++    color: #fff;
++    background: var(--vc-burgundy-dark);
++    font-family: var(--vc-font-serif);
++    font-weight: 700;
++}
++
++.app-account-avatar {
++    width: 2.3rem;
++    height: 2.3rem;
++}
++
++.app-account-copy {
++    min-width: 0;
++}
++
++.app-account-copy strong,
++.app-account-copy span {
++    display: block;
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.app-account-copy span {
++    color: var(--vc-muted);
++    font-size: 0.78rem;
++}
++
++.app-logout-form {
++    margin: 0;
++}
++
++.app-logout-button {
++    width: 100%;
++    padding: 0.55rem 0;
++    border: 0;
++    color: var(--vc-muted);
++    background: transparent;
++    cursor: pointer;
++    font: inherit;
++    font-size: 0.82rem;
++    text-align: left;
++}
++
++.app-logout-button:hover {
++    color: var(--vc-burgundy-dark);
++}
++
++.app-mobile-header,
++.app-mobile-navigation {
++    display: none;
++}
++
++.app-main {
++    min-height: 100vh;
++    padding: 2.25rem clamp(1.25rem, 3vw, 3rem) 3rem;
++    margin-left: var(--vc-sidebar-width);
++}
++
++.app-main > .message-region {
++    width: min(100%, 80rem);
++    margin-inline: auto;
++}
++
++.app-main .container,
++.app-main.container {
++    width: auto;
++    max-width: none;
++    margin: 0;
++}
++
++.app-body .page-content {
++    padding-block: 0;
++}
++
++.app-body .page-header h1,
++.app-body .question-detail-header h1 {
++    color: var(--vc-ink);
++    letter-spacing: -0.025em;
++}
++
++.app-body .eyebrow {
++    color: var(--vc-burgundy);
++    font-size: 0.72rem;
++    letter-spacing: 0.13em;
++}
++
++.app-body .form-card,
++.app-body .empty-state,
++.app-body .filter-panel,
++.app-body .type-card,
++.app-body .question-card,
++.app-body .stat-card,
++.app-body .content-card,
++.app-body .practice-card,
++.app-body .reveal-workspace,
++.app-body .review-list-item,
++.app-body .history-item {
++    border-color: var(--vc-border);
++    border-radius: 0.35rem;
++    background: var(--vc-paper);
++    box-shadow: none;
++}
++
++.app-body input,
++.app-body textarea,
++.app-body select {
++    border-color: var(--vc-border-strong);
++    border-radius: 0.25rem;
++    background: var(--vc-paper-strong);
++}
++
++.app-body .badge {
++    border-radius: 0.25rem;
++    font-weight: 700;
++}
++
++.app-body .badge-technical,
++.app-body .badge-concept,
++.app-body .badge-behavioural,
++.app-body .badge-debug,
++.app-body .badge-neutral {
++    color: #4b4540;
++    background: #eee9e2;
++}
++
++.public-body .site-header {
++    background: var(--vc-paper);
++    border-bottom-color: var(--vc-border);
++}
++
++.public-body .brand {
++    color: var(--vc-burgundy-dark);
++    font-size: 1.25rem;
++}
++
++.review-main,
++.review-page .app-main {
++    padding: 0;
++}
++
++.review-session-topbar {
++    display: flex;
++    min-height: 4.75rem;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++    padding: 1rem 2rem;
++    border-bottom: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.review-breadcrumbs {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 0.55rem;
++    color: var(--vc-muted);
++    font-size: 0.86rem;
++}
++
++.review-breadcrumbs a {
++    color: var(--vc-ink);
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.review-breadcrumbs a:hover {
++    color: var(--vc-burgundy);
++}
++
++.review-topbar-actions {
++    display: flex;
++    align-items: center;
++    gap: 0.85rem;
++}
++
++.review-text-link {
++    color: var(--vc-burgundy-dark);
++    font-size: 0.86rem;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.review-layout {
++    display: grid;
++    min-height: calc(100vh - 4.75rem);
++    grid-template-columns: minmax(0, 1fr) 18rem;
++    background: var(--vc-paper);
++}
++
++.review-workspace {
++    min-width: 0;
++    padding: clamp(1.75rem, 4vw, 4rem);
++    border-right: 1px solid var(--vc-border);
++}
++
++.review-question-meta {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.55rem;
++    margin-bottom: 2rem;
++}
++
++.review-question-meta .badge {
++    padding: 0.32rem 0.58rem;
++    border: 1px solid var(--vc-border);
++}
++
++.review-kicker {
++    margin: 0 0 0.55rem;
++    color: var(--vc-burgundy);
++    font-size: 0.72rem;
++    font-weight: 800;
++    letter-spacing: 0.13em;
++    text-transform: uppercase;
++}
++
++.review-question-title {
++    max-width: 58rem;
++    margin: 0;
++    color: var(--vc-ink);
++    font-size: clamp(2.2rem, 5vw, 4.25rem);
++    line-height: 1.04;
++    letter-spacing: -0.035em;
++}
++
++.review-question-prompt {
++    max-width: 56rem;
++    margin-top: 1.6rem;
++    color: #393431;
++    font-size: 1.08rem;
++    line-height: 1.75;
++}
++
++.review-recall-note {
++    max-width: 56rem;
++    padding: 1.2rem 0;
++    margin-top: 2.5rem;
++    border-top: 1px solid var(--vc-border);
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.review-recall-note strong {
++    display: block;
++    margin-bottom: 0.3rem;
++    font-family: var(--vc-font-serif);
++    font-size: 1.05rem;
++}
++
++.review-recall-note p {
++    margin: 0;
++    color: var(--vc-muted);
++    font-size: 0.92rem;
++}
++
++.review-answer-disclosure {
++    max-width: 56rem;
++    margin-top: 2rem;
++    border: 0;
++    background: transparent;
++}
++
++.review-answer-disclosure > summary {
++    display: inline-flex;
++    min-height: 3.15rem;
++    align-items: center;
++    justify-content: center;
++    padding: 0.75rem 1.25rem;
++    border: 1px solid var(--vc-burgundy);
++    border-radius: 0.25rem;
++    color: #fff;
++    background: var(--vc-burgundy);
++    cursor: pointer;
++    font-weight: 800;
++    list-style: none;
++}
++
++.review-answer-disclosure > summary::-webkit-details-marker {
++    display: none;
++}
++
++.review-answer-disclosure > summary:hover {
++    background: var(--vc-burgundy-dark);
++}
++
++.review-answer-disclosure[open] > summary {
++    color: var(--vc-burgundy-dark);
++    background: var(--vc-burgundy-soft);
++}
++
++.review-answer-content-editorial {
++    padding: 2rem 0 0;
++}
++
++.review-answer-section {
++    padding: 1.5rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.review-answer-section:first-child {
++    border-top: 0;
++}
++
++.review-answer-section h2 {
++    margin: 0 0 0.85rem;
++    font-size: 1.4rem;
++}
++
++.review-answer-section .rich-text,
++.review-answer-section p,
++.review-answer-section li {
++    line-height: 1.7;
++}
++
++.review-answer-section pre {
++    border-radius: 0.25rem;
++}
++
++.review-rating-panel {
++    padding-top: 2rem;
++    margin-top: 1rem;
++    border-top: 2px solid var(--vc-ink);
++}
++
++.review-rating-heading {
++    margin-bottom: 1rem;
++}
++
++.review-rating-heading h2 {
++    margin: 0 0 0.3rem;
++    font-size: 1.45rem;
++}
++
++.review-rating-heading p {
++    margin: 0;
++    color: var(--vc-muted);
++    font-size: 0.9rem;
++}
++
++.review-page .rating-grid {
++    gap: 0;
++    border: 1px solid var(--vc-border-strong);
++}
++
++.review-page .rating-button {
++    min-height: 6rem;
++    border: 0;
++    border-right: 1px solid var(--vc-border);
++    border-radius: 0;
++    color: var(--vc-ink);
++    background: var(--vc-paper);
++    transition: background 120ms ease, color 120ms ease;
++}
++
++.review-page .rating-button:last-child {
++    border-right: 0;
++}
++
++.review-page .rating-button:hover {
++    border-color: var(--vc-border);
++    background: #f1ebe4;
++    transform: none;
++}
++
++.review-page .rating-button strong {
++    font-family: var(--vc-font-serif);
++    font-size: 1.05rem;
++}
++
++.review-page .rating-button span {
++    color: var(--vc-muted);
++}
++
++.review-page .rating-again strong {
++    color: var(--vc-danger);
++}
++
++.review-page .rating-hard strong {
++    color: var(--vc-warning);
++}
++
++.review-page .rating-good strong,
++.review-page .rating-easy strong {
++    color: var(--vc-success);
++}
++
++.review-sidebar {
++    padding: 1.75rem;
++    background: #fbf8f2;
++}
++
++.review-sidebar-section {
++    padding: 0 0 1.5rem;
++    margin-bottom: 1.5rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.review-sidebar-section:last-child {
++    margin-bottom: 0;
++    border-bottom: 0;
++}
++
++.review-sidebar-section h2 {
++    margin: 0 0 1rem;
++    font-family: var(--vc-font-sans);
++    font-size: 0.78rem;
++    letter-spacing: 0.08em;
++    text-transform: uppercase;
++}
++
++.review-facts {
++    display: grid;
++    gap: 0.9rem;
++    margin: 0;
++}
++
++.review-fact {
++    display: grid;
++    gap: 0.15rem;
++}
++
++.review-fact dt {
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    font-weight: 700;
++    text-transform: uppercase;
++}
++
++.review-fact dd {
++    margin: 0;
++    font-size: 0.9rem;
++    font-weight: 700;
++}
++
++.review-sidebar-copy {
++    color: var(--vc-muted);
++    font-size: 0.86rem;
++    line-height: 1.65;
++}
++
++.review-sidebar-links {
++    display: grid;
++    gap: 0.65rem;
++}
++
++.review-sidebar-links a {
++    font-size: 0.86rem;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.review-sidebar-links a:hover {
++    text-decoration: underline;
++}
++
++@media (max-width: 64rem) {
++    .app-sidebar {
++        width: 13.5rem;
++    }
++
++    .app-main {
++        margin-left: 13.5rem;
++    }
++
++    .review-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .review-workspace {
++        border-right: 0;
++    }
++
++    .review-sidebar {
++        display: grid;
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        gap: 2rem;
++        border-top: 1px solid var(--vc-border);
++    }
++
++    .review-sidebar-section {
++        margin: 0;
++        border: 0;
++    }
++}
++
++@media (max-width: 48rem) {
++    .app-sidebar {
++        display: none;
++    }
++
++    .app-mobile-header {
++        position: sticky;
++        top: 0;
++        z-index: 30;
++        display: flex;
++        min-height: 3.75rem;
++        align-items: center;
++        justify-content: space-between;
++        padding: 0.75rem 1rem;
++        border-bottom: 1px solid var(--vc-border);
++        background: rgba(255, 253, 248, 0.97);
++    }
++
++    .app-mobile-brand {
++        color: var(--vc-burgundy-dark);
++        font-family: var(--vc-font-serif);
++        font-size: 1.25rem;
++        font-weight: 700;
++        text-decoration: none;
++    }
++
++    .mobile-account-avatar {
++        width: 2rem;
++        height: 2rem;
++        font-size: 0.82rem;
++    }
++
++    .app-main {
++        padding: 1.25rem 1rem 5.5rem;
++        margin-left: 0;
++    }
++
++    .app-mobile-navigation {
++        position: fixed;
++        inset: auto 0 0;
++        z-index: 40;
++        display: grid;
++        min-height: 4.15rem;
++        grid-template-columns: repeat(4, 1fr);
++        border-top: 1px solid var(--vc-border);
++        background: var(--vc-paper);
++    }
++
++    .mobile-nav-link {
++        display: grid;
++        place-items: center;
++        padding: 0.65rem 0.2rem;
++        color: var(--vc-muted);
++        font-size: 0.68rem;
++        font-weight: 750;
++        text-decoration: none;
++    }
++
++    .mobile-nav-link.is-active {
++        color: var(--vc-burgundy);
++    }
++
++    .review-page .app-mobile-header {
++        display: none;
++    }
++
++    .review-page .app-main {
++        padding: 0 0 4.15rem;
++    }
++
++    .review-session-topbar {
++        position: sticky;
++        top: 0;
++        z-index: 25;
++        min-height: 3.75rem;
++        padding: 0.75rem 1rem;
++    }
++
++    .review-breadcrumbs span:not(:last-child),
++    .review-breadcrumbs a:not(:last-of-type),
++    .review-topbar-actions .review-text-link:first-child {
++        display: none;
++    }
++
++    .review-layout {
++        min-height: auto;
++    }
++
++    .review-workspace {
++        padding: 2rem 1.1rem;
++    }
++
++    .review-question-title {
++        font-size: clamp(2.15rem, 11vw, 3.25rem);
++    }
++
++    .review-question-prompt {
++        font-size: 1rem;
++    }
++
++    .review-page .rating-grid {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++
++    .review-page .rating-button:nth-child(2) {
++        border-right: 0;
++    }
++
++    .review-page .rating-button:nth-child(-n + 2) {
++        border-bottom: 1px solid var(--vc-border);
++    }
++
++    .review-sidebar {
++        grid-template-columns: 1fr;
++        padding: 1.5rem 1.1rem;
++    }
++}
++
++.app-nav-icon svg,
++.mobile-nav-link svg {
++    width: 100%;
++    height: 100%;
++    fill: none;
++    stroke: currentColor;
++    stroke-linecap: round;
++    stroke-linejoin: round;
++    stroke-width: 1.7;
++}
++
++.mobile-nav-link svg {
++    width: 1.15rem;
++    height: 1.15rem;
++    margin-bottom: 0.18rem;
++}
+diff --git a/templates/base.html b/templates/base.html
+index 8a44435..b27edf0 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -4,40 +4,116 @@
+ <head>
+     <meta charset="utf-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+-    <title>{% block title %}Adaptive Interview Coach{% endblock %}</title>
++    <title>{% block title %}ViewCoach{% endblock %}</title>
+     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
++    <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
+ </head>
+-<body>
+-<header class="site-header">
+-    <nav class="nav container" aria-label="Primary navigation">
+-        <a class="brand" href="{% url 'home' %}">Adaptive Interview Coach</a>
+-        <div class="nav-actions">
+-            {% if user.is_authenticated %}
+-                <a href="{% url 'dashboard' %}">Dashboard</a>
+-                <a href="{% url 'questions:list' %}">Questions</a>
+-                <a href="{% url 'reviews:queue' %}">Reviews</a>
+-                <form method="post" action="{% url 'logout' %}">
++<body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
++{% if user.is_authenticated %}
++    <div class="app-shell">
++        <aside class="app-sidebar" aria-label="Application navigation">
++            <a class="app-brand" href="{% url 'dashboard' %}">ViewCoach</a>
++
++            <nav class="app-navigation" aria-label="Primary navigation">
++                <a class="app-nav-link {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}"
++                   href="{% url 'dashboard' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
++                    </span>
++                    <span>Dashboard</span>
++                </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
++                   href="{% url 'reviews:queue' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
++                    </span>
++                    <span>Review</span>
++                </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
++                   href="{% url 'questions:list' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
++                    </span>
++                    <span>Question bank</span>
++                </a>
++                <a class="app-nav-link {% if request.resolver_match.url_name == 'import_history' %}is-active{% endif %}"
++                   href="{% url 'questions:import_history' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 19h16"></path></svg>
++                    </span>
++                    <span>Imports</span>
++                </a>
++            </nav>
++
++            <div class="app-sidebar-footer">
++                <div class="app-account">
++                    <span class="app-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
++                    <span class="app-account-copy">
++                        <strong>Signed in</strong>
++                        <span>{{ user.email }}</span>
++                    </span>
++                </div>
++                <form class="app-logout-form" method="post" action="{% url 'logout' %}">
+                     {% csrf_token %}
+-                    <button class="link-button" type="submit">Log out</button>
++                    <button class="app-logout-button" type="submit">Log out</button>
+                 </form>
+-            {% else %}
++            </div>
++        </aside>
++
++        <header class="app-mobile-header">
++            <a class="app-mobile-brand" href="{% url 'dashboard' %}">ViewCoach</a>
++            <span class="mobile-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
++        </header>
++
++        <main class="app-main page-content {% block main_class %}{% endblock %}">
++{% else %}
++    <header class="site-header">
++        <nav class="nav container" aria-label="Primary navigation">
++            <a class="brand" href="{% url 'home' %}">ViewCoach</a>
++            <div class="nav-actions">
+                 <a href="{% url 'login' %}">Log in</a>
+                 <a class="button button-small" href="{% url 'signup' %}">Create account</a>
+-            {% endif %}
+-        </div>
+-    </nav>
+-</header>
++            </div>
++        </nav>
++    </header>
++
++    <main class="container page-content">
++{% endif %}
++        {% if messages %}
++            <div class="message-region" aria-live="polite">
++                {% for message in messages %}
++                    <p class="message">{{ message }}</p>
++                {% endfor %}
++            </div>
++        {% endif %}
++        {% block content %}{% endblock %}
++    </main>
+ 
+-<main class="container page-content">
+-    {% if messages %}
+-        <div aria-live="polite">
+-            {% for message in messages %}
+-                <p class="message">{{ message }}</p>
+-            {% endfor %}
+-        </div>
+-    {% endif %}
+-    {% block content %}{% endblock %}
+-</main>
++{% if user.is_authenticated %}
++        <nav class="app-mobile-navigation" aria-label="Mobile navigation">
++            <a class="mobile-nav-link {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}"
++               href="{% url 'dashboard' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4z"></path></svg>
++                <span>Home</span>
++            </a>
++            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
++               href="{% url 'reviews:queue' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
++                <span>Review</span>
++            </a>
++            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
++               href="{% url 'questions:list' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
++                <span>Bank</span>
++            </a>
++            <a class="mobile-nav-link {% if request.resolver_match.url_name == 'import_history' %}is-active{% endif %}"
++               href="{% url 'questions:import_history' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 19h16"></path></svg>
++                <span>Imports</span>
++            </a>
++        </nav>
++    </div>
++{% endif %}
+ </body>
+ </html>
+diff --git a/templates/reviews/review_question.html b/templates/reviews/review_question.html
+index 09d0822..281ca2c 100644
+--- a/templates/reviews/review_question.html
++++ b/templates/reviews/review_question.html
+@@ -1,72 +1,223 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Review {{ question.title }} | Adaptive Interview Coach{% endblock %}
++{% block title %}Review {{ question.title }} | ViewCoach{% endblock %}
++{% block body_class %}review-page{% endblock %}
++{% block main_class %}review-main{% endblock %}
+ 
+ {% block content %}
+-<section class="review-session-header">
+-    <div class="question-card-meta">
+-        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+-        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+-        <span class="badge badge-neutral">
+-            {% if review_state.last_reviewed_at %}Interval {{ review_state.interval_days }} day{{ review_state.interval_days|pluralize }}{% else %}New review{% endif %}
+-        </span>
++<header class="review-session-topbar">
++    <div class="review-breadcrumbs">
++        <a href="{% url 'reviews:queue' %}">Review queue</a>
++        <span aria-hidden="true">/</span>
++        <span>{{ question.get_question_type_display }}</span>
+     </div>
+-    <p class="eyebrow">Recall before reveal</p>
+-    <h1>{{ question.title }}</h1>
+-    <div class="review-prompt rich-text">{{ question.prompt|linebreaks }}</div>
+-</section>
++    <div class="review-topbar-actions">
++        <a class="review-text-link" href="{% url 'questions:notes' question.pk %}">Edit notes</a>
++        <a class="review-text-link" href="{% url 'reviews:queue' %}">End session</a>
++    </div>
++</header>
++
++<div class="review-layout">
++    <article class="review-workspace">
++        <div class="review-question-meta">
++            <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++            {% if specific.topic %}<span class="badge badge-neutral">{{ specific.topic }}</span>{% endif %}
++            {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
++            <span class="badge badge-neutral">
++                {% if review_state.last_reviewed_at %}
++                    {{ review_state.interval_days }} day{{ review_state.interval_days|pluralize }} interval
++                {% else %}
++                    New review
++                {% endif %}
++            </span>
++        </div>
+ 
+-<section class="review-instructions">
+-    <h2>Answer from memory</h2>
+-    <p>Explain it aloud, trace the algorithm, write the code or structure the story before opening the answer.</p>
+-</section>
++        <p class="review-kicker">Recall before reveal</p>
++        <h1 class="review-question-title">{{ question.title }}</h1>
++        <div class="review-question-prompt rich-text">{{ question.prompt|linebreaks }}</div>
+ 
+-<details class="review-answer">
+-    <summary>Reveal the answer and rate your recall</summary>
+-    <div class="review-answer-content">
+-        {% if question.question_type == "TECHNICAL" %}
+-            {% if specific.intuition %}<h2>Intuition</h2><div class="rich-text">{{ specific.intuition|linebreaks }}</div>{% endif %}
+-            {% if specific.brute_force %}<h2>Brute force</h2><div class="rich-text">{{ specific.brute_force|linebreaks }}</div>{% endif %}
+-            {% if specific.optimal_approach %}<h2>Optimal approach</h2><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
+-            {% if specific.complexity %}<h2>Complexity</h2><p>{{ specific.complexity }}</p>{% endif %}
+-            {% if specific.code %}<h2>Code</h2><pre><code>{{ specific.code }}</code></pre>{% endif %}
+-        {% elif question.question_type == "CONCEPT" %}
+-            {% if specific.canonical_answer %}<h2>Canonical answer</h2><div class="rich-text">{{ specific.canonical_answer|linebreaks }}</div>{% endif %}
+-            {% if specific.key_points %}
+-                <h2>Key points</h2>
+-                <ul>{% for point in specific.key_points %}<li>{{ point }}</li>{% endfor %}</ul>
+-            {% endif %}
+-            {% if specific.example %}<h2>Example</h2><div class="rich-text">{{ specific.example|linebreaks }}</div>{% endif %}
+-            {% if specific.common_misconception %}<h2>Common misconception</h2><div class="rich-text">{{ specific.common_misconception|linebreaks }}</div>{% endif %}
+-            {% if specific.code_snippet %}<h2>Code example</h2><pre><code>{{ specific.code_snippet }}</code></pre>{% endif %}
+-        {% elif question.question_type == "BEHAVIOURAL" %}
+-            {% if specific.star_answer %}<h2>STAR answer</h2><div class="rich-text">{{ specific.star_answer|linebreaks }}</div>{% endif %}
+-            {% if specific.stories %}<h2>Story notes</h2><div class="rich-text">{{ specific.stories|linebreaks }}</div>{% endif %}
+-            {% if specific.follow_ups %}<h2>Likely follow-ups</h2><div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% endif %}
+-        {% elif question.question_type == "DEBUG" %}
+-            {% if specific.likely_bug %}<h2>Likely bug</h2><div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>{% endif %}
+-            {% if specific.reasoning %}<h2>Reasoning</h2><div class="rich-text">{{ specific.reasoning|linebreaks }}</div>{% endif %}
+-            {% if specific.fix %}<h2>Fix</h2><div class="rich-text">{{ specific.fix|linebreaks }}</div>{% endif %}
+-            {% if specific.tests %}<h2>Verification tests</h2><div class="rich-text">{{ specific.tests|linebreaks }}</div>{% endif %}
+-        {% endif %}
++        <section class="review-recall-note" aria-labelledby="recall-heading">
++            <strong id="recall-heading">Answer from memory</strong>
++            <p>Explain it aloud, trace the algorithm, write the code or structure the story before opening the answer.</p>
++        </section>
+ 
+-        <div class="rating-panel">
+-            <h2>How difficult was retrieval?</h2>
+-            <p class="muted">Rate the recall, not how much you like the question.</p>
+-            <form method="post" action="{% url 'reviews:submit' question.pk %}">
+-                {% csrf_token %}
+-                <div class="rating-grid">
+-                    {% for preview in rating_previews %}
+-                        <button class="rating-button rating-{{ preview.value|lower }}" type="submit" name="rating" value="{{ preview.value }}">
+-                            <strong>{{ preview.label }}</strong>
+-                            <span>{{ preview.interval_label }}</span>
+-                        </button>
+-                    {% endfor %}
++        <details class="review-answer-disclosure">
++            <summary>Reveal answer</summary>
++            <div class="review-answer-content-editorial">
++                {% if question.question_type == "TECHNICAL" %}
++                    {% if specific.intuition %}
++                        <section class="review-answer-section">
++                            <h2>Intuition</h2>
++                            <div class="rich-text">{{ specific.intuition|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.brute_force %}
++                        <section class="review-answer-section">
++                            <h2>Brute force</h2>
++                            <div class="rich-text">{{ specific.brute_force|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.optimal_approach %}
++                        <section class="review-answer-section">
++                            <h2>Optimal approach</h2>
++                            <div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.complexity %}
++                        <section class="review-answer-section">
++                            <h2>Complexity</h2>
++                            <p>{{ specific.complexity }}</p>
++                        </section>
++                    {% endif %}
++                    {% if specific.code %}
++                        <section class="review-answer-section">
++                            <h2>Code</h2>
++                            <pre><code>{{ specific.code }}</code></pre>
++                        </section>
++                    {% endif %}
++                {% elif question.question_type == "CONCEPT" %}
++                    {% if specific.canonical_answer %}
++                        <section class="review-answer-section">
++                            <h2>Canonical answer</h2>
++                            <div class="rich-text">{{ specific.canonical_answer|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.key_points %}
++                        <section class="review-answer-section">
++                            <h2>Key points</h2>
++                            <ul>{% for point in specific.key_points %}<li>{{ point }}</li>{% endfor %}</ul>
++                        </section>
++                    {% endif %}
++                    {% if specific.example %}
++                        <section class="review-answer-section">
++                            <h2>Example</h2>
++                            <div class="rich-text">{{ specific.example|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.common_misconception %}
++                        <section class="review-answer-section">
++                            <h2>Common misconception</h2>
++                            <div class="rich-text">{{ specific.common_misconception|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.code_snippet %}
++                        <section class="review-answer-section">
++                            <h2>Code example</h2>
++                            <pre><code>{{ specific.code_snippet }}</code></pre>
++                        </section>
++                    {% endif %}
++                {% elif question.question_type == "BEHAVIOURAL" %}
++                    {% if specific.star_answer %}
++                        <section class="review-answer-section">
++                            <h2>STAR answer</h2>
++                            <div class="rich-text">{{ specific.star_answer|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.stories %}
++                        <section class="review-answer-section">
++                            <h2>Story notes</h2>
++                            <div class="rich-text">{{ specific.stories|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.follow_ups %}
++                        <section class="review-answer-section">
++                            <h2>Likely follow-ups</h2>
++                            <div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                {% elif question.question_type == "DEBUG" %}
++                    {% if specific.likely_bug %}
++                        <section class="review-answer-section">
++                            <h2>Likely bug</h2>
++                            <div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.reasoning %}
++                        <section class="review-answer-section">
++                            <h2>Reasoning</h2>
++                            <div class="rich-text">{{ specific.reasoning|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.fix %}
++                        <section class="review-answer-section">
++                            <h2>Fix</h2>
++                            <div class="rich-text">{{ specific.fix|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                    {% if specific.tests %}
++                        <section class="review-answer-section">
++                            <h2>Verification tests</h2>
++                            <div class="rich-text">{{ specific.tests|linebreaks }}</div>
++                        </section>
++                    {% endif %}
++                {% endif %}
++
++                <section class="review-rating-panel" aria-labelledby="rating-heading">
++                    <div class="review-rating-heading">
++                        <h2 id="rating-heading">How difficult was retrieval?</h2>
++                        <p>Rate the recall, not how much you like the question.</p>
++                    </div>
++                    <form method="post" action="{% url 'reviews:submit' question.pk %}">
++                        {% csrf_token %}
++                        <div class="rating-grid">
++                            {% for preview in rating_previews %}
++                                <button class="rating-button rating-{{ preview.value|lower }}"
++                                        type="submit"
++                                        name="rating"
++                                        value="{{ preview.value }}">
++                                    <strong>{{ preview.label }}</strong>
++                                    <span>{{ preview.interval_label }}</span>
++                                </button>
++                            {% endfor %}
++                        </div>
++                    </form>
++                </section>
++            </div>
++        </details>
++    </article>
++
++    <aside class="review-sidebar" aria-label="Review details">
++        <section class="review-sidebar-section">
++            <h2>Review details</h2>
++            <dl class="review-facts">
++                <div class="review-fact">
++                    <dt>Due</dt>
++                    <dd>{{ review_state.due_at|date:"j M Y, H:i" }}</dd>
+                 </div>
+-            </form>
+-        </div>
+-    </div>
+-</details>
++                <div class="review-fact">
++                    <dt>Last reviewed</dt>
++                    <dd>
++                        {% if review_state.last_reviewed_at %}
++                            {{ review_state.last_reviewed_at|date:"j M Y" }}
++                        {% else %}
++                            Not reviewed yet
++                        {% endif %}
++                    </dd>
++                </div>
++                <div class="review-fact">
++                    <dt>Successful reviews</dt>
++                    <dd>{{ review_state.repetitions }}</dd>
++                </div>
++                <div class="review-fact">
++                    <dt>Lapses</dt>
++                    <dd>{{ review_state.lapses }}</dd>
++                </div>
++            </dl>
++        </section>
++
++        <section class="review-sidebar-section">
++            <h2>How to use this screen</h2>
++            <p class="review-sidebar-copy">
++                Attempt the question before revealing the stored answer. Choose the rating that best reflects how easily you retrieved it.
++            </p>
++        </section>
+ 
+-<p class="back-link"><a href="{% url 'reviews:queue' %}">Back to review queue</a></p>
++        <section class="review-sidebar-section review-sidebar-links">
++            <h2>Session links</h2>
++            <a href="{% url 'reviews:history' %}">Review history</a>
++            <a href="{% url 'questions:detail' question.pk %}">Open question details</a>
++            <a href="{% url 'reviews:queue' %}">Back to review queue</a>
++        </section>
++    </aside>
++</div>
+ {% endblock %}
