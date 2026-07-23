@@ -1,0 +1,2153 @@
+diff --git a/README.md b/README.md
+index 881d8d9980bce0c19dd02164b8f7ad3957029fc6..1012f865c91a91ac27f9eadc817e5aec835f0a14 100644
+--- a/README.md
++++ b/README.md
+@@ -2,5 +2,5 @@
+ 
+-A Django application for creating structured interview material, practising it progressively and later receiving a focused study plan based on what matters now.
++A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
+ 
+-The repository currently contains **Milestones 0, 1 and 1.1**.
++The repository currently contains **Milestones 0 through 3.2**.
+ 
+@@ -40,3 +40,22 @@ The repository currently contains **Milestones 0, 1 and 1.1**.
+ 
+-Spaced repetition, review scheduling, the Focus Engine, goals and AI are intentionally not part of these milestones.
++### Milestone 2 — Review engine
++
++- deterministic Again, Hard, Good and Easy scheduling;
++- due and upcoming review queues;
++- review history and dashboard summaries;
++- ownership validation around every review state.
++
++### Milestones 3 and 3.1 — Learning roadmaps
++
++- 12 built-in role, skill and practice roadmaps with 419 topics;
++- per-user roadmap and topic progress;
++- topic workspaces with private notes and saved learning resources.
++
++### Milestone 3.2 — Adaptive study planner
++
++- a persisted daily plan generated from available study time;
++- deterministic priority for due reviews, active roadmap work, recent weak areas and fresh practice;
++- transparent rationales and time estimates for every recommendation;
++- task completion, plan regeneration and study-session tracking;
++- dashboard integration that gives users a clear next action.
+ 
+@@ -51,3 +70,3 @@ Spaced repetition, review scheduling, the Focus Engine, goals and AI are intenti
+ 
+-See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/adr/`](docs/adr/).
++See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md) and [`docs/adr/`](docs/adr/).
+ 
+diff --git a/apps/core/views.py b/apps/core/views.py
+index 9643b7cda75b8302732e3cf09c668aaf42751467..2e78d2969edfd5e11de4ff439e1372b5564b4ec8 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -5,2 +5,3 @@ from django.shortcuts import render
+ 
++from apps.planner.services import generate_daily_plan, plan_summary
+ from apps.questions.models import Question
+@@ -18,2 +19,4 @@ def dashboard(request):
+ 
++    today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
++
+     return render(
+@@ -29,2 +32,3 @@ def dashboard(request):
+             "next_review_state": review_summary["next_state"],
++            "today_plan": today_plan,
+             "recent_questions": questions.select_related(
+diff --git a/apps/planner/__init__.py b/apps/planner/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/planner/admin.py b/apps/planner/admin.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f6a8139a6a2c17858b637def526b1f7a461714e9
+--- /dev/null
++++ b/apps/planner/admin.py
+@@ -0,0 +1,59 @@
++from django.contrib import admin
++
++from .models import StudyPlan, StudyRecommendation, StudySession
++
++
++class StudyRecommendationInline(admin.TabularInline):
++    model = StudyRecommendation
++    extra = 0
++    fields = (
++        "position",
++        "kind",
++        "title",
++        "estimated_minutes",
++        "priority_score",
++        "completed_at",
++    )
++    readonly_fields = ("completed_at",)
++
++
++@admin.register(StudyPlan)
++class StudyPlanAdmin(admin.ModelAdmin):
++    list_display = (
++        "user",
++        "plan_date",
++        "time_budget_minutes",
++        "status",
++        "generated_at",
++    )
++    list_filter = ("status", "plan_date")
++    search_fields = ("user__email",)
++    raw_id_fields = ("user",)
++    inlines = (StudyRecommendationInline,)
++
++
++@admin.register(StudyRecommendation)
++class StudyRecommendationAdmin(admin.ModelAdmin):
++    list_display = (
++        "title",
++        "plan",
++        "kind",
++        "estimated_minutes",
++        "priority_score",
++        "completed_at",
++    )
++    list_filter = ("kind", "completed_at")
++    search_fields = ("title", "plan__user__email")
++    raw_id_fields = ("plan", "question", "topic")
++
++
++@admin.register(StudySession)
++class StudySessionAdmin(admin.ModelAdmin):
++    list_display = (
++        "plan",
++        "started_at",
++        "ended_at",
++        "completed_recommendation_count",
++    )
++    list_filter = ("started_at", "ended_at")
++    raw_id_fields = ("plan",)
+diff --git a/apps/planner/apps.py b/apps/planner/apps.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..fb24984cd5466d64cee1db04e2a82d91beb67e99
+--- /dev/null
++++ b/apps/planner/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class PlannerConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.planner"
+diff --git a/apps/planner/forms.py b/apps/planner/forms.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b1d8dea2dc0811d9412e387c5eddae508ca6006
+--- /dev/null
++++ b/apps/planner/forms.py
+@@ -0,0 +1,17 @@
++from django import forms
++
++
++class StudyPlanPreferencesForm(forms.Form):
++    TIME_BUDGET_CHOICES = (
++        (30, "30 minutes"),
++        (45, "45 minutes"),
++        (60, "1 hour"),
++        (90, "1 hour 30 minutes"),
++        (120, "2 hours"),
++    )
++
++    time_budget_minutes = forms.TypedChoiceField(
++        choices=TIME_BUDGET_CHOICES,
++        coerce=int,
++        label="Time available today",
++    )
+diff --git a/apps/planner/migrations/0001_initial.py b/apps/planner/migrations/0001_initial.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f561399ec681a816029c4c1ce8d0e85f63cf57f0
+--- /dev/null
++++ b/apps/planner/migrations/0001_initial.py
+@@ -0,0 +1,176 @@
++import django.db.models.deletion
++import django.utils.timezone
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++        ("questions", "0005_expand_debug_repository_context"),
++        ("roadmaps", "0002_usertopicresource"),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="StudyPlan",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("plan_date", models.DateField()),
++                ("time_budget_minutes", models.PositiveSmallIntegerField(default=60)),
++                (
++                    "status",
++                    models.CharField(
++                        choices=[("ACTIVE", "Active"), ("COMPLETED", "Completed")],
++                        default="ACTIVE",
++                        max_length=12,
++                    ),
++                ),
++                ("generated_at", models.DateTimeField(default=django.utils.timezone.now)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="study_plans",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["-plan_date", "-generated_at"],
++                "indexes": [
++                    models.Index(
++                        fields=["user", "-plan_date"],
++                        name="study_plan_user_date_idx",
++                    )
++                ],
++                "constraints": [
++                    models.UniqueConstraint(
++                        fields=("user", "plan_date"),
++                        name="unique_user_daily_study_plan",
++                    )
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="StudySession",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("started_at", models.DateTimeField(default=django.utils.timezone.now)),
++                ("ended_at", models.DateTimeField(blank=True, null=True)),
++                (
++                    "completed_recommendation_count",
++                    models.PositiveSmallIntegerField(default=0),
++                ),
++                (
++                    "plan",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="sessions",
++                        to="planner.studyplan",
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["-started_at", "-pk"],
++                "constraints": [
++                    models.UniqueConstraint(
++                        condition=models.Q(("ended_at__isnull", True)),
++                        fields=("plan",),
++                        name="one_active_session_per_study_plan",
++                    )
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="StudyRecommendation",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "kind",
++                    models.CharField(
++                        choices=[
++                            ("REVIEW", "Due review"),
++                            ("ROADMAP", "Roadmap"),
++                            ("WEAK_AREA", "Weak area"),
++                            ("PRACTICE", "Practice"),
++                            ("LIBRARY", "Question library"),
++                        ],
++                        max_length=16,
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("description", models.TextField(blank=True)),
++                ("rationale", models.TextField(blank=True)),
++                ("estimated_minutes", models.PositiveSmallIntegerField()),
++                ("priority_score", models.PositiveSmallIntegerField(default=0)),
++                ("position", models.PositiveSmallIntegerField(default=0)),
++                ("completed_at", models.DateTimeField(blank=True, null=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "plan",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="recommendations",
++                        to="planner.studyplan",
++                    ),
++                ),
++                (
++                    "question",
++                    models.ForeignKey(
++                        blank=True,
++                        null=True,
++                        on_delete=django.db.models.deletion.SET_NULL,
++                        related_name="study_recommendations",
++                        to="questions.question",
++                    ),
++                ),
++                (
++                    "topic",
++                    models.ForeignKey(
++                        blank=True,
++                        null=True,
++                        on_delete=django.db.models.deletion.SET_NULL,
++                        related_name="study_recommendations",
++                        to="roadmaps.roadmaptopic",
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["position", "-priority_score", "pk"],
++                "indexes": [
++                    models.Index(
++                        fields=["plan", "position"],
++                        name="study_rec_plan_pos_idx",
++                    )
++                ],
++            },
++        ),
++    ]
+diff --git a/apps/planner/migrations/__init__.py b/apps/planner/migrations/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/planner/models.py b/apps/planner/models.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..65d1cab7ab2c9926a39e62061598286d9e9ff87c
+--- /dev/null
++++ b/apps/planner/models.py
+@@ -0,0 +1,178 @@
++from django.conf import settings
++from django.db import models
++from django.urls import reverse
++from django.utils import timezone
++
++from apps.questions.models import Question
++from apps.roadmaps.models import RoadmapTopic
++
++
++class StudyPlan(models.Model):
++    class Status(models.TextChoices):
++        ACTIVE = "ACTIVE", "Active"
++        COMPLETED = "COMPLETED", "Completed"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="study_plans",
++    )
++    plan_date = models.DateField()
++    time_budget_minutes = models.PositiveSmallIntegerField(default=60)
++    status = models.CharField(
++        max_length=12,
++        choices=Status.choices,
++        default=Status.ACTIVE,
++    )
++    generated_at = models.DateTimeField(default=timezone.now)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["-plan_date", "-generated_at"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "plan_date"],
++                name="unique_user_daily_study_plan",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "-plan_date"],
++                name="study_plan_user_date_idx",
++            )
++        ]
++
++    @property
++    def estimated_minutes(self):
++        return sum(
++            recommendation.estimated_minutes
++            for recommendation in self.recommendations.all()
++        )
++
++    @property
++    def completed_count(self):
++        return sum(
++            recommendation.completed_at is not None
++            for recommendation in self.recommendations.all()
++        )
++
++    def __str__(self):
++        return f"{self.user} · {self.plan_date}"
++
++
++class StudyRecommendation(models.Model):
++    class Kind(models.TextChoices):
++        REVIEW = "REVIEW", "Due review"
++        ROADMAP = "ROADMAP", "Roadmap"
++        WEAK_AREA = "WEAK_AREA", "Weak area"
++        PRACTICE = "PRACTICE", "Practice"
++        LIBRARY = "LIBRARY", "Question library"
++
++    plan = models.ForeignKey(
++        StudyPlan,
++        on_delete=models.CASCADE,
++        related_name="recommendations",
++    )
++    kind = models.CharField(max_length=16, choices=Kind.choices)
++    title = models.CharField(max_length=180)
++    description = models.TextField(blank=True)
++    rationale = models.TextField(blank=True)
++    estimated_minutes = models.PositiveSmallIntegerField()
++    priority_score = models.PositiveSmallIntegerField(default=0)
++    position = models.PositiveSmallIntegerField(default=0)
++    question = models.ForeignKey(
++        Question,
++        on_delete=models.SET_NULL,
++        related_name="study_recommendations",
++        null=True,
++        blank=True,
++    )
++    topic = models.ForeignKey(
++        RoadmapTopic,
++        on_delete=models.SET_NULL,
++        related_name="study_recommendations",
++        null=True,
++        blank=True,
++    )
++    completed_at = models.DateTimeField(null=True, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["position", "-priority_score", "pk"]
++        indexes = [
++            models.Index(
++                fields=["plan", "position"],
++                name="study_rec_plan_pos_idx",
++            )
++        ]
++
++    @property
++    def is_completed(self):
++        return self.completed_at is not None
++
++    @property
++    def action_label(self):
++        labels = {
++            self.Kind.REVIEW: "Start reviews",
++            self.Kind.ROADMAP: "Open topic",
++            self.Kind.WEAK_AREA: "Revisit question",
++            self.Kind.PRACTICE: "Open practice question",
++            self.Kind.LIBRARY: (
++                "Open question" if self.question_id else "Open question library"
++            ),
++        }
++        return labels[self.kind]
++
++    @property
++    def action_url(self):
++        if self.kind == self.Kind.REVIEW:
++            if self.question_id:
++                return reverse("reviews:review", args=[self.question_id])
++            return reverse("reviews:queue")
++
++        if self.topic_id:
++            return reverse(
++                "roadmaps:topic_detail",
++                kwargs={
++                    "slug": self.topic.section.roadmap.slug,
++                    "topic_id": self.topic_id,
++                },
++            )
++
++        if self.question_id:
++            return reverse("questions:detail", args=[self.question_id])
++
++        return reverse("questions:list")
++
++    def __str__(self):
++        return f"{self.plan}: {self.title}"
++
++
++class StudySession(models.Model):
++    plan = models.ForeignKey(
++        StudyPlan,
++        on_delete=models.CASCADE,
++        related_name="sessions",
++    )
++    started_at = models.DateTimeField(default=timezone.now)
++    ended_at = models.DateTimeField(null=True, blank=True)
++    completed_recommendation_count = models.PositiveSmallIntegerField(default=0)
++
++    class Meta:
++        ordering = ["-started_at", "-pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["plan"],
++                condition=models.Q(ended_at__isnull=True),
++                name="one_active_session_per_study_plan",
++            )
++        ]
++
++    @property
++    def duration_minutes(self):
++        end_time = self.ended_at or timezone.now()
++        elapsed_seconds = max(0, (end_time - self.started_at).total_seconds())
++        return max(1, round(elapsed_seconds / 60))
++
++    def __str__(self):
++        return f"Session for {self.plan}"
+diff --git a/apps/planner/services.py b/apps/planner/services.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..56f56fa01695eb779908655b70497145c3f523a2
+--- /dev/null
++++ b/apps/planner/services.py
+@@ -0,0 +1,452 @@
++from datetime import date, timedelta
++
++from django.db import transaction
++from django.db.models import Q
++from django.utils import timezone
++
++from apps.questions.models import Question, TechnicalQuestion
++from apps.reviews.models import ReviewAttempt
++from apps.reviews.services import due_review_states
++from apps.roadmaps.models import RoadmapTopic, UserRoadmap, UserTopicProgress
++
++from .models import StudyPlan, StudyRecommendation, StudySession
++
++DEFAULT_TIME_BUDGET_MINUTES = 60
++REVIEW_MINUTES_PER_QUESTION = 3
++ROADMAP_TOPIC_MINUTES = 25
++WEAK_AREA_MINUTES = 10
++PRACTICE_MINUTES = 20
++LIBRARY_MINUTES = 15
++
++
++def _active_roadmap_enrolment(*, user):
++    enrolments = list(
++        UserRoadmap.objects.filter(
++            user=user,
++            status=UserRoadmap.Status.IN_PROGRESS,
++            roadmap__is_published=True,
++        ).select_related("roadmap")
++    )
++    if not enrolments:
++        return None
++
++    far_future = date.max
++    enrolments.sort(
++        key=lambda enrolment: (
++            enrolment.target_date or far_future,
++            enrolment.started_at or timezone.now(),
++            enrolment.pk,
++        )
++    )
++    return enrolments[0]
++
++
++def _next_roadmap_topic(*, user, enrolment):
++    topic_ordering = (
++        "section__position",
++        "position",
++        "section__title",
++        "title",
++        "pk",
++    )
++    topics = RoadmapTopic.objects.filter(
++        section__roadmap=enrolment.roadmap,
++    ).select_related("section", "section__roadmap")
++
++    in_progress = topics.filter(
++        user_progress__user=user,
++        user_progress__status=UserTopicProgress.Status.IN_PROGRESS,
++    ).order_by(*topic_ordering).first()
++    if in_progress is not None:
++        return in_progress
++
++    completed_topic_ids = UserTopicProgress.objects.filter(
++        user=user,
++        status=UserTopicProgress.Status.COMPLETED,
++        topic__section__roadmap=enrolment.roadmap,
++    ).values_list("topic_id", flat=True)
++    return (
++        topics.exclude(pk__in=completed_topic_ids)
++        .order_by(*topic_ordering)
++        .first()
++    )
++
++
++def _recent_weak_question(*, user, excluded_question_ids, now):
++    recent_cutoff = now - timedelta(days=14)
++    attempts = (
++        ReviewAttempt.objects.filter(
++            state__user=user,
++            state__question__owner=user,
++            state__question__status=Question.Status.READY_FOR_REVIEW,
++            rating__in=[
++                ReviewAttempt.Rating.AGAIN,
++                ReviewAttempt.Rating.HARD,
++            ],
++            reviewed_at__gte=recent_cutoff,
++        )
++        .exclude(state__question_id__in=excluded_question_ids)
++        .select_related("state__question")
++        .order_by("-reviewed_at", "-pk")
++    )
++
++    seen_question_ids = set()
++    for attempt in attempts[:50]:
++        question = attempt.state.question
++        if question.pk in seen_question_ids:
++            continue
++        seen_question_ids.add(question.pk)
++        return question, attempt
++    return None, None
++
++
++def _practice_question(*, user, topic, excluded_question_ids, plan_date):
++    questions = TechnicalQuestion.objects.filter(is_system=True).exclude(
++        pk__in=excluded_question_ids
++    )
++
++    if topic is not None:
++        topic_words = [
++            word.strip(".,:;()[]").lower()
++            for word in topic.title.split()
++            if len(word.strip(".,:;()[]")) >= 4
++        ]
++        topic_filter = Q()
++        for word in topic_words[:4]:
++            topic_filter |= Q(title__icontains=word)
++            topic_filter |= Q(topic__icontains=word)
++            topic_filter |= Q(pattern__icontains=word)
++        if topic_words:
++            matched_question = questions.filter(topic_filter).order_by(
++                "system_key",
++                "pk",
++            ).first()
++            if matched_question is not None:
++                return matched_question
++
++    candidate_ids = list(
++        questions.order_by("system_key", "pk").values_list("pk", flat=True)
++    )
++    if not candidate_ids:
++        return None
++
++    user_seed = user.pk or 0
++    selected_index = (plan_date.toordinal() + user_seed) % len(candidate_ids)
++    return questions.get(pk=candidate_ids[selected_index])
++
++
++def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
++    remaining_minutes = time_budget_minutes
++    payloads = []
++    selected_question_ids = set()
++
++    due_states = list(due_review_states(user=user, now=now))
++    due_count = len(due_states)
++    if due_count:
++        review_capacity = max(1, remaining_minutes // REVIEW_MINUTES_PER_QUESTION)
++        planned_review_count = min(due_count, review_capacity)
++        estimated_minutes = planned_review_count * REVIEW_MINUTES_PER_QUESTION
++        first_question = due_states[0].question
++        selected_question_ids.update(
++            state.question_id for state in due_states[:planned_review_count]
++        )
++        if planned_review_count < due_count:
++            review_title = (
++                f"Review {planned_review_count} of {due_count} due questions"
++            )
++        else:
++            review_title = f"Review {planned_review_count} due question"
++            if planned_review_count != 1:
++                review_title += "s"
++        payloads.append(
++            {
++                "kind": StudyRecommendation.Kind.REVIEW,
++                "title": review_title,
++                "description": (
++                    "Begin with the material whose review window has arrived. "
++                    f"Allow roughly {REVIEW_MINUTES_PER_QUESTION} minutes per question."
++                ),
++                "rationale": (
++                    "Due reviews are time-sensitive, so they receive the highest priority."
++                ),
++                "estimated_minutes": estimated_minutes,
++                "priority_score": 100,
++                "question": first_question,
++            }
++        )
++        remaining_minutes = max(0, remaining_minutes - estimated_minutes)
++
++    enrolment = _active_roadmap_enrolment(user=user)
++    next_topic = None
++    if enrolment is not None:
++        next_topic = _next_roadmap_topic(user=user, enrolment=enrolment)
++
++    if next_topic is not None and remaining_minutes >= 15:
++        estimated_minutes = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
++        deadline_note = ""
++        priority_score = 80
++        if enrolment.target_date:
++            days_remaining = (enrolment.target_date - plan_date).days
++            if 0 <= days_remaining <= 14:
++                priority_score += 10
++                deadline_note = f" Your target date is {days_remaining} days away."
++        payloads.append(
++            {
++                "kind": StudyRecommendation.Kind.ROADMAP,
++                "title": f"Continue: {next_topic.title}",
++                "description": (
++                    f"Move the {enrolment.roadmap.title} roadmap forward by one focused topic."
++                ),
++                "rationale": (
++                    "This is the next unfinished topic in your active roadmap."
++                    f"{deadline_note}"
++                ),
++                "estimated_minutes": estimated_minutes,
++                "priority_score": priority_score,
++                "topic": next_topic,
++            }
++        )
++        remaining_minutes -= estimated_minutes
++
++    weak_question, weak_attempt = _recent_weak_question(
++        user=user,
++        excluded_question_ids=selected_question_ids,
++        now=now,
++    )
++    if weak_question is not None and remaining_minutes >= WEAK_AREA_MINUTES:
++        payloads.append(
++            {
++                "kind": StudyRecommendation.Kind.WEAK_AREA,
++                "title": f"Revisit: {weak_question.title}",
++                "description": (
++                    "Review the explanation, mistakes and approach without changing its "
++                    "spaced-review schedule."
++                ),
++                "rationale": (
++                    f"Your recent recall was rated {weak_attempt.get_rating_display()}, "
++                    "so this is a useful place for a short reset."
++                ),
++                "estimated_minutes": WEAK_AREA_MINUTES,
++                "priority_score": 70,
++                "question": weak_question,
++            }
++        )
++        selected_question_ids.add(weak_question.pk)
++        remaining_minutes -= WEAK_AREA_MINUTES
++
++    if remaining_minutes >= 15:
++        practice_question = _practice_question(
++            user=user,
++            topic=next_topic,
++            excluded_question_ids=selected_question_ids,
++            plan_date=plan_date,
++        )
++        if practice_question is not None:
++            estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
++            payloads.append(
++                {
++                    "kind": StudyRecommendation.Kind.PRACTICE,
++                    "title": f"Practise: {practice_question.title}",
++                    "description": (
++                        "Work through one fresh built-in question and explain the approach "
++                        "before reading the notes."
++                    ),
++                    "rationale": (
++                        "A fresh question adds retrieval practice while keeping the "
++                        "session balanced."
++                    ),
++                    "estimated_minutes": estimated_minutes,
++                    "priority_score": 50,
++                    "question": practice_question,
++                }
++            )
++            remaining_minutes -= estimated_minutes
++
++    if not payloads:
++        incomplete_question = (
++            Question.objects.filter(
++                owner=user,
++                is_system=False,
++                status=Question.Status.NEEDS_NOTES,
++            )
++            .order_by("-updated_at", "pk")
++            .first()
++        )
++        if incomplete_question is not None:
++            payloads.append(
++                {
++                    "kind": StudyRecommendation.Kind.LIBRARY,
++                    "title": f"Finish preparing: {incomplete_question.title}",
++                    "description": (
++                        "Complete the missing explanation or solution notes, then mark it ready "
++                        "for review."
++                    ),
++                    "rationale": (
++                        "Preparing one question creates useful material for future review sessions."
++                    ),
++                    "estimated_minutes": min(LIBRARY_MINUTES, time_budget_minutes),
++                    "priority_score": 30,
++                    "question": incomplete_question,
++                }
++            )
++        else:
++            payloads.append(
++                {
++                    "kind": StudyRecommendation.Kind.LIBRARY,
++                    "title": "Add one interview question",
++                    "description": (
++                        "Capture a real question and the reasoning you would want to explain "
++                        "under pressure."
++                    ),
++                    "rationale": (
++                        "Your plan needs study material before review scheduling can become useful."
++                    ),
++                    "estimated_minutes": min(LIBRARY_MINUTES, time_budget_minutes),
++                    "priority_score": 20,
++                }
++            )
++
++    return payloads
++
++
++@transaction.atomic
++def generate_daily_plan(
++    *,
++    user,
++    time_budget_minutes=DEFAULT_TIME_BUDGET_MINUTES,
++    now=None,
++    force=False,
++):
++    current_time = now or timezone.now()
++    plan_date = timezone.localdate(current_time)
++    plan, created = StudyPlan.objects.select_for_update().get_or_create(
++        user=user,
++        plan_date=plan_date,
++        defaults={
++            "time_budget_minutes": time_budget_minutes,
++            "generated_at": current_time,
++        },
++    )
++
++    should_regenerate = created or force or not plan.recommendations.exists()
++    if not should_regenerate:
++        return plan
++
++    plan.recommendations.all().delete()
++    plan.time_budget_minutes = time_budget_minutes
++    plan.status = StudyPlan.Status.ACTIVE
++    plan.generated_at = current_time
++    plan.save(
++        update_fields=[
++            "time_budget_minutes",
++            "status",
++            "generated_at",
++            "updated_at",
++        ]
++    )
++
++    payloads = _recommendation_payloads(
++        user=user,
++        time_budget_minutes=time_budget_minutes,
++        plan_date=plan_date,
++        now=current_time,
++    )
++    StudyRecommendation.objects.bulk_create(
++        [
++            StudyRecommendation(
++                plan=plan,
++                position=position,
++                **payload,
++            )
++            for position, payload in enumerate(payloads, start=1)
++        ]
++    )
++    return plan
++
++
++def plan_summary(*, plan):
++    recommendations = list(
++        plan.recommendations.select_related(
++            "question",
++            "topic__section__roadmap",
++        )
++    )
++    completed_count = sum(
++        recommendation.completed_at is not None
++        for recommendation in recommendations
++    )
++    return {
++        "plan": plan,
++        "recommendations": recommendations,
++        "total_count": len(recommendations),
++        "completed_count": completed_count,
++        "estimated_minutes": sum(
++            recommendation.estimated_minutes
++            for recommendation in recommendations
++        ),
++        "is_complete": bool(recommendations)
++        and completed_count == len(recommendations),
++    }
++
++
++def sync_plan_status(*, plan):
++    recommendations = plan.recommendations.all()
++    has_recommendations = recommendations.exists()
++    is_complete = has_recommendations and not recommendations.filter(
++        completed_at__isnull=True
++    ).exists()
++    new_status = (
++        StudyPlan.Status.COMPLETED
++        if is_complete
++        else StudyPlan.Status.ACTIVE
++    )
++    if plan.status != new_status:
++        plan.status = new_status
++        plan.save(update_fields=["status", "updated_at"])
++    return plan
++
++
++@transaction.atomic
++def toggle_recommendation_completion(*, recommendation, now=None):
++    locked_recommendation = StudyRecommendation.objects.select_for_update().get(
++        pk=recommendation.pk
++    )
++    locked_recommendation.completed_at = (
++        None if locked_recommendation.completed_at else (now or timezone.now())
++    )
++    locked_recommendation.save(update_fields=["completed_at"])
++    sync_plan_status(plan=locked_recommendation.plan)
++    return locked_recommendation
++
++
++@transaction.atomic
++def start_study_session(*, plan, now=None):
++    active_session = plan.sessions.filter(ended_at__isnull=True).first()
++    if active_session is not None:
++        return active_session, False
++    session = StudySession.objects.create(
++        plan=plan,
++        started_at=now or timezone.now(),
++    )
++    return session, True
++
++
++@transaction.atomic
++def finish_study_session(*, session, now=None):
++    locked_session = StudySession.objects.select_for_update().get(pk=session.pk)
++    if locked_session.ended_at is not None:
++        return locked_session
++    locked_session.ended_at = now or timezone.now()
++    locked_session.completed_recommendation_count = (
++        locked_session.plan.recommendations.filter(
++            completed_at__isnull=False
++        ).count()
++    )
++    locked_session.save(
++        update_fields=[
++            "ended_at",
++            "completed_recommendation_count",
++        ]
++    )
++    sync_plan_status(plan=locked_session.plan)
++    return locked_session
+diff --git a/apps/planner/tests/__init__.py b/apps/planner/tests/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/planner/tests/conftest.py b/apps/planner/tests/conftest.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca3fd9a44a2f1fc1a8cfedb5126f1a9816e6e125
+--- /dev/null
++++ b/apps/planner/tests/conftest.py
+@@ -0,0 +1,19 @@
++import pytest
++
++from apps.accounts.models import User
++
++
++@pytest.fixture
++def user(db):
++    return User.objects.create_user(
++        email="tee@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def other_user(db):
++    return User.objects.create_user(
++        email="other@example.com",
++        password="safe-test-password",
++    )
+diff --git a/apps/planner/tests/test_models.py b/apps/planner/tests/test_models.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..08ba71ef64277ba949c1dcf447031a9cfcaa3ba1
+--- /dev/null
++++ b/apps/planner/tests/test_models.py
+@@ -0,0 +1,38 @@
++from datetime import date
++
++import pytest
++from django.db import IntegrityError, transaction
++from django.urls import reverse
++
++from apps.planner.models import StudyPlan, StudyRecommendation
++
++pytestmark = pytest.mark.django_db
++
++
++def test_user_has_one_study_plan_per_day(user):
++    StudyPlan.objects.create(
++        user=user,
++        plan_date=date(2026, 7, 24),
++    )
++
++    with pytest.raises(IntegrityError), transaction.atomic():
++        StudyPlan.objects.create(
++            user=user,
++            plan_date=date(2026, 7, 24),
++        )
++
++
++def test_library_recommendation_without_question_links_to_library(user):
++    plan = StudyPlan.objects.create(
++        user=user,
++        plan_date=date(2026, 7, 24),
++    )
++    recommendation = StudyRecommendation.objects.create(
++        plan=plan,
++        kind=StudyRecommendation.Kind.LIBRARY,
++        title="Add one interview question",
++        estimated_minutes=15,
++    )
++
++    assert recommendation.action_url == reverse("questions:list")
++    assert recommendation.action_label == "Open question library"
+diff --git a/apps/planner/tests/test_services.py b/apps/planner/tests/test_services.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f2022ee11d2656cfc1ccdfab8ffb0b5886095fd3
+--- /dev/null
++++ b/apps/planner/tests/test_services.py
+@@ -0,0 +1,223 @@
++from datetime import timedelta
++
++import pytest
++from django.utils import timezone
++
++from apps.planner.models import StudyPlan, StudyRecommendation
++from apps.planner.services import (
++    finish_study_session,
++    generate_daily_plan,
++    plan_summary,
++    start_study_session,
++    toggle_recommendation_completion,
++)
++from apps.questions.models import Question, TechnicalQuestion
++from apps.reviews.models import ReviewState
++from apps.reviews.services import record_review
++from apps.roadmaps.models import (
++    Roadmap,
++    RoadmapSection,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def _ready_question(user, title="Explain heaps"):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title=title,
++        prompt="Explain the data structure and its trade-offs.",
++        status=Question.Status.READY_FOR_REVIEW,
++        topic="Heaps",
++        intuition="Keep the highest-priority value at the root.",
++    )
++
++
++def _active_roadmap(user):
++    roadmap = Roadmap.objects.create(
++        title="Backend Developer",
++        slug="backend-developer-test",
++        kind=Roadmap.Kind.ROLE,
++        position=1,
++    )
++    section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Databases",
++        slug="databases",
++        position=1,
++    )
++    first_topic = RoadmapTopic.objects.create(
++        section=section,
++        title="SQL fundamentals",
++        slug="sql-fundamentals",
++        position=1,
++    )
++    second_topic = RoadmapTopic.objects.create(
++        section=section,
++        title="PostgreSQL indexing",
++        slug="postgresql-indexing",
++        position=2,
++    )
++    UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        started_at=timezone.now(),
++    )
++    return roadmap, first_topic, second_topic
++
++
++def test_due_reviews_receive_highest_priority(user):
++    now = timezone.now()
++    question = _ready_question(user)
++
++    plan = generate_daily_plan(
++        user=user,
++        time_budget_minutes=30,
++        now=now,
++    )
++
++    first = plan.recommendations.first()
++    assert first.kind == StudyRecommendation.Kind.REVIEW
++    assert first.question == question
++    assert first.priority_score == 100
++    assert plan_summary(plan=plan)["estimated_minutes"] <= 30
++
++
++def test_plan_continues_next_active_roadmap_topic(user):
++    _, first_topic, _ = _active_roadmap(user)
++
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++
++    recommendation = plan.recommendations.get(
++        kind=StudyRecommendation.Kind.ROADMAP
++    )
++    assert recommendation.topic == first_topic
++    assert "Backend Developer" in recommendation.description
++
++
++def test_completed_roadmap_topic_is_skipped(user):
++    _, first_topic, second_topic = _active_roadmap(user)
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=first_topic,
++        status=UserTopicProgress.Status.COMPLETED,
++        started_at=timezone.now(),
++        completed_at=timezone.now(),
++    )
++
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++
++    recommendation = plan.recommendations.get(
++        kind=StudyRecommendation.Kind.ROADMAP
++    )
++    assert recommendation.topic == second_topic
++
++
++def test_recent_hard_review_becomes_weak_area_recommendation(user):
++    now = timezone.now()
++    question = _ready_question(user)
++    state = ReviewState.objects.create(
++        user=user,
++        question=question,
++        due_at=now,
++    )
++    record_review(
++        state=state,
++        rating="HARD",
++        now=now,
++    )
++
++    plan = generate_daily_plan(
++        user=user,
++        time_budget_minutes=30,
++        now=now + timedelta(minutes=1),
++    )
++
++    recommendation = plan.recommendations.get(
++        kind=StudyRecommendation.Kind.WEAK_AREA
++    )
++    assert recommendation.question == question
++    assert "Hard" in recommendation.rationale
++
++
++def test_fresh_built_in_question_is_used_for_practice(user):
++    question = TechnicalQuestion.objects.create(
++        is_system=True,
++        system_key="technical-test-practice-question",
++        title="Two Sum",
++        prompt="Return the indices that add to the target.",
++        topic="Arrays and hashing",
++        pattern="Hash map complement lookup",
++    )
++
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++
++    recommendation = plan.recommendations.get(
++        kind=StudyRecommendation.Kind.PRACTICE
++    )
++    assert recommendation.question == question
++
++
++def test_empty_account_gets_question_library_starting_task(user):
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++
++    recommendation = plan.recommendations.get()
++    assert recommendation.kind == StudyRecommendation.Kind.LIBRARY
++    assert recommendation.title == "Add one interview question"
++
++
++def test_force_regeneration_replaces_recommendations_and_budget(user):
++    first_plan = generate_daily_plan(user=user, time_budget_minutes=30)
++    first_recommendation_ids = set(
++        first_plan.recommendations.values_list("pk", flat=True)
++    )
++
++    regenerated = generate_daily_plan(
++        user=user,
++        time_budget_minutes=90,
++        force=True,
++    )
++    regenerated_ids = set(
++        regenerated.recommendations.values_list("pk", flat=True)
++    )
++
++    assert regenerated.pk == first_plan.pk
++    assert regenerated.time_budget_minutes == 90
++    assert first_recommendation_ids.isdisjoint(regenerated_ids)
++
++
++def test_toggling_all_recommendations_completes_plan(user):
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++    recommendation = plan.recommendations.get()
++
++    updated = toggle_recommendation_completion(
++        recommendation=recommendation,
++    )
++    plan.refresh_from_db()
++
++    assert updated.completed_at is not None
++    assert plan.status == StudyPlan.Status.COMPLETED
++
++    toggle_recommendation_completion(recommendation=updated)
++    plan.refresh_from_db()
++    assert plan.status == StudyPlan.Status.ACTIVE
++
++
++def test_study_session_start_is_idempotent_and_finish_records_progress(user):
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++    recommendation = plan.recommendations.get()
++    toggle_recommendation_completion(recommendation=recommendation)
++
++    first_session, created = start_study_session(plan=plan)
++    repeated_session, repeated_created = start_study_session(plan=plan)
++    finished = finish_study_session(session=first_session)
++
++    assert created is True
++    assert repeated_created is False
++    assert repeated_session == first_session
++    assert finished.ended_at is not None
++    assert finished.completed_recommendation_count == 1
+diff --git a/apps/planner/tests/test_views.py b/apps/planner/tests/test_views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8cac95d2020e4b8e9361a646842d3fc9f539000d
+--- /dev/null
++++ b/apps/planner/tests/test_views.py
+@@ -0,0 +1,86 @@
++import pytest
++from django.urls import reverse
++
++from apps.planner.models import StudyPlan
++from apps.planner.services import generate_daily_plan, start_study_session
++
++pytestmark = pytest.mark.django_db
++
++
++def test_today_plan_requires_authentication(client):
++    response = client.get(reverse("planner:today"))
++
++    assert response.status_code == 302
++    assert response.url.startswith(reverse("login"))
++
++
++def test_today_plan_is_generated_on_first_visit(client, user):
++    client.force_login(user)
++
++    response = client.get(reverse("planner:today"))
++
++    assert response.status_code == 200
++    assert StudyPlan.objects.filter(user=user).count() == 1
++    assert "Today’s plan" in response.content.decode()
++
++
++def test_user_can_rebuild_plan_for_available_time(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("planner:regenerate"),
++        {"time_budget_minutes": "45"},
++    )
++
++    assert response.status_code == 302
++    plan = StudyPlan.objects.get(user=user)
++    assert plan.time_budget_minutes == 45
++
++
++def test_user_cannot_toggle_someone_elses_recommendation(
++    client,
++    user,
++    other_user,
++):
++    other_plan = generate_daily_plan(
++        user=other_user,
++        time_budget_minutes=30,
++    )
++    recommendation = other_plan.recommendations.get()
++    client.force_login(user)
++
++    response = client.post(
++        reverse(
++            "planner:toggle_recommendation",
++            args=[recommendation.pk],
++        )
++    )
++
++    assert response.status_code == 404
++
++
++def test_active_session_blocks_plan_regeneration(client, user):
++    plan = generate_daily_plan(user=user, time_budget_minutes=30)
++    start_study_session(plan=plan)
++    client.force_login(user)
++
++    response = client.post(
++        reverse("planner:regenerate"),
++        {"time_budget_minutes": "90"},
++        follow=True,
++    )
++
++    plan.refresh_from_db()
++    assert response.status_code == 200
++    assert plan.time_budget_minutes == 30
++    assert "End the active study session" in response.content.decode()
++
++
++def test_dashboard_surfaces_today_plan(client, user):
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.status_code == 200
++    assert response.context["today_plan"]["total_count"] == 1
++    assert reverse("planner:today") in response.content.decode()
+diff --git a/apps/planner/urls.py b/apps/planner/urls.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..716e0bbe8e7c3cf3bf1592b0ea4cc4dbd9fb33a7
+--- /dev/null
++++ b/apps/planner/urls.py
+@@ -0,0 +1,17 @@
++from django.urls import path
++
++from . import views
++
++app_name = "planner"
++
++urlpatterns = [
++    path("", views.today_plan, name="today"),
++    path("regenerate/", views.regenerate_plan, name="regenerate"),
++    path(
++        "recommendations/<int:recommendation_id>/toggle/",
++        views.toggle_recommendation,
++        name="toggle_recommendation",
++    ),
++    path("sessions/start/", views.start_session, name="start_session"),
++    path("sessions/finish/", views.finish_session, name="finish_session"),
++]
+diff --git a/apps/planner/views.py b/apps/planner/views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..492823b2aea6c1ba93b5ce8252f92ead19730c15
+--- /dev/null
++++ b/apps/planner/views.py
+@@ -0,0 +1,106 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.shortcuts import get_object_or_404, redirect, render
++from django.views.decorators.http import require_POST
++
++from .forms import StudyPlanPreferencesForm
++from .models import StudyRecommendation
++from .services import (
++    finish_study_session,
++    generate_daily_plan,
++    plan_summary,
++    start_study_session,
++    toggle_recommendation_completion,
++)
++
++
++def _today_plan_for_user(user):
++    return generate_daily_plan(user=user)
++
++
++@login_required
++def today_plan(request):
++    plan = _today_plan_for_user(request.user)
++    summary = plan_summary(plan=plan)
++    active_session = plan.sessions.filter(ended_at__isnull=True).first()
++    form = StudyPlanPreferencesForm(
++        initial={"time_budget_minutes": plan.time_budget_minutes}
++    )
++    return render(
++        request,
++        "planner/today.html",
++        {
++            **summary,
++            "active_session": active_session,
++            "preferences_form": form,
++        },
++    )
++
++
++@login_required
++@require_POST
++def regenerate_plan(request):
++    plan = _today_plan_for_user(request.user)
++    if plan.sessions.filter(ended_at__isnull=True).exists():
++        messages.warning(request, "End the active study session before rebuilding the plan.")
++        return redirect("planner:today")
++
++    form = StudyPlanPreferencesForm(request.POST)
++    if not form.is_valid():
++        messages.error(request, "Choose a valid amount of study time.")
++        return redirect("planner:today")
++
++    generate_daily_plan(
++        user=request.user,
++        time_budget_minutes=form.cleaned_data["time_budget_minutes"],
++        force=True,
++    )
++    messages.success(request, "Today’s plan was rebuilt around your available time.")
++    return redirect("planner:today")
++
++
++@login_required
++@require_POST
++def toggle_recommendation(request, recommendation_id):
++    recommendation = get_object_or_404(
++        StudyRecommendation.objects.select_related("plan"),
++        pk=recommendation_id,
++        plan__user=request.user,
++    )
++    updated = toggle_recommendation_completion(recommendation=recommendation)
++    message = "Marked complete." if updated.completed_at else "Moved back into today’s plan."
++    messages.success(request, message)
++    return redirect("planner:today")
++
++
++@login_required
++@require_POST
++def start_session(request):
++    plan = _today_plan_for_user(request.user)
++    _, created = start_study_session(plan=plan)
++    if created:
++        messages.success(request, "Study session started.")
++    else:
++        messages.info(request, "A study session is already running.")
++    return redirect("planner:today")
++
++
++@login_required
++@require_POST
++def finish_session(request):
++    plan = _today_plan_for_user(request.user)
++    session = plan.sessions.filter(ended_at__isnull=True).first()
++    if session is None:
++        messages.info(request, "There is no active study session to end.")
++        return redirect("planner:today")
++
++    finished_session = finish_study_session(session=session)
++    messages.success(
++        request,
++        (
++            "Study session ended after "
++            f"{finished_session.duration_minutes} minute"
++            f"{'s' if finished_session.duration_minutes != 1 else ''}."
++        ),
++    )
++    return redirect("planner:today")
+diff --git a/config/settings/base.py b/config/settings/base.py
+index 77bb228c892048f8be951d04e8249bde082d62d1..87dc5ec109b40afaead879328f5b7581465e551a 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -21,2 +21,3 @@ INSTALLED_APPS = [
+     "apps.roadmaps.apps.RoadmapsConfig",
++    "apps.planner.apps.PlannerConfig",
+ ]
+diff --git a/config/urls.py b/config/urls.py
+index 7ce35e719c4c2a3b62ee3571547175091677d736..f97524800b82e862c7644bf39902f152186a2d53 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -10,2 +10,3 @@ urlpatterns = [
+     path("roadmaps/", include("apps.roadmaps.urls")),
++    path("plan/", include("apps.planner.urls")),
+ ]
+diff --git a/docs/architecture/adaptive-study-planner.md b/docs/architecture/adaptive-study-planner.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..aff2a7e054535c2bcef09eb42cf34ed6793b7091
+--- /dev/null
++++ b/docs/architecture/adaptive-study-planner.md
+@@ -0,0 +1,41 @@
++# Adaptive study planner
++
++## Purpose
++
++The planner turns ViewCoach's existing review, roadmap and question data into one bounded daily plan. Its job is to reduce the context-switching and decision overhead of deciding what to study next. It is deterministic and explainable; it does not call an AI model.
++
++## Domain boundary
++
++`apps.planner` owns:
++
++- one persisted `StudyPlan` per user and local calendar day;
++- ordered `StudyRecommendation` snapshots;
++- `StudySession` start and end events;
++- deterministic recommendation and completion services;
++- the Today’s Plan interface.
++
++It reads from `reviews`, `roadmaps` and `questions`, but it does not change their scheduling or progress rules. For example, a weak-area recommendation links back to a question without moving its spaced-review due date.
++
++## Priority order
++
++The first implementation uses explicit priorities:
++
++1. due review questions;
++2. the next unfinished topic in the most urgent active roadmap;
++3. a question rated Again or Hard in the previous 14 days;
++4. a fresh built-in technical practice question;
++5. a question-library setup task when no study material exists.
++
++Recommendations are added only while the selected time budget has room. Due reviews are grouped into one actionable item and receive the first share of the budget.
++
++## Persistence strategy
++
++A plan is a daily snapshot rather than a live query result. This keeps the interface stable while the user studies and records which recommendations were completed. Rebuilding the plan replaces that day's recommendations using the new time budget. An active study session must be ended before regeneration.
++
++## Future extension points
++
++- goal and interview-date weighting;
++- explicit links between roadmap topics and questions;
++- mastery and coverage analytics;
++- user preference controls for practice mix;
++- optional AI explanations that enhance, rather than replace, deterministic priorities.
+diff --git a/docs/architecture/overview.md b/docs/architecture/overview.md
+index 0a2f00f90c227bba81904e154e9c0be3c7736d89..203807bdda4b52a2645b7d8c9e29b39eef1b69ab 100644
+--- a/docs/architecture/overview.md
++++ b/docs/architecture/overview.md
+@@ -4,3 +4,3 @@
+ 
+-Milestones 1 and 1.1 establish the structured question library and reviewable bulk question import. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
++Milestone 3.2 adds a deterministic daily planner on top of the structured question library, review engine and learning roadmaps. Goals, mastery analytics and AI enhancement remain outside this boundary.
+ 
+@@ -57,2 +57,31 @@ The module does not own spaced repetition or mastery. A later review module will
+ 
++### `apps.reviews`
++
++Owns deterministic spaced review:
++
++- per-user review state and due dates;
++- Again, Hard, Good and Easy scheduling;
++- immutable review-attempt history;
++- due and upcoming queues.
++
++### `apps.roadmaps`
++
++Owns structured learning paths:
++
++- built-in role, skill and practice roadmaps;
++- ordered sections and topics;
++- per-user roadmap and topic progress;
++- private topic notes and learning resources.
++
++### `apps.planner`
++
++Owns the daily focus workflow:
++
++- one study plan per user and local calendar day;
++- ordered, explainable recommendations;
++- available-time budgeting and regeneration;
++- recommendation completion and study-session tracking.
++
++The planner reads review, roadmap and question data through application services. It does not alter the scheduling rules or progress ownership of those modules. See [`adaptive-study-planner.md`](adaptive-study-planner.md).
++
+ ### `apps.core`
+@@ -92,5 +121,3 @@ Likely later modules include:
+ 
+-- `reviews` for attempts, recall ratings and spaced repetition;
+-- `study` for review sessions and interview modes;
+-- `planning` for the Focus Engine;
++- `interviews` for mock-interview sessions and interview modes;
+ - `goals` for lightweight interview context and deadlines;
+diff --git a/static/css/planner.css b/static/css/planner.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..859b21a4e0a11c8a6813eca054f0b97c066fc451
+--- /dev/null
++++ b/static/css/planner.css
+@@ -0,0 +1,302 @@
++.planner-page .app-main {
++    max-width: 92rem;
++}
++
++.planner-header {
++    display: flex;
++    align-items: flex-end;
++    justify-content: space-between;
++    gap: 2rem;
++    padding-bottom: 2rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.planner-header h1 {
++    margin: 0.25rem 0 0.5rem;
++    font-size: clamp(2.6rem, 5vw, 4.6rem);
++    line-height: 0.98;
++}
++
++.planner-header p:last-child {
++    max-width: 48rem;
++    margin-bottom: 0;
++    color: var(--vc-muted);
++    font-size: 1.05rem;
++}
++
++.planner-header-actions form {
++    margin: 0;
++}
++
++.planner-layout {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) 20rem;
++    gap: 3rem;
++    padding-top: 2.5rem;
++}
++
++.planner-main {
++    min-width: 0;
++}
++
++.planner-summary {
++    padding: 2rem;
++    background: var(--vc-paper-strong);
++    border: 1px solid var(--vc-border);
++}
++
++.planner-summary-number {
++    margin: 0;
++    color: var(--vc-burgundy);
++    font-family: var(--vc-font-serif);
++    font-size: clamp(2.4rem, 5vw, 4rem);
++    line-height: 1;
++}
++
++.planner-summary-number span {
++    color: var(--vc-muted);
++    font-family: var(--vc-font-sans);
++    font-size: 1rem;
++}
++
++.planner-summary h2 {
++    margin: 0.65rem 0 0.25rem;
++    font-size: 1.5rem;
++}
++
++.planner-summary p:not(.planner-summary-number) {
++    margin: 0;
++    color: var(--vc-muted);
++}
++
++.planner-progress {
++    height: 0.5rem;
++    margin-top: 1.4rem;
++    overflow: hidden;
++    background: #ece6dd;
++    border-radius: 999px;
++}
++
++.planner-progress span {
++    display: block;
++    width: var(--planner-progress);
++    height: 100%;
++    background: var(--vc-burgundy);
++    transition: width 180ms ease;
++}
++
++.planner-session-note {
++    margin-top: 1rem !important;
++    padding-top: 1rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.planner-recommendations {
++    display: grid;
++    gap: 0;
++    margin: 2rem 0 0;
++    padding: 0;
++    list-style: none;
++}
++
++.planner-recommendation {
++    display: grid;
++    grid-template-columns: 2.5rem minmax(0, 1fr);
++    gap: 1.25rem;
++    padding: 1.75rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.planner-recommendation:first-child {
++    border-top: 1px solid var(--vc-border);
++}
++
++.planner-recommendation-marker {
++    display: grid;
++    place-items: center;
++    width: 2.5rem;
++    height: 2.5rem;
++    color: var(--vc-burgundy);
++    background: var(--vc-burgundy-soft);
++    border-radius: 50%;
++    font-weight: 700;
++}
++
++.planner-recommendation.is-complete {
++    opacity: 0.65;
++}
++
++.planner-recommendation.is-complete .planner-recommendation-marker {
++    color: var(--vc-success);
++    background: var(--vc-success-soft);
++}
++
++.planner-recommendation.is-complete h2 {
++    text-decoration: line-through;
++    text-decoration-thickness: 1px;
++}
++
++.planner-recommendation-meta {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++}
++
++.planner-kind {
++    letter-spacing: 0.08em;
++    text-transform: uppercase;
++    font-weight: 700;
++}
++
++.planner-kind-review,
++.planner-kind-weak_area {
++    color: var(--vc-burgundy);
++}
++
++.planner-kind-roadmap {
++    color: var(--vc-success);
++}
++
++.planner-recommendation h2 {
++    margin: 0.55rem 0 0.6rem;
++    font-size: clamp(1.5rem, 3vw, 2rem);
++}
++
++.planner-recommendation p {
++    max-width: 50rem;
++    margin: 0;
++    color: var(--vc-muted);
++}
++
++.planner-rationale {
++    margin-top: 0.85rem !important;
++    padding-left: 0.9rem;
++    border-left: 2px solid var(--vc-border-strong);
++    font-size: 0.92rem;
++}
++
++.planner-recommendation-actions {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 1rem;
++    margin-top: 1.25rem;
++}
++
++.planner-recommendation-actions form {
++    margin: 0;
++}
++
++.planner-complete-button {
++    padding: 0;
++    color: var(--vc-burgundy);
++    background: transparent;
++    border: 0;
++    cursor: pointer;
++    font: inherit;
++    text-decoration: underline;
++    text-underline-offset: 0.2rem;
++}
++
++.planner-sidebar {
++    display: grid;
++    align-content: start;
++    gap: 1.5rem;
++}
++
++.planner-settings,
++.planner-principles {
++    padding: 1.5rem;
++    background: var(--vc-paper);
++    border: 1px solid var(--vc-border);
++}
++
++.planner-settings h2,
++.planner-principles h2 {
++    margin: 0.25rem 0 1.25rem;
++    font-size: 1.35rem;
++}
++
++.planner-settings form {
++    display: grid;
++    gap: 1rem;
++}
++
++.planner-settings select {
++    width: 100%;
++}
++
++.button-full {
++    width: 100%;
++}
++
++.planner-settings-note {
++    margin: 1.25rem 0 0;
++    padding-top: 1.25rem;
++    color: var(--vc-muted);
++    border-top: 1px solid var(--vc-border);
++    font-size: 0.88rem;
++    line-height: 1.55;
++}
++
++.planner-principles ol {
++    display: grid;
++    gap: 0.75rem;
++    margin: 0;
++    padding-left: 1.25rem;
++    color: var(--vc-muted);
++}
++
++.planner-empty-state {
++    padding: 2rem;
++    background: var(--vc-paper);
++    border: 1px solid var(--vc-border);
++}
++
++@media (max-width: 900px) {
++    .planner-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .planner-sidebar {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++}
++
++@media (max-width: 640px) {
++    .planner-header {
++        align-items: stretch;
++        flex-direction: column;
++    }
++
++    .planner-header-actions .button,
++    .planner-header-actions form {
++        width: 100%;
++    }
++
++    .planner-layout {
++        gap: 2rem;
++        padding-top: 1.5rem;
++    }
++
++    .planner-summary {
++        padding: 1.35rem;
++    }
++
++    .planner-recommendation {
++        grid-template-columns: 2rem minmax(0, 1fr);
++        gap: 0.85rem;
++    }
++
++    .planner-recommendation-marker {
++        width: 2rem;
++        height: 2rem;
++    }
++
++    .planner-sidebar {
++        grid-template-columns: 1fr;
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 087bd38160a5e3ea589f4b188da4fb623a827820..c2a338106186a668ba3cfef5a6a7482a4e6a6ff6 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -11,2 +11,3 @@
+     <link rel="stylesheet" href="{% static 'css/roadmaps.css' %}">
++    <link rel="stylesheet" href="{% static 'css/planner.css' %}">
+ </head>
+@@ -26,2 +27,9 @@
+                 </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
++                   href="{% url 'planner:today' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
++                    </span>
++                    <span>Today’s plan</span>
++                </a>
+                 <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
+@@ -122,6 +130,6 @@
+             </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.url_name == 'import_history' %}is-active{% endif %}"
+-               href="{% url 'questions:import_history' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 19h16"></path></svg>
+-                <span>Imports</span>
++            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
++               href="{% url 'planner:today' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
++                <span>Plan</span>
+             </a>
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 88eb5f919fd5ab54b706a1cd16594262eba574e5..a53c844245167be436ff937f26cacb349c099463 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -19,29 +19,19 @@
+             <div class="dashboard-section-label">
+-                <span class="dashboard-status-dot{% if not due_review_count %} is-clear{% endif %}" aria-hidden="true"></span>
+-                <span>Today’s work</span>
++                <span class="dashboard-status-dot{% if today_plan.is_complete %} is-clear{% endif %}" aria-hidden="true"></span>
++                <span>Today’s plan</span>
+             </div>
+ 
+-            {% if due_review_count and next_review_state %}
+-                <p class="dashboard-priority-number">{{ due_review_count }} <span>review{{ due_review_count|pluralize }} due</span></p>
+-                <h2 id="today-work-heading">Begin with {{ next_review_state.question.title }}</h2>
+-                <p class="dashboard-priority-copy">{{ next_review_state.question.prompt|truncatewords:30 }}</p>
+-                <div class="dashboard-priority-actions">
+-                    <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start review session</a>
+-                    <a class="dashboard-text-link" href="{% url 'reviews:queue' %}">Open full queue</a>
+-                </div>
+-            {% elif ready_question_count %}
+-                <p class="dashboard-priority-number">0 <span>reviews due</span></p>
+-                <h2 id="today-work-heading">Your queue is clear</h2>
+-                <p class="dashboard-priority-copy">Your ready questions are scheduled. View the queue to see what is coming next.</p>
+-                <div class="dashboard-priority-actions">
+-                    <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
+-                </div>
++            {% if today_plan.is_complete %}
++                <p class="dashboard-priority-number">{{ today_plan.completed_count }} <span>tasks complete</span></p>
++                <h2 id="today-work-heading">You finished today’s plan</h2>
++                <p class="dashboard-priority-copy">The plan will reset tomorrow, or you can rebuild it around a different time budget.</p>
+             {% else %}
+-                <p class="dashboard-priority-number">0 <span>questions ready</span></p>
+-                <h2 id="today-work-heading">Prepare your first review</h2>
+-                <p class="dashboard-priority-copy">Complete the notes on one of your questions, then mark it ready to begin spaced review.</p>
+-                <div class="dashboard-priority-actions">
+-                    <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
+-                </div>
++                <p class="dashboard-priority-number">{{ today_plan.estimated_minutes }} <span>minutes planned</span></p>
++                <h2 id="today-work-heading">{{ today_plan.recommendations.0.title }}</h2>
++                <p class="dashboard-priority-copy">{{ today_plan.recommendations.0.description }}</p>
+             {% endif %}
++            <div class="dashboard-priority-actions">
++                <a class="button" href="{% url 'planner:today' %}">{% if today_plan.is_complete %}Review today’s plan{% else %}Open today’s plan{% endif %}</a>
++                {% if due_review_count %}<a class="dashboard-text-link" href="{% url 'reviews:queue' %}">{{ due_review_count }} review{{ due_review_count|pluralize }} due</a>{% endif %}
++            </div>
+         </section>
+@@ -94,12 +84,12 @@
+             <div>
+-                <dt>Due now</dt>
+-                <dd>{{ due_review_count }}</dd>
++                <dt>Planned tasks</dt>
++                <dd>{{ today_plan.total_count }}</dd>
+             </div>
+             <div>
+-                <dt>Reviewed today</dt>
+-                <dd>{{ reviewed_today_count }}</dd>
++                <dt>Completed</dt>
++                <dd>{{ today_plan.completed_count }}</dd>
+             </div>
+             <div>
+-                <dt>Ready for review</dt>
+-                <dd>{{ ready_question_count }}</dd>
++                <dt>Due now</dt>
++                <dd>{{ due_review_count }}</dd>
+             </div>
+@@ -112,2 +102,3 @@
+         <div class="dashboard-brief-links">
++            <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
+             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
+diff --git a/templates/planner/today.html b/templates/planner/today.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..124ab3d754cfc9daf3062679ef11c321fbc5f43b
+--- /dev/null
++++ b/templates/planner/today.html
+@@ -0,0 +1,113 @@
++{% extends "base.html" %}
++
++{% block title %}Today’s Plan | ViewCoach{% endblock %}
++{% block body_class %}planner-page{% endblock %}
++
++{% block content %}
++<section class="planner-header">
++    <div>
++        <p class="eyebrow">Adaptive study planner</p>
++        <h1>Today’s plan</h1>
++        <p>A focused session assembled from what is due, what is in progress and what needs attention.</p>
++    </div>
++    <div class="planner-header-actions">
++        {% if active_session %}
++            <form method="post" action="{% url 'planner:finish_session' %}">
++                {% csrf_token %}
++                <button class="button button-secondary" type="submit">End session</button>
++            </form>
++        {% else %}
++            <form method="post" action="{% url 'planner:start_session' %}">
++                {% csrf_token %}
++                <button class="button" type="submit">Start study session</button>
++            </form>
++        {% endif %}
++    </div>
++</section>
++
++<div class="planner-layout">
++    <main class="planner-main">
++        <section class="planner-summary" aria-labelledby="planner-summary-heading">
++            <div>
++                <p class="planner-summary-number">{{ estimated_minutes }} <span>minutes</span></p>
++                <h2 id="planner-summary-heading">
++                    {% if is_complete %}Plan complete{% else %}{{ total_count }} focused task{{ total_count|pluralize }}{% endif %}
++                </h2>
++                <p>{{ completed_count }} of {{ total_count }} completed</p>
++            </div>
++            <div class="planner-progress" aria-label="{{ completed_count }} of {{ total_count }} tasks complete">
++                <span style="--planner-progress: {% widthratio completed_count total_count 100 %}%"></span>
++            </div>
++            {% if active_session %}
++                <p class="planner-session-note">
++                    Session started at <time datetime="{{ active_session.started_at|date:'c' }}">{{ active_session.started_at|date:"H:i" }}</time>.
++                </p>
++            {% endif %}
++        </section>
++
++        <ol class="planner-recommendations">
++            {% for recommendation in recommendations %}
++                <li class="planner-recommendation{% if recommendation.is_completed %} is-complete{% endif %}">
++                    <div class="planner-recommendation-marker" aria-hidden="true">{{ forloop.counter }}</div>
++                    <article>
++                        <div class="planner-recommendation-meta">
++                            <span class="planner-kind planner-kind-{{ recommendation.kind|lower }}">{{ recommendation.get_kind_display }}</span>
++                            <span>{{ recommendation.estimated_minutes }} min</span>
++                        </div>
++                        <h2>{{ recommendation.title }}</h2>
++                        <p>{{ recommendation.description }}</p>
++                        {% if recommendation.rationale %}
++                            <p class="planner-rationale"><strong>Why this:</strong> {{ recommendation.rationale }}</p>
++                        {% endif %}
++                        <div class="planner-recommendation-actions">
++                            <a class="button button-small{% if recommendation.is_completed %} button-secondary{% endif %}" href="{{ recommendation.action_url }}">
++                                {{ recommendation.action_label }}
++                            </a>
++                            <form method="post" action="{% url 'planner:toggle_recommendation' recommendation.pk %}">
++                                {% csrf_token %}
++                                <button class="planner-complete-button" type="submit">
++                                    {% if recommendation.is_completed %}Mark unfinished{% else %}Mark complete{% endif %}
++                                </button>
++                            </form>
++                        </div>
++                    </article>
++                </li>
++            {% empty %}
++                <li class="planner-empty-state">
++                    <h2>No tasks were generated</h2>
++                    <p>Rebuild the plan or add a question to your library.</p>
++                </li>
++            {% endfor %}
++        </ol>
++    </main>
++
++    <aside class="planner-sidebar">
++        <section class="planner-settings" aria-labelledby="planner-settings-heading">
++            <p class="eyebrow">Session settings</p>
++            <h2 id="planner-settings-heading">Available time</h2>
++            <form method="post" action="{% url 'planner:regenerate' %}">
++                {% csrf_token %}
++                <div class="form-field">
++                    {{ preferences_form.time_budget_minutes.label_tag }}
++                    {{ preferences_form.time_budget_minutes }}
++                </div>
++                <button class="button button-secondary button-full" type="submit">Rebuild today’s plan</button>
++            </form>
++            <p class="planner-settings-note">
++                Rebuilding uses deterministic priorities. Due reviews come first, followed by active roadmap work, weak areas and fresh practice when time allows.
++            </p>
++        </section>
++
++        <section class="planner-principles" aria-labelledby="planner-principles-heading">
++            <p class="eyebrow">How it decides</p>
++            <h2 id="planner-principles-heading">Priority order</h2>
++            <ol>
++                <li>Time-sensitive due reviews</li>
++                <li>The next unfinished roadmap topic</li>
++                <li>Recent Again or Hard reviews</li>
++                <li>A fresh practice question</li>
++            </ol>
++        </section>
++    </aside>
++</div>
++{% endblock %}
