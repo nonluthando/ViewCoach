@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Roadmap, RoadmapSection, RoadmapTopic, UserRoadmap, UserTopicProgress
+from .models import (
+    Roadmap,
+    RoadmapSection,
+    RoadmapTopic,
+    UserRoadmap,
+    UserTopicProgress,
+    UserTopicResource,
+)
 
 
 class RoadmapTopicInline(admin.TabularInline):
@@ -49,4 +56,12 @@ class UserTopicProgressAdmin(admin.ModelAdmin):
     list_display = ("user", "topic", "status", "updated_at")
     list_filter = ("status", "topic__section__roadmap")
     search_fields = ("user__email", "topic__title")
+    raw_id_fields = ("user", "topic")
+
+
+@admin.register(UserTopicResource)
+class UserTopicResourceAdmin(admin.ModelAdmin):
+    list_display = ("title", "user", "topic", "created_at")
+    list_filter = ("topic__section__roadmap",)
+    search_fields = ("title", "url", "user__email", "topic__title")
     raw_id_fields = ("user", "topic")

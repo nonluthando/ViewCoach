@@ -149,3 +149,32 @@ class UserTopicProgress(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user}: {self.topic} ({self.get_status_display()})"
+
+
+class UserTopicResource(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="topic_resources",
+    )
+    topic = models.ForeignKey(
+        RoadmapTopic,
+        on_delete=models.CASCADE,
+        related_name="user_resources",
+    )
+    title = models.CharField(max_length=160)
+    url = models.URLField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "topic", "url"],
+                name="unique_user_topic_resource_url",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user}: {self.topic} — {self.title}"

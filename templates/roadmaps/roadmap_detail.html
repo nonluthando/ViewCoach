@@ -58,7 +58,9 @@
                                 {% if topic.current_status == "COMPLETED" %}✓{% elif topic.current_status == "IN_PROGRESS" %}→{% else %}○{% endif %}
                             </span>
                             <div>
-                                <strong>{{ topic.title }}</strong>
+                                <strong>
+                                    <a class="roadmap-topic-link" href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">{{ topic.title }}</a>
+                                </strong>
                                 {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
                             </div>
                         </div>

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.title }} | {{ roadmap.title }} | ViewCoach{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ topic.title }}</span>
+</nav>
+
+<section class="topic-workspace-header">
+    <div>
+        <p class="eyebrow">{{ topic.section.title }} · Topic {{ topic_number }} of {{ topic_count }}</p>
+        <h1>{{ topic.title }}</h1>
+        {% if topic.description %}
+            <p class="lead">{{ topic.description }}</p>
+        {% else %}
+            <p class="lead">Use this workspace to keep the material, links and notes for this topic together.</p>
+        {% endif %}
+    </div>
+    <a class="topic-back-link" href="{% url 'roadmaps:detail' roadmap.slug %}#topic-{{ topic.pk }}">Back to roadmap</a>
+</section>
+
+<div class="topic-workspace-layout">
+    <main class="topic-workspace-main">
+        <section class="topic-workspace-panel" aria-labelledby="topic-notes-heading">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Your workspace</p>
+                    <h2 id="topic-notes-heading">Study notes</h2>
+                </div>
+                {% if progress.updated_at %}
+                    <span>Updated {{ progress.updated_at|date:"j M Y, H:i" }}</span>
+                {% endif %}
+            </div>
+            <form method="post" action="{% url 'roadmaps:save_topic_notes' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <label class="sr-only" for="{{ notes_form.notes.id_for_label }}">Study notes</label>
+                {{ notes_form.notes }}
+                <div class="topic-form-actions">
+                    <p>Keep explanations, examples and mistakes here so you do not have to rebuild the context later.</p>
+                    <button class="button" type="submit">Save notes</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="topic-workspace-panel" aria-labelledby="topic-resources-heading">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Reference material</p>
+                    <h2 id="topic-resources-heading">Learning resources</h2>
+                </div>
+                <span>{{ resources|length }} saved</span>
+            </div>
+
+            {% if resources %}
+                <ul class="topic-resource-list">
+                    {% for resource in resources %}
+                        <li>
+                            <div>
+                                <a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">{{ resource.title }}</a>
+                                <span>{{ resource.url }}</span>
+                            </div>
+                            <form method="post" action="{% url 'roadmaps:delete_topic_resource' roadmap.slug topic.pk resource.pk %}">
+                                {% csrf_token %}
+                                <button class="topic-resource-delete" type="submit" aria-label="Remove {{ resource.title }}">Remove</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="topic-empty-state">
+                    <strong>No resources saved yet.</strong>
+                    <p>Add the article, video, documentation or exercise you plan to use for this topic.</p>
+                </div>
+            {% endif %}
+
+            <form class="topic-resource-form" method="post" action="{% url 'roadmaps:add_topic_resource' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ resource_form.title.id_for_label }}">Title</label>
+                    {{ resource_form.title }}
+                </div>
+                <div>
+                    <label for="{{ resource_form.url.id_for_label }}">URL</label>
+                    {{ resource_form.url }}
+                </div>
+                <button class="button button-secondary" type="submit">Add resource</button>
+            </form>
+        </section>
+    </main>
+
+    <aside class="topic-workspace-sidebar">
+        <section class="topic-sidebar-panel" aria-labelledby="topic-status-heading">
+            <p class="eyebrow">Progress</p>
+            <h2 id="topic-status-heading">Topic status</h2>
+            <p class="topic-current-status">
+                {% if progress %}{{ progress.get_status_display }}{% else %}Not started{% endif %}
+            </p>
+            <form class="topic-status-form" method="post" action="{% url 'roadmaps:update_topic_status' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="return_to" value="topic">
+                <button class="topic-status-option {% if current_status == 'NOT_STARTED' %}is-current{% endif %}" type="submit" name="status" value="NOT_STARTED">
+                    <span aria-hidden="true">○</span>
+                    <span>Not started</span>
+                </button>
+                <button class="topic-status-option {% if current_status == 'IN_PROGRESS' %}is-current{% endif %}" type="submit" name="status" value="IN_PROGRESS">
+                    <span aria-hidden="true">→</span>
+                    <span>Learning</span>
+                </button>
+                <button class="topic-status-option topic-status-complete {% if current_status == 'COMPLETED' %}is-current{% endif %}" type="submit" name="status" value="COMPLETED">
+                    <span aria-hidden="true">✓</span>
+                    <span>Completed</span>
+                </button>
+            </form>
+        </section>
+
+        <section class="topic-sidebar-panel" aria-labelledby="topic-activity-heading">
+            <p class="eyebrow">Activity</p>
+            <h2 id="topic-activity-heading">Learning timeline</h2>
+            <dl class="topic-timeline">
+                <div>
+                    <dt>Started</dt>
+                    <dd>{% if progress.started_at %}{{ progress.started_at|date:"j M Y, H:i" }}{% else %}Not yet{% endif %}</dd>
+                </div>
+                <div>
+                    <dt>Completed</dt>
+                    <dd>{% if progress.completed_at %}{{ progress.completed_at|date:"j M Y, H:i" }}{% else %}Not yet{% endif %}</dd>
+                </div>
+            </dl>
+        </section>
+    </aside>
+</div>
+
+<nav class="topic-pagination" aria-label="Topic navigation">
+    <div>
+        {% if previous_topic %}
+            <span>Previous topic</span>
+            <a href="{% url 'roadmaps:topic_detail' roadmap.slug previous_topic.pk %}">← {{ previous_topic.title }}</a>
+        {% endif %}
+    </div>
+    <div class="topic-pagination-next">
+        {% if next_topic %}
+            <span>Next topic</span>
+            <a href="{% url 'roadmaps:topic_detail' roadmap.slug next_topic.pk %}">{{ next_topic.title }} →</a>
+        {% endif %}
+    </div>
+</nav>
+{% endblock %}
