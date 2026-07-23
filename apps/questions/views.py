@@ -226,7 +226,10 @@ def question_create(request, question_type_slug):
     form_class = QUESTION_FORM_BY_TYPE[question_type]
 
     if request.method == "POST":
-        form = form_class(request.POST)
+        form = form_class(
+            request.POST,
+            owner=request.user,
+        )
         submission_token = request.POST.get("submission_token", "")
 
         if form.is_valid():

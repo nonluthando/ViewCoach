@@ -19,15 +19,16 @@ def test_behavioural_form_does_not_ask_for_difficulty():
     assert "difficulty" not in form.fields
 
 
-def test_debug_form_accepts_known_bug_type():
+def test_debug_form_accepts_known_bug_type(user):
     form = DebugQuestionForm(
+        owner=user,
         data={
             "title": "Wrong default",
             "prompt": "A required value has no default.",
             "status": "ACTIVE",
             "difficulty": "MEDIUM",
             "bug_type": "INCORRECT_DEFAULT",
-        }
+        },
     )
 
     assert form.is_valid(), form.errors
