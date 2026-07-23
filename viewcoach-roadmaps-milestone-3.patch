@@ -1,0 +1,2875 @@
+diff --git a/README.md b/README.md
+index 10e763c..881d8d9 100644
+--- a/README.md
++++ b/README.md
+@@ -138,3 +138,13 @@ python manage.py seed_question_bank
+ ```
+ 
+ The command is idempotent and is also run by `build.sh` during Render deployments. The curated core bank contains 100 questions: 30 technical, 50 concept, 10 debugging and 10 behavioural. Built-in questions are shared and read-only; each user stores private bookmarks, progress and notes separately.
++
++## Built-in learning roadmaps
++
++ViewCoach also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
++
++```bash
++python manage.py seed_roadmaps
++```
++
++The command is idempotent and is run by `build.sh` during Render deployments. The first catalogue contains 12 roadmaps and 419 topics across AI engineering, backend, full-stack, data analysis, prompt engineering, AI agents, Python, Java, Python for data analysis, system design, data structures and algorithms, and LeetCode interview practice.
+diff --git a/apps/roadmaps/__init__.py b/apps/roadmaps/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/roadmaps/admin.py b/apps/roadmaps/admin.py
+new file mode 100644
+index 0000000..c3737a0
+--- /dev/null
++++ b/apps/roadmaps/admin.py
+@@ -0,0 +1,52 @@
++from django.contrib import admin
++
++from .models import Roadmap, RoadmapSection, RoadmapTopic, UserRoadmap, UserTopicProgress
++
++
++class RoadmapTopicInline(admin.TabularInline):
++    model = RoadmapTopic
++    extra = 0
++    fields = ("position", "title", "slug")
++    ordering = ("position",)
++
++
++@admin.register(RoadmapSection)
++class RoadmapSectionAdmin(admin.ModelAdmin):
++    list_display = ("title", "roadmap", "position")
++    list_filter = ("roadmap__kind", "roadmap")
++    search_fields = ("title", "roadmap__title")
++    ordering = ("roadmap", "position")
++    inlines = (RoadmapTopicInline,)
++
++
++@admin.register(Roadmap)
++class RoadmapAdmin(admin.ModelAdmin):
++    list_display = ("title", "kind", "is_system", "is_published", "position")
++    list_filter = ("kind", "is_system", "is_published")
++    search_fields = ("title", "description")
++    prepopulated_fields = {"slug": ("title",)}
++    ordering = ("kind", "position", "title")
++
++
++@admin.register(RoadmapTopic)
++class RoadmapTopicAdmin(admin.ModelAdmin):
++    list_display = ("title", "section", "position")
++    list_filter = ("section__roadmap",)
++    search_fields = ("title", "section__title", "section__roadmap__title")
++    ordering = ("section", "position")
++
++
++@admin.register(UserRoadmap)
++class UserRoadmapAdmin(admin.ModelAdmin):
++    list_display = ("user", "roadmap", "status", "started_at", "completed_at")
++    list_filter = ("status", "roadmap__kind")
++    search_fields = ("user__email", "roadmap__title")
++    raw_id_fields = ("user", "roadmap")
++
++
++@admin.register(UserTopicProgress)
++class UserTopicProgressAdmin(admin.ModelAdmin):
++    list_display = ("user", "topic", "status", "updated_at")
++    list_filter = ("status", "topic__section__roadmap")
++    search_fields = ("user__email", "topic__title")
++    raw_id_fields = ("user", "topic")
+diff --git a/apps/roadmaps/apps.py b/apps/roadmaps/apps.py
+new file mode 100644
+index 0000000..00c3ba6
+--- /dev/null
++++ b/apps/roadmaps/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class RoadmapsConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.roadmaps"
+diff --git a/apps/roadmaps/data/core_roadmaps.json b/apps/roadmaps/data/core_roadmaps.json
+new file mode 100644
+index 0000000..21d558d
+--- /dev/null
++++ b/apps/roadmaps/data/core_roadmaps.json
+@@ -0,0 +1,916 @@
++{
++  "roadmaps": [
++    {
++      "title": "AI Engineer",
++      "slug": "ai-engineer",
++      "kind": "ROLE",
++      "description": "Build the foundations for junior AI engineering work across models, retrieval, agents, platforms and responsible delivery.",
++      "sections": [
++        {
++          "title": "Model foundations",
++          "topics": [
++            "LLMs",
++            "Inference",
++            "Pre-trained models",
++            "Open-source AI",
++            "AI development tools"
++          ]
++        },
++        {
++          "title": "Retrieval and search",
++          "topics": [
++            "Embeddings",
++            "Vector databases",
++            "Semantic search",
++            "Similarity search",
++            "Chunking and retrieval",
++            "RAG",
++            "RAG vs fine-tuning"
++          ]
++        },
++        {
++          "title": "Prompting and agent systems",
++          "topics": [
++            "Prompt engineering",
++            "AI agents",
++            "Function calling and tools",
++            "ReAct prompting"
++          ]
++        },
++        {
++          "title": "Model platforms",
++          "topics": [
++            "OpenAI models and API",
++            "Google Gemini",
++            "Hugging Face"
++          ]
++        },
++        {
++          "title": "Advanced and responsible AI",
++          "topics": [
++            "Multimodal AI",
++            "AI safety and ethics",
++            "Prompt injection",
++            "Privacy and security"
++          ]
++        }
++      ],
++      "position": 1
++    },
++    {
++      "title": "Backend Developer",
++      "slug": "backend-developer",
++      "kind": "ROLE",
++      "description": "A junior backend roadmap covering web fundamentals, data, APIs, security, testing, delivery and production reliability.",
++      "sections": [
++        {
++          "title": "Web and language foundations",
++          "topics": [
++            "Internet fundamentals",
++            "HTTP",
++            "DNS",
++            "Backend programming language",
++            "Python",
++            "Java",
++            "Git",
++            "GitHub"
++          ]
++        },
++        {
++          "title": "Relational data",
++          "topics": [
++            "Relational databases",
++            "PostgreSQL",
++            "SQL",
++            "Database normalisation",
++            "ACID",
++            "Transactions",
++            "Indexes",
++            "ORMs",
++            "N+1 queries"
++          ]
++        },
++        {
++          "title": "Authentication and security",
++          "topics": [
++            "Authentication",
++            "JWT",
++            "OAuth",
++            "Cookies",
++            "API security",
++            "CORS",
++            "SSL/TLS",
++            "OWASP",
++            "Hashing"
++          ]
++        },
++        {
++          "title": "API development",
++          "topics": [
++            "REST APIs",
++            "JSON APIs",
++            "OpenAPI",
++            "WebSockets",
++            "Throttling"
++          ]
++        },
++        {
++          "title": "Performance and asynchronous work",
++          "topics": [
++            "Caching",
++            "Redis",
++            "Message brokers",
++            "Circuit breakers",
++            "Graceful degradation"
++          ]
++        },
++        {
++          "title": "Testing and design",
++          "topics": [
++            "Unit testing",
++            "Integration testing",
++            "Functional testing",
++            "Design patterns",
++            "Test-driven development"
++          ]
++        },
++        {
++          "title": "Architecture and delivery",
++          "topics": [
++            "Monoliths",
++            "Microservices",
++            "Docker",
++            "Web servers",
++            "CI/CD",
++            "Scalability",
++            "Infrastructure basics"
++          ]
++        },
++        {
++          "title": "Production observability",
++          "topics": [
++            "Monitoring",
++            "Logging",
++            "Metrics",
++            "Tracing",
++            "Observability"
++          ]
++        }
++      ],
++      "position": 2
++    },
++    {
++      "title": "Full-Stack Developer",
++      "slug": "full-stack-developer",
++      "kind": "ROLE",
++      "description": "Build complete web products from browser fundamentals through APIs, data, deployment and monitoring.",
++      "sections": [
++        {
++          "title": "Frontend foundations",
++          "topics": [
++            "HTML",
++            "CSS",
++            "JavaScript",
++            "Web interactivity",
++            "npm",
++            "External packages",
++            "Git",
++            "GitHub",
++            "Collaborative development"
++          ]
++        },
++        {
++          "title": "Frontend applications",
++          "topics": [
++            "React",
++            "Tailwind CSS",
++            "Frontend applications"
++          ]
++        },
++        {
++          "title": "Backend and data",
++          "topics": [
++            "Backend programming language",
++            "Node.js",
++            "REST APIs",
++            "CRUD applications",
++            "PostgreSQL",
++            "Redis"
++          ]
++        },
++        {
++          "title": "Authentication and platform",
++          "topics": [
++            "JWT authentication",
++            "Linux",
++            "Complete full-stack applications"
++          ]
++        },
++        {
++          "title": "Cloud and delivery",
++          "topics": [
++            "AWS",
++            "EC2",
++            "S3",
++            "Deployment",
++            "GitHub Actions",
++            "CI/CD",
++            "Monitoring"
++          ]
++        }
++      ],
++      "position": 3
++    },
++    {
++      "title": "Data Analyst",
++      "slug": "data-analyst",
++      "kind": "ROLE",
++      "description": "A practical data-analysis roadmap from data preparation and statistics to reporting, dashboards and model evaluation.",
++      "sections": [
++        {
++          "title": "Analytics workflow",
++          "topics": [
++            "Data analytics fundamentals",
++            "Descriptive analytics",
++            "Diagnostic analytics",
++            "Data collection",
++            "Data cleaning",
++            "Data exploration",
++            "Data visualisation",
++            "Statistical analysis",
++            "Reporting"
++          ]
++        },
++        {
++          "title": "Excel analysis",
++          "topics": [
++            "Excel",
++            "Excel formulas",
++            "Lookup functions",
++            "Aggregation functions",
++            "Pivot tables",
++            "Charts"
++          ]
++        },
++        {
++          "title": "Data tools and sources",
++          "topics": [
++            "Python",
++            "SQL",
++            "Pandas",
++            "CSV files",
++            "Databases",
++            "APIs"
++          ]
++        },
++        {
++          "title": "Data quality and transformation",
++          "topics": [
++            "Missing-data handling",
++            "Duplicate removal",
++            "Outlier detection",
++            "Data transformation"
++          ]
++        },
++        {
++          "title": "Descriptive statistics",
++          "topics": [
++            "Descriptive statistics",
++            "Mean",
++            "Median",
++            "Variance",
++            "Standard deviation"
++          ]
++        },
++        {
++          "title": "Business intelligence and charts",
++          "topics": [
++            "Tableau",
++            "Power BI",
++            "Bar charts",
++            "Line charts",
++            "Scatter plots",
++            "Funnel charts",
++            "Histograms",
++            "Heatmaps"
++          ]
++        },
++        {
++          "title": "Inference and modelling",
++          "topics": [
++            "Hypothesis testing",
++            "Correlation",
++            "Regression",
++            "Distribution analysis",
++            "Logistic regression",
++            "Model evaluation"
++          ]
++        }
++      ],
++      "position": 4
++    },
++    {
++      "title": "Prompt Engineering",
++      "slug": "prompt-engineering",
++      "kind": "SKILL",
++      "description": "Learn how prompts interact with language models, how to test them, and how to make model behaviour more reliable.",
++      "sections": [
++        {
++          "title": "LLM foundations",
++          "topics": [
++            "LLM fundamentals",
++            "Tokens",
++            "Context windows",
++            "Hallucinations",
++            "Model weights and parameters",
++            "Fine-tuning vs prompt engineering"
++          ]
++        },
++        {
++          "title": "Generation controls",
++          "topics": [
++            "Sampling parameters",
++            "Temperature",
++            "Top-P",
++            "Maximum tokens",
++            "Structured outputs"
++          ]
++        },
++        {
++          "title": "Prompting patterns",
++          "topics": [
++            "Zero-shot prompting",
++            "One-shot prompting",
++            "Few-shot prompting",
++            "System prompting",
++            "Contextual prompting",
++            "Step-back prompting",
++            "ReAct prompting",
++            "Prompt debiasing"
++          ]
++        },
++        {
++          "title": "Retrieval, agents and security",
++          "topics": [
++            "RAG",
++            "AI agents",
++            "Prompt injection"
++          ]
++        },
++        {
++          "title": "Evaluation and operations",
++          "topics": [
++            "LLM self-evaluation",
++            "Prompt testing",
++            "Prompt versioning",
++            "Reliability",
++            "Latency and cost optimisation"
++          ]
++        }
++      ],
++      "position": 5
++    },
++    {
++      "title": "AI Agents",
++      "slug": "ai-agents",
++      "kind": "SKILL",
++      "description": "Understand agent loops, tool use, memory, orchestration, evaluation and safe deployment.",
++      "sections": [
++        {
++          "title": "Agent foundations",
++          "topics": [
++            "Agent fundamentals",
++            "LLM-based agents",
++            "Agent loops",
++            "Reasoning and planning"
++          ]
++        },
++        {
++          "title": "Tools and outputs",
++          "topics": [
++            "Tool use",
++            "Function calling",
++            "ReAct",
++            "Structured outputs"
++          ]
++        },
++        {
++          "title": "Memory and retrieval",
++          "topics": [
++            "Short-term memory",
++            "Long-term memory",
++            "Retrieval and RAG",
++            "Vector databases",
++            "Agent state"
++          ]
++        },
++        {
++          "title": "Systems and workflows",
++          "topics": [
++            "Workflows",
++            "Single-agent systems",
++            "Agent orchestration",
++            "Human-in-the-loop"
++          ]
++        },
++        {
++          "title": "Protocols and frameworks",
++          "topics": [
++            "Model Context Protocol",
++            "LangChain",
++            "LangGraph",
++            "LlamaIndex"
++          ]
++        },
++        {
++          "title": "Evaluation and delivery",
++          "topics": [
++            "Agent evaluation",
++            "Observability",
++            "Guardrails",
++            "Prompt injection defence",
++            "Deployment"
++          ]
++        }
++      ],
++      "position": 6
++    },
++    {
++      "title": "Python",
++      "slug": "python",
++      "kind": "SKILL",
++      "description": "Build strong Python fundamentals, data-structure knowledge, testing habits and web-development capability.",
++      "sections": [
++        {
++          "title": "Core language",
++          "topics": [
++            "Functions",
++            "Exceptions",
++            "Lists",
++            "Tuples",
++            "Sets",
++            "Dictionaries",
++            "Modules"
++          ]
++        },
++        {
++          "title": "Python idioms",
++          "topics": [
++            "List comprehensions",
++            "Generator expressions",
++            "Decorators",
++            "Iterators",
++            "Context managers"
++          ]
++        },
++        {
++          "title": "Object-oriented Python",
++          "topics": [
++            "Object-oriented programming",
++            "Classes",
++            "Inheritance",
++            "Dunder methods"
++          ]
++        },
++        {
++          "title": "Data structures and algorithms",
++          "topics": [
++            "Arrays",
++            "Linked lists",
++            "Stacks",
++            "Queues",
++            "Heaps",
++            "Hash tables",
++            "Trees",
++            "Recursion",
++            "Sorting"
++          ]
++        },
++        {
++          "title": "Packaging and typing",
++          "topics": [
++            "Package management",
++            "pip",
++            "Virtual environments",
++            "pyproject.toml",
++            "Static typing",
++            "Pydantic",
++            "mypy",
++            "Ruff"
++          ]
++        },
++        {
++          "title": "Testing and concurrency",
++          "topics": [
++            "Testing",
++            "pytest",
++            "Concurrency",
++            "Threads",
++            "Multiprocessing",
++            "Async programming"
++          ]
++        },
++        {
++          "title": "Web frameworks",
++          "topics": [
++            "Django",
++            "FastAPI"
++          ]
++        }
++      ],
++      "position": 7
++    },
++    {
++      "title": "Java",
++      "slug": "java",
++      "kind": "SKILL",
++      "description": "Build interview-ready Java knowledge from syntax and OOP through Spring, persistence and testing.",
++      "sections": [
++        {
++          "title": "Core Java",
++          "topics": [
++            "Basic syntax",
++            "Arrays",
++            "Strings",
++            "Methods",
++            "Classes and objects",
++            "Access modifiers",
++            "Static keyword"
++          ]
++        },
++        {
++          "title": "Object-oriented programming",
++          "topics": [
++            "Object-oriented programming",
++            "Inheritance",
++            "Abstraction",
++            "Encapsulation",
++            "Interfaces",
++            "Method overloading",
++            "Method overriding",
++            "Static and dynamic binding"
++          ]
++        },
++        {
++          "title": "Modern Java language",
++          "topics": [
++            "Enums",
++            "Records",
++            "Final keyword",
++            "Lambdas",
++            "Optionals"
++          ]
++        },
++        {
++          "title": "Collections and generics",
++          "topics": [
++            "Collections",
++            "ArrayList",
++            "Set",
++            "Map",
++            "Queue",
++            "Stack",
++            "Deque",
++            "Iterator",
++            "Generics"
++          ]
++        },
++        {
++          "title": "Errors, I/O and functional Java",
++          "topics": [
++            "Exception handling",
++            "File and I/O operations",
++            "Functional interfaces",
++            "Stream API"
++          ]
++        },
++        {
++          "title": "Concurrency and memory",
++          "topics": [
++            "Concurrency",
++            "Threads",
++            "Java Memory Model"
++          ]
++        },
++        {
++          "title": "Build, Spring and data",
++          "topics": [
++            "Build tools",
++            "Maven",
++            "Gradle",
++            "Dependency injection",
++            "Spring Boot",
++            "JDBC",
++            "Spring Data JPA",
++            "Hibernate"
++          ]
++        },
++        {
++          "title": "Logging and testing",
++          "topics": [
++            "Logging",
++            "SLF4J",
++            "Logback",
++            "Unit testing",
++            "JUnit",
++            "Mockito",
++            "Integration testing",
++            "REST Assured"
++          ]
++        }
++      ],
++      "position": 8
++    },
++    {
++      "title": "Python for Data Analysis",
++      "slug": "python-data-analysis",
++      "kind": "SKILL",
++      "description": "Use Python, NumPy and pandas to clean, explore, combine, visualise and operationalise data-analysis work.",
++      "sections": [
++        {
++          "title": "Environment and fundamentals",
++          "topics": [
++            "Python fundamentals",
++            "Jupyter Notebook",
++            "NumPy",
++            "Pandas",
++            "Series",
++            "DataFrames"
++          ]
++        },
++        {
++          "title": "Import and inspect data",
++          "topics": [
++            "Importing CSV, Excel and JSON data",
++            "Data inspection",
++            "Indexing and filtering",
++            "Sorting"
++          ]
++        },
++        {
++          "title": "Clean and transform data",
++          "topics": [
++            "Missing values",
++            "Duplicate data",
++            "Data-type conversion",
++            "String cleaning",
++            "Outlier handling",
++            "Data transformation"
++          ]
++        },
++        {
++          "title": "Aggregate and combine",
++          "topics": [
++            "GroupBy",
++            "Aggregation",
++            "Pivot tables",
++            "Merging",
++            "Joining",
++            "Concatenation",
++            "Reshaping"
++          ]
++        },
++        {
++          "title": "Numerical analysis",
++          "topics": [
++            "NumPy arrays",
++            "Vectorised operations",
++            "Descriptive statistics",
++            "Exploratory data analysis",
++            "Correlation",
++            "Statistical testing"
++          ]
++        },
++        {
++          "title": "Visualisation",
++          "topics": [
++            "Matplotlib",
++            "Seaborn",
++            "Plotly"
++          ]
++        },
++        {
++          "title": "Time series and integration",
++          "topics": [
++            "Time-series data",
++            "Datetime handling",
++            "Rolling calculations",
++            "SQL integration",
++            "API data"
++          ]
++        },
++        {
++          "title": "Delivery and projects",
++          "topics": [
++            "Data pipelines",
++            "Performance optimisation",
++            "Reproducible notebooks",
++            "Data-analysis projects"
++          ]
++        }
++      ],
++      "position": 9
++    },
++    {
++      "title": "System Design",
++      "slug": "system-design",
++      "kind": "SKILL",
++      "description": "Learn how to reason about requirements, scale, data, reliability and trade-offs in software systems.",
++      "sections": [
++        {
++          "title": "Design foundations",
++          "topics": [
++            "System design fundamentals",
++            "Functional and non-functional requirements",
++            "Capacity estimation",
++            "Latency and throughput"
++          ]
++        },
++        {
++          "title": "Traffic and scalability",
++          "topics": [
++            "Scalability",
++            "Vertical vs horizontal scaling",
++            "Load balancing",
++            "Caching",
++            "CDNs",
++            "Rate limiting"
++          ]
++        },
++        {
++          "title": "Data and storage",
++          "topics": [
++            "Databases",
++            "SQL vs NoSQL",
++            "Replication",
++            "Partitioning and sharding",
++            "Indexing",
++            "Transactions",
++            "File and object storage"
++          ]
++        },
++        {
++          "title": "Distributed systems",
++          "topics": [
++            "Consistency",
++            "CAP theorem",
++            "Message queues",
++            "Event-driven architecture",
++            "Service discovery"
++          ]
++        },
++        {
++          "title": "Communication and security",
++          "topics": [
++            "API design",
++            "Authentication and authorisation",
++            "WebSockets"
++          ]
++        },
++        {
++          "title": "Architecture and resilience",
++          "topics": [
++            "Microservices",
++            "Monoliths",
++            "Fault tolerance",
++            "Circuit breakers",
++            "Graceful degradation"
++          ]
++        },
++        {
++          "title": "Observability and practice",
++          "topics": [
++            "Logging",
++            "Metrics",
++            "Tracing",
++            "Common system-design exercises"
++          ]
++        }
++      ],
++      "position": 10
++    },
++    {
++      "title": "Data Structures and Algorithms",
++      "slug": "data-structures-algorithms",
++      "kind": "SKILL",
++      "description": "Learn the core structures, algorithms and recurring patterns used in coding interviews.",
++      "sections": [
++        {
++          "title": "Foundations",
++          "topics": [
++            "Big O notation",
++            "Recursion",
++            "Sorting",
++            "Binary search"
++          ]
++        },
++        {
++          "title": "Linear data structures",
++          "topics": [
++            "Arrays",
++            "Strings",
++            "Hash maps",
++            "Hash sets",
++            "Linked lists",
++            "Stacks",
++            "Queues",
++            "Deques",
++            "Heaps"
++          ]
++        },
++        {
++          "title": "Trees and graphs",
++          "topics": [
++            "Trees",
++            "Binary search trees",
++            "Tries",
++            "Graphs"
++          ]
++        },
++        {
++          "title": "Pointer and window patterns",
++          "topics": [
++            "Two pointers",
++            "Sliding window",
++            "Prefix sums",
++            "Fast and slow pointers",
++            "Monotonic stacks",
++            "Intervals"
++          ]
++        },
++        {
++          "title": "Search and graph patterns",
++          "topics": [
++            "Backtracking",
++            "Breadth-first search",
++            "Depth-first search",
++            "Topological sorting",
++            "Union-find",
++            "Shortest paths"
++          ]
++        },
++        {
++          "title": "Optimisation paradigms",
++          "topics": [
++            "Greedy algorithms",
++            "Dynamic programming",
++            "Bit manipulation"
++          ]
++        }
++      ],
++      "position": 11
++    },
++    {
++      "title": "LeetCode Interview Practice",
++      "slug": "leetcode-interview-practice",
++      "kind": "PRACTICE",
++      "description": "Practise the recurring problem families used in technical interviews. Problem-level mastery will be added in a later milestone.",
++      "sections": [
++        {
++          "title": "Array and pointer patterns",
++          "topics": [
++            "Arrays and hashing",
++            "Two pointers",
++            "Sliding window",
++            "Stack",
++            "Binary search"
++          ]
++        },
++        {
++          "title": "Linked and hierarchical structures",
++          "topics": [
++            "Linked lists",
++            "Trees",
++            "Tries",
++            "Heaps and priority queues"
++          ]
++        },
++        {
++          "title": "Search and graph practice",
++          "topics": [
++            "Backtracking",
++            "Graphs",
++            "Advanced graphs"
++          ]
++        },
++        {
++          "title": "Optimisation practice",
++          "topics": [
++            "One-dimensional dynamic programming",
++            "Two-dimensional dynamic programming",
++            "Greedy",
++            "Intervals"
++          ]
++        },
++        {
++          "title": "Mathematical practice",
++          "topics": [
++            "Mathematics and geometry",
++            "Bit manipulation"
++          ]
++        }
++      ],
++      "position": 12
++    }
++  ]
++}
+diff --git a/apps/roadmaps/management/__init__.py b/apps/roadmaps/management/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/roadmaps/management/commands/__init__.py b/apps/roadmaps/management/commands/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/roadmaps/management/commands/seed_roadmaps.py b/apps/roadmaps/management/commands/seed_roadmaps.py
+new file mode 100644
+index 0000000..056b96f
+--- /dev/null
++++ b/apps/roadmaps/management/commands/seed_roadmaps.py
+@@ -0,0 +1,95 @@
++import json
++from pathlib import Path
++
++from django.core.management.base import BaseCommand, CommandError
++from django.db import transaction
++from django.utils.text import slugify
++
++from apps.roadmaps.models import Roadmap, RoadmapSection, RoadmapTopic
++
++DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "core_roadmaps.json"
++
++
++class Command(BaseCommand):
++    help = "Create or update ViewCoach's built-in roadmap catalogue."
++
++    def handle(self, *args, **options):
++        try:
++            payload = json.loads(DATA_FILE.read_text(encoding="utf-8"))
++        except (OSError, json.JSONDecodeError) as exc:
++            raise CommandError(f"Could not read roadmap data: {exc}") from exc
++
++        roadmap_items = payload.get("roadmaps")
++        if not isinstance(roadmap_items, list):
++            raise CommandError("Roadmap data must contain a roadmaps list.")
++
++        valid_kinds = {value for value, _ in Roadmap.Kind.choices}
++        roadmap_created = 0
++        roadmap_updated = 0
++        section_created = 0
++        topic_created = 0
++
++        with transaction.atomic():
++            for roadmap_position, item in enumerate(roadmap_items, start=1):
++                kind = item.get("kind")
++                if kind not in valid_kinds:
++                    raise CommandError(f"Unknown roadmap kind: {kind}")
++
++                roadmap, was_created = Roadmap.objects.update_or_create(
++                    slug=item["slug"],
++                    defaults={
++                        "title": item["title"],
++                        "description": item.get("description", ""),
++                        "kind": kind,
++                        "position": item.get("position", roadmap_position),
++                        "is_system": True,
++                        "is_published": True,
++                        "created_by": None,
++                    },
++                )
++                roadmap_created += was_created
++                roadmap_updated += not was_created
++
++                for section_position, section_item in enumerate(item["sections"], start=1):
++                    section, section_was_created = RoadmapSection.objects.update_or_create(
++                        roadmap=roadmap,
++                        slug=slugify(section_item["title"]),
++                        defaults={
++                            "title": section_item["title"],
++                            "description": section_item.get("description", ""),
++                            "position": section_position,
++                        },
++                    )
++                    section_created += section_was_created
++
++                    for topic_position, topic_item in enumerate(
++                        section_item["topics"],
++                        start=1,
++                    ):
++                        if isinstance(topic_item, str):
++                            topic_title = topic_item
++                            topic_description = ""
++                        else:
++                            topic_title = topic_item["title"]
++                            topic_description = topic_item.get("description", "")
++
++                        _, topic_was_created = RoadmapTopic.objects.update_or_create(
++                            section=section,
++                            slug=slugify(topic_title),
++                            defaults={
++                                "title": topic_title,
++                                "description": topic_description,
++                                "position": topic_position,
++                            },
++                        )
++                        topic_created += topic_was_created
++
++        total_topics = RoadmapTopic.objects.filter(section__roadmap__is_system=True).count()
++        self.stdout.write(
++            self.style.SUCCESS(
++                "Seeded "
++                f"{len(roadmap_items)} roadmaps and {total_topics} topics "
++                f"({roadmap_created} roadmaps created, {roadmap_updated} updated, "
++                f"{section_created} sections created, {topic_created} topics created)."
++            )
++        )
+diff --git a/apps/roadmaps/migrations/0001_initial.py b/apps/roadmaps/migrations/0001_initial.py
+new file mode 100644
+index 0000000..2f4a4ee
+--- /dev/null
++++ b/apps/roadmaps/migrations/0001_initial.py
+@@ -0,0 +1,272 @@
++# Generated by Django 5.2 on 2026-07-23
++
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="Roadmap",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=140)),
++                ("slug", models.SlugField(max_length=160, unique=True)),
++                ("description", models.TextField(blank=True)),
++                (
++                    "kind",
++                    models.CharField(
++                        choices=[
++                            ("ROLE", "Career roadmap"),
++                            ("SKILL", "Skill roadmap"),
++                            ("PRACTICE", "Practice roadmap"),
++                        ],
++                        max_length=12,
++                    ),
++                ),
++                ("position", models.PositiveIntegerField(default=0)),
++                ("is_system", models.BooleanField(default=True)),
++                ("is_published", models.BooleanField(default=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "created_by",
++                    models.ForeignKey(
++                        blank=True,
++                        null=True,
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="created_roadmaps",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["position", "title"],
++                "indexes": [
++                    models.Index(
++                        fields=["kind", "is_published", "position"],
++                        name="roadmap_kind_pub_idx",
++                    )
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="RoadmapSection",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=140)),
++                ("slug", models.SlugField(max_length=160)),
++                ("description", models.TextField(blank=True)),
++                ("position", models.PositiveIntegerField(default=0)),
++                (
++                    "roadmap",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="sections",
++                        to="roadmaps.roadmap",
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["position", "title"],
++                "indexes": [
++                    models.Index(
++                        fields=["roadmap", "position"],
++                        name="section_roadmap_pos_idx",
++                    )
++                ],
++                "constraints": [
++                    models.UniqueConstraint(
++                        fields=("roadmap", "slug"),
++                        name="unique_section_slug",
++                    ),
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="RoadmapTopic",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=160)),
++                ("slug", models.SlugField(max_length=180)),
++                ("description", models.TextField(blank=True)),
++                ("position", models.PositiveIntegerField(default=0)),
++                (
++                    "section",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topics",
++                        to="roadmaps.roadmapsection",
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["position", "title"],
++                "indexes": [
++                    models.Index(
++                        fields=["section", "position"],
++                        name="topic_section_pos_idx",
++                    )
++                ],
++                "constraints": [
++                    models.UniqueConstraint(
++                        fields=("section", "slug"),
++                        name="unique_topic_slug",
++                    ),
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="UserRoadmap",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "status",
++                    models.CharField(
++                        choices=[
++                            ("NOT_STARTED", "Not started"),
++                            ("IN_PROGRESS", "In progress"),
++                            ("COMPLETED", "Completed"),
++                        ],
++                        default="NOT_STARTED",
++                        max_length=16,
++                    ),
++                ),
++                ("target_date", models.DateField(blank=True, null=True)),
++                ("started_at", models.DateTimeField(blank=True, null=True)),
++                ("completed_at", models.DateTimeField(blank=True, null=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "roadmap",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="user_enrolments",
++                        to="roadmaps.roadmap",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="roadmap_enrolments",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "indexes": [
++                    models.Index(
++                        fields=["user", "status"],
++                        name="user_roadmap_status_idx",
++                    )
++                ],
++                "constraints": [
++                    models.UniqueConstraint(
++                        fields=("user", "roadmap"),
++                        name="unique_user_roadmap",
++                    )
++                ],
++            },
++        ),
++        migrations.CreateModel(
++            name="UserTopicProgress",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "status",
++                    models.CharField(
++                        choices=[
++                            ("NOT_STARTED", "Not started"),
++                            ("IN_PROGRESS", "Learning"),
++                            ("COMPLETED", "Completed"),
++                        ],
++                        default="NOT_STARTED",
++                        max_length=16,
++                    ),
++                ),
++                ("notes", models.TextField(blank=True)),
++                ("started_at", models.DateTimeField(blank=True, null=True)),
++                ("completed_at", models.DateTimeField(blank=True, null=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "topic",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="user_progress",
++                        to="roadmaps.roadmaptopic",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_progress",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "indexes": [
++                    models.Index(
++                        fields=["user", "status"],
++                        name="user_topic_status_idx",
++                    )
++                ],
++                "constraints": [
++                    models.UniqueConstraint(
++                        fields=("user", "topic"),
++                        name="unique_user_topic_progress",
++                    )
++                ],
++            },
++        ),
++    ]
+diff --git a/apps/roadmaps/migrations/__init__.py b/apps/roadmaps/migrations/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/roadmaps/models.py b/apps/roadmaps/models.py
+new file mode 100644
+index 0000000..c94e932
+--- /dev/null
++++ b/apps/roadmaps/models.py
+@@ -0,0 +1,151 @@
++from django.conf import settings
++from django.db import models
++
++
++class Roadmap(models.Model):
++    class Kind(models.TextChoices):
++        ROLE = "ROLE", "Career roadmap"
++        SKILL = "SKILL", "Skill roadmap"
++        PRACTICE = "PRACTICE", "Practice roadmap"
++
++    title = models.CharField(max_length=140)
++    slug = models.SlugField(max_length=160, unique=True)
++    description = models.TextField(blank=True)
++    kind = models.CharField(max_length=12, choices=Kind.choices)
++    position = models.PositiveIntegerField(default=0)
++    is_system = models.BooleanField(default=True)
++    is_published = models.BooleanField(default=True)
++    created_by = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="created_roadmaps",
++        null=True,
++        blank=True,
++    )
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["position", "title"]
++        indexes = [
++            models.Index(fields=["kind", "is_published", "position"], name="roadmap_kind_pub_idx"),
++        ]
++
++    def __str__(self) -> str:
++        return self.title
++
++
++class RoadmapSection(models.Model):
++    roadmap = models.ForeignKey(Roadmap, on_delete=models.CASCADE, related_name="sections")
++    title = models.CharField(max_length=140)
++    slug = models.SlugField(max_length=160)
++    description = models.TextField(blank=True)
++    position = models.PositiveIntegerField(default=0)
++
++    class Meta:
++        ordering = ["position", "title"]
++        constraints = [
++            models.UniqueConstraint(fields=["roadmap", "slug"], name="unique_section_slug"),
++        ]
++        indexes = [
++            models.Index(fields=["roadmap", "position"], name="section_roadmap_pos_idx"),
++        ]
++
++    def __str__(self) -> str:
++        return f"{self.roadmap}: {self.title}"
++
++
++class RoadmapTopic(models.Model):
++    section = models.ForeignKey(RoadmapSection, on_delete=models.CASCADE, related_name="topics")
++    title = models.CharField(max_length=160)
++    slug = models.SlugField(max_length=180)
++    description = models.TextField(blank=True)
++    position = models.PositiveIntegerField(default=0)
++
++    class Meta:
++        ordering = ["position", "title"]
++        constraints = [
++            models.UniqueConstraint(fields=["section", "slug"], name="unique_topic_slug"),
++        ]
++        indexes = [
++            models.Index(fields=["section", "position"], name="topic_section_pos_idx"),
++        ]
++
++    @property
++    def roadmap(self):
++        return self.section.roadmap
++
++    def __str__(self) -> str:
++        return f"{self.section}: {self.title}"
++
++
++class UserRoadmap(models.Model):
++    class Status(models.TextChoices):
++        NOT_STARTED = "NOT_STARTED", "Not started"
++        IN_PROGRESS = "IN_PROGRESS", "In progress"
++        COMPLETED = "COMPLETED", "Completed"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="roadmap_enrolments",
++    )
++    roadmap = models.ForeignKey(Roadmap, on_delete=models.CASCADE, related_name="user_enrolments")
++    status = models.CharField(
++        max_length=16,
++        choices=Status.choices,
++        default=Status.NOT_STARTED,
++    )
++    target_date = models.DateField(null=True, blank=True)
++    started_at = models.DateTimeField(null=True, blank=True)
++    completed_at = models.DateTimeField(null=True, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(fields=["user", "roadmap"], name="unique_user_roadmap"),
++        ]
++        indexes = [
++            models.Index(fields=["user", "status"], name="user_roadmap_status_idx"),
++        ]
++
++    def __str__(self) -> str:
++        return f"{self.user}: {self.roadmap}"
++
++
++class UserTopicProgress(models.Model):
++    class Status(models.TextChoices):
++        NOT_STARTED = "NOT_STARTED", "Not started"
++        IN_PROGRESS = "IN_PROGRESS", "Learning"
++        COMPLETED = "COMPLETED", "Completed"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="topic_progress",
++    )
++    topic = models.ForeignKey(RoadmapTopic, on_delete=models.CASCADE, related_name="user_progress")
++    status = models.CharField(
++        max_length=16,
++        choices=Status.choices,
++        default=Status.NOT_STARTED,
++    )
++    notes = models.TextField(blank=True)
++    started_at = models.DateTimeField(null=True, blank=True)
++    completed_at = models.DateTimeField(null=True, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "topic"], name="unique_user_topic_progress"
++            ),
++        ]
++        indexes = [
++            models.Index(fields=["user", "status"], name="user_topic_status_idx"),
++        ]
++
++    def __str__(self) -> str:
++        return f"{self.user}: {self.topic} ({self.get_status_display()})"
+diff --git a/apps/roadmaps/services.py b/apps/roadmaps/services.py
+new file mode 100644
+index 0000000..89d4a3a
+--- /dev/null
++++ b/apps/roadmaps/services.py
+@@ -0,0 +1,122 @@
++from collections import defaultdict
++
++from django.db.models import Count, Q
++from django.utils import timezone
++
++from .models import Roadmap, UserRoadmap, UserTopicProgress
++
++
++def progress_summary_for_user(*, user, roadmap_ids=None):
++    roadmap_filter = {}
++    if roadmap_ids is not None:
++        roadmap_filter["topic__section__roadmap_id__in"] = roadmap_ids
++
++    rows = (
++        UserTopicProgress.objects.filter(user=user, **roadmap_filter)
++        .values("topic__section__roadmap_id")
++        .annotate(
++            in_progress_count=Count(
++                "id",
++                filter=Q(status=UserTopicProgress.Status.IN_PROGRESS),
++            ),
++            completed_count=Count(
++                "id",
++                filter=Q(status=UserTopicProgress.Status.COMPLETED),
++            ),
++        )
++    )
++    return {row["topic__section__roadmap_id"]: row for row in rows}
++
++
++def roadmap_progress(*, user, roadmap):
++    total_count = sum(len(section.topics.all()) for section in roadmap.sections.all())
++    progress = progress_summary_for_user(user=user, roadmap_ids=[roadmap.pk]).get(
++        roadmap.pk,
++        {},
++    )
++    completed_count = progress.get("completed_count", 0)
++    in_progress_count = progress.get("in_progress_count", 0)
++    percentage = round((completed_count / total_count) * 100) if total_count else 0
++    return {
++        "total_count": total_count,
++        "completed_count": completed_count,
++        "in_progress_count": in_progress_count,
++        "percentage": percentage,
++    }
++
++
++def sync_user_roadmap(*, user, roadmap):
++    now = timezone.now()
++    user_roadmap, _ = UserRoadmap.objects.get_or_create(user=user, roadmap=roadmap)
++    summary = roadmap_progress(user=user, roadmap=roadmap)
++
++    has_progress = summary["completed_count"] or summary["in_progress_count"]
++    all_completed = summary["total_count"] and (
++        summary["completed_count"] == summary["total_count"]
++    )
++
++    if all_completed:
++        user_roadmap.status = UserRoadmap.Status.COMPLETED
++        user_roadmap.started_at = user_roadmap.started_at or now
++        user_roadmap.completed_at = user_roadmap.completed_at or now
++    elif has_progress:
++        user_roadmap.status = UserRoadmap.Status.IN_PROGRESS
++        user_roadmap.started_at = user_roadmap.started_at or now
++        user_roadmap.completed_at = None
++    elif user_roadmap.started_at:
++        user_roadmap.status = UserRoadmap.Status.IN_PROGRESS
++        user_roadmap.completed_at = None
++    else:
++        user_roadmap.status = UserRoadmap.Status.NOT_STARTED
++        user_roadmap.completed_at = None
++
++    user_roadmap.save(
++        update_fields=["status", "started_at", "completed_at", "updated_at"]
++    )
++    return user_roadmap
++
++
++def grouped_roadmap_cards(*, user):
++    roadmaps = list(
++        Roadmap.objects.filter(is_published=True)
++        .filter(Q(is_system=True) | Q(created_by=user))
++        .prefetch_related("sections__topics")
++        .order_by("kind", "position", "title")
++    )
++    progress_by_roadmap = progress_summary_for_user(
++        user=user,
++        roadmap_ids=[roadmap.pk for roadmap in roadmaps],
++    )
++    enrolments = {
++        enrolment.roadmap_id: enrolment
++        for enrolment in UserRoadmap.objects.filter(
++            user=user,
++            roadmap_id__in=[roadmap.pk for roadmap in roadmaps],
++        )
++    }
++
++    grouped = defaultdict(list)
++    for roadmap in roadmaps:
++        total_count = sum(len(section.topics.all()) for section in roadmap.sections.all())
++        progress = progress_by_roadmap.get(roadmap.pk, {})
++        completed_count = progress.get("completed_count", 0)
++        percentage = round((completed_count / total_count) * 100) if total_count else 0
++        grouped[roadmap.kind].append(
++            {
++                "roadmap": roadmap,
++                "topic_count": total_count,
++                "completed_count": completed_count,
++                "percentage": percentage,
++                "enrolment": enrolments.get(roadmap.pk),
++            }
++        )
++
++    return [
++        {
++            "kind": kind,
++            "label": label,
++            "items": grouped.get(kind, []),
++        }
++        for kind, label in Roadmap.Kind.choices
++        if grouped.get(kind)
++    ]
+diff --git a/apps/roadmaps/tests/__init__.py b/apps/roadmaps/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/roadmaps/tests/conftest.py b/apps/roadmaps/tests/conftest.py
+new file mode 100644
+index 0000000..58f8276
+--- /dev/null
++++ b/apps/roadmaps/tests/conftest.py
+@@ -0,0 +1,43 @@
++import pytest
++
++from apps.accounts.models import User
++from apps.roadmaps.models import Roadmap, RoadmapSection, RoadmapTopic
++
++
++@pytest.fixture
++def user(db):
++    return User.objects.create_user(
++        email="tee@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def roadmap(db):
++    return Roadmap.objects.create(
++        title="Backend Developer",
++        slug="backend-developer",
++        description="Learn backend development.",
++        kind=Roadmap.Kind.ROLE,
++        position=1,
++    )
++
++
++@pytest.fixture
++def section(roadmap):
++    return RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Databases",
++        slug="databases",
++        position=1,
++    )
++
++
++@pytest.fixture
++def topic(section):
++    return RoadmapTopic.objects.create(
++        section=section,
++        title="PostgreSQL",
++        slug="postgresql",
++        position=1,
++    )
+diff --git a/apps/roadmaps/tests/test_models.py b/apps/roadmaps/tests/test_models.py
+new file mode 100644
+index 0000000..482dd9e
+--- /dev/null
++++ b/apps/roadmaps/tests/test_models.py
+@@ -0,0 +1,24 @@
++import pytest
++from django.db import IntegrityError, transaction
++
++from apps.roadmaps.models import UserRoadmap, UserTopicProgress
++
++pytestmark = pytest.mark.django_db
++
++
++def test_user_can_only_enrol_in_roadmap_once(user, roadmap):
++    UserRoadmap.objects.create(user=user, roadmap=roadmap)
++
++    with pytest.raises(IntegrityError), transaction.atomic():
++        UserRoadmap.objects.create(user=user, roadmap=roadmap)
++
++
++def test_user_has_one_progress_record_per_topic(user, topic):
++    UserTopicProgress.objects.create(user=user, topic=topic)
++
++    with pytest.raises(IntegrityError), transaction.atomic():
++        UserTopicProgress.objects.create(user=user, topic=topic)
++
++
++def test_topic_exposes_parent_roadmap(topic, roadmap):
++    assert topic.roadmap == roadmap
+diff --git a/apps/roadmaps/tests/test_seed_roadmaps.py b/apps/roadmaps/tests/test_seed_roadmaps.py
+new file mode 100644
+index 0000000..93e31ac
+--- /dev/null
++++ b/apps/roadmaps/tests/test_seed_roadmaps.py
+@@ -0,0 +1,27 @@
++import pytest
++from django.core.management import call_command
++
++from apps.roadmaps.models import Roadmap, RoadmapTopic
++
++pytestmark = pytest.mark.django_db
++
++
++def test_seed_command_creates_full_builtin_catalogue():
++    call_command("seed_roadmaps")
++
++    assert Roadmap.objects.count() == 12
++    assert Roadmap.objects.filter(kind=Roadmap.Kind.ROLE).count() == 4
++    assert Roadmap.objects.filter(kind=Roadmap.Kind.SKILL).count() == 7
++    assert Roadmap.objects.filter(kind=Roadmap.Kind.PRACTICE).count() == 1
++    assert RoadmapTopic.objects.count() == 419
++    assert Roadmap.objects.filter(slug="system-design").exists()
++    assert Roadmap.objects.filter(slug="data-structures-algorithms").exists()
++    assert Roadmap.objects.filter(slug="leetcode-interview-practice").exists()
++
++
++def test_seed_command_is_idempotent():
++    call_command("seed_roadmaps")
++    call_command("seed_roadmaps")
++
++    assert Roadmap.objects.count() == 12
++    assert RoadmapTopic.objects.count() == 419
+diff --git a/apps/roadmaps/tests/test_services.py b/apps/roadmaps/tests/test_services.py
+new file mode 100644
+index 0000000..3677178
+--- /dev/null
++++ b/apps/roadmaps/tests/test_services.py
+@@ -0,0 +1,81 @@
++import pytest
++from django.utils import timezone
++
++from apps.roadmaps.models import RoadmapTopic, UserRoadmap, UserTopicProgress
++from apps.roadmaps.services import roadmap_progress, sync_user_roadmap
++
++pytestmark = pytest.mark.django_db
++
++
++def test_roadmap_progress_counts_topic_states(user, roadmap, section, topic):
++    second_topic = RoadmapTopic.objects.create(
++        section=section,
++        title="Indexes",
++        slug="indexes",
++        position=2,
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topic,
++        status=UserTopicProgress.Status.COMPLETED,
++        started_at=timezone.now(),
++        completed_at=timezone.now(),
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=second_topic,
++        status=UserTopicProgress.Status.IN_PROGRESS,
++        started_at=timezone.now(),
++    )
++    roadmap = roadmap.__class__.objects.prefetch_related("sections__topics").get(pk=roadmap.pk)
++
++    summary = roadmap_progress(user=user, roadmap=roadmap)
++
++    assert summary == {
++        "total_count": 2,
++        "completed_count": 1,
++        "in_progress_count": 1,
++        "percentage": 50,
++    }
++
++
++def test_sync_marks_roadmap_completed_when_all_topics_are_complete(
++    user,
++    roadmap,
++    topic,
++):
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topic,
++        status=UserTopicProgress.Status.COMPLETED,
++        started_at=timezone.now(),
++        completed_at=timezone.now(),
++    )
++    roadmap = roadmap.__class__.objects.prefetch_related("sections__topics").get(pk=roadmap.pk)
++
++    enrolment = sync_user_roadmap(user=user, roadmap=roadmap)
++
++    assert enrolment.status == UserRoadmap.Status.COMPLETED
++    assert enrolment.started_at is not None
++    assert enrolment.completed_at is not None
++
++
++def test_started_roadmap_stays_active_when_topic_progress_is_reset(user, roadmap, topic):
++    enrolment = UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        started_at=timezone.now(),
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topic,
++        status=UserTopicProgress.Status.NOT_STARTED,
++    )
++    roadmap = roadmap.__class__.objects.prefetch_related("sections__topics").get(pk=roadmap.pk)
++
++    synced = sync_user_roadmap(user=user, roadmap=roadmap)
++
++    assert synced.pk == enrolment.pk
++    assert synced.status == UserRoadmap.Status.IN_PROGRESS
++    assert synced.completed_at is None
+diff --git a/apps/roadmaps/tests/test_views.py b/apps/roadmaps/tests/test_views.py
+new file mode 100644
+index 0000000..ba6aa9c
+--- /dev/null
++++ b/apps/roadmaps/tests/test_views.py
+@@ -0,0 +1,172 @@
++import pytest
++from django.urls import reverse
++
++from apps.accounts.models import User
++from apps.roadmaps.models import (
++    Roadmap,
++    RoadmapSection,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def test_roadmap_catalogue_requires_login(client):
++    response = client.get(reverse("roadmaps:list"))
++
++    assert response.status_code == 302
++
++
++def test_catalogue_lists_published_roadmaps(client, user, roadmap):
++    Roadmap.objects.create(
++        title="Draft roadmap",
++        slug="draft-roadmap",
++        kind=Roadmap.Kind.SKILL,
++        is_published=False,
++        position=2,
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("roadmaps:list"))
++
++    content = response.content.decode()
++    assert response.status_code == 200
++    assert roadmap.title in content
++    assert "Draft roadmap" not in content
++
++
++def test_catalogue_hides_another_users_custom_roadmap(client, user, roadmap):
++    other_user = User.objects.create_user(
++        email="other@example.com",
++        password="safe-test-password",
++    )
++    Roadmap.objects.create(
++        title="Private custom path",
++        slug="private-custom-path",
++        kind=Roadmap.Kind.SKILL,
++        is_system=False,
++        created_by=other_user,
++        is_published=True,
++        position=2,
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("roadmaps:list"))
++
++    assert roadmap.title in response.content.decode()
++    assert "Private custom path" not in response.content.decode()
++
++
++def test_detail_shows_sections_topics_and_progress(client, user, roadmap, section, topic):
++    client.force_login(user)
++
++    response = client.get(reverse("roadmaps:detail", args=[roadmap.slug]))
++
++    content = response.content.decode()
++    assert response.status_code == 200
++    assert section.title in content
++    assert topic.title in content
++    assert response.context["progress"]["total_count"] == 1
++
++
++def test_start_roadmap_creates_active_enrolment(client, user, roadmap):
++    client.force_login(user)
++
++    response = client.post(reverse("roadmaps:start", args=[roadmap.slug]))
++
++    assert response.status_code == 302
++    enrolment = UserRoadmap.objects.get(user=user, roadmap=roadmap)
++    assert enrolment.status == UserRoadmap.Status.IN_PROGRESS
++    assert enrolment.started_at is not None
++
++
++def test_updating_topic_status_creates_progress_and_enrolment(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse(
++            "roadmaps:update_topic_status",
++            args=[roadmap.slug, topic.pk],
++        ),
++        {"status": UserTopicProgress.Status.COMPLETED},
++    )
++
++    assert response.status_code == 302
++    assert response.url.endswith(f"#topic-{topic.pk}")
++    progress = UserTopicProgress.objects.get(user=user, topic=topic)
++    assert progress.status == UserTopicProgress.Status.COMPLETED
++    assert progress.started_at is not None
++    assert progress.completed_at is not None
++    assert UserRoadmap.objects.get(user=user, roadmap=roadmap).status == (
++        UserRoadmap.Status.COMPLETED
++    )
++
++
++def test_resetting_topic_clears_completion_timestamps(client, user, roadmap, topic):
++    client.force_login(user)
++    update_url = reverse(
++        "roadmaps:update_topic_status",
++        args=[roadmap.slug, topic.pk],
++    )
++    client.post(update_url, {"status": UserTopicProgress.Status.COMPLETED})
++
++    client.post(update_url, {"status": UserTopicProgress.Status.NOT_STARTED})
++
++    progress = UserTopicProgress.objects.get(user=user, topic=topic)
++    assert progress.status == UserTopicProgress.Status.NOT_STARTED
++    assert progress.started_at is None
++    assert progress.completed_at is None
++
++
++def test_topic_from_another_roadmap_cannot_be_updated(client, user, roadmap, topic):
++    other_roadmap = Roadmap.objects.create(
++        title="Java",
++        slug="java",
++        kind=Roadmap.Kind.SKILL,
++        position=2,
++    )
++    other_section = RoadmapSection.objects.create(
++        roadmap=other_roadmap,
++        title="Core Java",
++        slug="core-java",
++        position=1,
++    )
++    other_topic = RoadmapTopic.objects.create(
++        section=other_section,
++        title="Strings",
++        slug="strings",
++        position=1,
++    )
++    client.force_login(user)
++
++    response = client.post(
++        reverse(
++            "roadmaps:update_topic_status",
++            args=[roadmap.slug, other_topic.pk],
++        ),
++        {"status": UserTopicProgress.Status.COMPLETED},
++    )
++
++    assert response.status_code == 404
++    assert not UserTopicProgress.objects.filter(user=user, topic=other_topic).exists()
++
++
++def test_unpublished_roadmap_is_not_accessible(client, user):
++    roadmap = Roadmap.objects.create(
++        title="Draft roadmap",
++        slug="draft-roadmap",
++        kind=Roadmap.Kind.SKILL,
++        is_published=False,
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("roadmaps:detail", args=[roadmap.slug]))
++
++    assert response.status_code == 404
+diff --git a/apps/roadmaps/urls.py b/apps/roadmaps/urls.py
+new file mode 100644
+index 0000000..247b30c
+--- /dev/null
++++ b/apps/roadmaps/urls.py
+@@ -0,0 +1,16 @@
++from django.urls import path
++
++from . import views
++
++app_name = "roadmaps"
++
++urlpatterns = [
++    path("", views.roadmap_list, name="list"),
++    path("<slug:slug>/", views.roadmap_detail, name="detail"),
++    path("<slug:slug>/start/", views.start_roadmap, name="start"),
++    path(
++        "<slug:slug>/topics/<int:topic_id>/status/",
++        views.update_topic_status,
++        name="update_topic_status",
++    ),
++]
+diff --git a/apps/roadmaps/views.py b/apps/roadmaps/views.py
+new file mode 100644
+index 0000000..a488c52
+--- /dev/null
++++ b/apps/roadmaps/views.py
+@@ -0,0 +1,129 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.db.models import Q
++from django.shortcuts import get_object_or_404, redirect, render
++from django.urls import reverse
++from django.utils import timezone
++from django.views.decorators.http import require_POST
++
++from .models import Roadmap, RoadmapTopic, UserRoadmap, UserTopicProgress
++from .services import grouped_roadmap_cards, roadmap_progress, sync_user_roadmap
++
++
++def _accessible_roadmap(user, slug):
++    return get_object_or_404(
++        Roadmap.objects.prefetch_related("sections__topics").filter(
++            Q(is_system=True) | Q(created_by=user)
++        ),
++        slug=slug,
++        is_published=True,
++    )
++
++
++@login_required
++def roadmap_list(request):
++    return render(
++        request,
++        "roadmaps/roadmap_list.html",
++        {"roadmap_groups": grouped_roadmap_cards(user=request.user)},
++    )
++
++
++@login_required
++def roadmap_detail(request, slug):
++    roadmap = _accessible_roadmap(request.user, slug)
++    progress_by_topic = {
++        progress.topic_id: progress
++        for progress in UserTopicProgress.objects.filter(
++            user=request.user,
++            topic__section__roadmap=roadmap,
++        )
++    }
++
++    sections = list(roadmap.sections.all())
++    for section in sections:
++        section.topic_items = list(section.topics.all())
++        for topic in section.topic_items:
++            topic.current_progress = progress_by_topic.get(topic.pk)
++            topic.current_status = (
++                topic.current_progress.status
++                if topic.current_progress
++                else UserTopicProgress.Status.NOT_STARTED
++            )
++
++    return render(
++        request,
++        "roadmaps/roadmap_detail.html",
++        {
++            "roadmap": roadmap,
++            "sections": sections,
++            "user_roadmap": UserRoadmap.objects.filter(
++                user=request.user,
++                roadmap=roadmap,
++            ).first(),
++            "progress": roadmap_progress(user=request.user, roadmap=roadmap),
++        },
++    )
++
++
++@login_required
++@require_POST
++def start_roadmap(request, slug):
++    roadmap = _accessible_roadmap(request.user, slug)
++    user_roadmap, created = UserRoadmap.objects.get_or_create(
++        user=request.user,
++        roadmap=roadmap,
++        defaults={
++            "status": UserRoadmap.Status.IN_PROGRESS,
++            "started_at": timezone.now(),
++        },
++    )
++    if created or not user_roadmap.started_at:
++        user_roadmap.status = UserRoadmap.Status.IN_PROGRESS
++        user_roadmap.started_at = user_roadmap.started_at or timezone.now()
++        user_roadmap.save(update_fields=["status", "started_at", "updated_at"])
++    sync_user_roadmap(user=request.user, roadmap=roadmap)
++
++    messages.success(request, f"{roadmap.title} is now one of your active roadmaps.")
++    return redirect("roadmaps:detail", slug=roadmap.slug)
++
++
++@login_required
++@require_POST
++def update_topic_status(request, slug, topic_id):
++    roadmap = _accessible_roadmap(request.user, slug)
++    topic = get_object_or_404(
++        RoadmapTopic.objects.select_related(
++            "section",
++            "section__roadmap",
++        ),
++        pk=topic_id,
++        section__roadmap=roadmap,
++    )
++    status = request.POST.get("status", "")
++    valid_statuses = {value for value, _ in UserTopicProgress.Status.choices}
++    if status not in valid_statuses:
++        messages.error(request, "Choose a valid topic status.")
++        return redirect("roadmaps:detail", slug=roadmap.slug)
++
++    now = timezone.now()
++    progress, _ = UserTopicProgress.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    progress.status = status
++    if status == UserTopicProgress.Status.NOT_STARTED:
++        progress.started_at = None
++        progress.completed_at = None
++    elif status == UserTopicProgress.Status.IN_PROGRESS:
++        progress.started_at = progress.started_at or now
++        progress.completed_at = None
++    else:
++        progress.started_at = progress.started_at or now
++        progress.completed_at = now
++    progress.save()
++    sync_user_roadmap(user=request.user, roadmap=roadmap)
++
++    messages.success(request, f"Updated {topic.title} to {progress.get_status_display()}.")
++    detail_url = reverse("roadmaps:detail", kwargs={"slug": roadmap.slug})
++    return redirect(f"{detail_url}#topic-{topic.pk}")
+diff --git a/build.sh b/build.sh
+index 3c08573..41e76eb 100644
+--- a/build.sh
++++ b/build.sh
+@@ -5,3 +5,4 @@ pip install -r requirements.txt
+ python manage.py collectstatic --no-input
+ python manage.py migrate --no-input
+ python manage.py seed_question_bank
++python manage.py seed_roadmaps
+diff --git a/config/settings/base.py b/config/settings/base.py
+index 4f16e74..77bb228 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -18,6 +18,7 @@ INSTALLED_APPS = [
+     "apps.accounts.apps.AccountsConfig",
+     "apps.questions.apps.QuestionsConfig",
+     "apps.reviews.apps.ReviewsConfig",
++    "apps.roadmaps.apps.RoadmapsConfig",
+ ]
+ 
+ MIDDLEWARE = [
+diff --git a/config/urls.py b/config/urls.py
+index 5dd9134..7ce35e7 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -7,4 +7,5 @@ urlpatterns = [
+     path("accounts/", include("apps.accounts.urls")),
+     path("questions/", include("apps.questions.urls")),
+     path("reviews/", include("apps.reviews.urls")),
++    path("roadmaps/", include("apps.roadmaps.urls")),
+ ]
+diff --git a/static/css/roadmaps.css b/static/css/roadmaps.css
+new file mode 100644
+index 0000000..fab943c
+--- /dev/null
++++ b/static/css/roadmaps.css
+@@ -0,0 +1,419 @@
++.roadmap-page-header {
++    max-width: 54rem;
++}
++
++.roadmap-group {
++    margin-top: 3.5rem;
++}
++
++.roadmap-group-heading {
++    display: flex;
++    align-items: end;
++    justify-content: space-between;
++    gap: 1.5rem;
++    padding-bottom: 0.9rem;
++    border-bottom: 2px solid var(--vc-ink);
++}
++
++.roadmap-group-heading h2 {
++    margin: 0.25rem 0 0;
++}
++
++.roadmap-group-heading > span {
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++}
++
++.roadmap-catalogue {
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.roadmap-card {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem);
++    gap: 2.5rem;
++    padding: 1.5rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.roadmap-card:first-child {
++    border-top: 0;
++}
++
++.roadmap-card h3 {
++    margin: 0.45rem 0 0.5rem;
++    font-size: 1.35rem;
++}
++
++.roadmap-card h3 a {
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.roadmap-card h3 a:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.roadmap-card p {
++    max-width: 48rem;
++    margin: 0;
++    color: var(--vc-muted);
++    line-height: 1.6;
++}
++
++.roadmap-card-meta {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.7rem;
++    color: var(--vc-muted);
++    font-size: 0.75rem;
++    font-weight: 750;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++}
++
++.roadmap-card-progress {
++    display: grid;
++    align-content: center;
++    gap: 0.65rem;
++}
++
++.roadmap-progress-copy {
++    display: flex;
++    align-items: baseline;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.roadmap-progress-copy strong {
++    font-family: var(--vc-font-serif);
++    font-size: 1.15rem;
++}
++
++.roadmap-progress-copy span {
++    color: var(--vc-muted);
++    font-size: 0.78rem;
++}
++
++.roadmap-progress-track {
++    height: 0.42rem;
++    overflow: hidden;
++    background: #e8e1d8;
++}
++
++.roadmap-progress-track span {
++    display: block;
++    height: 100%;
++    background: var(--vc-burgundy);
++}
++
++.roadmap-card-link {
++    justify-self: end;
++    font-size: 0.83rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.roadmap-breadcrumbs {
++    display: flex;
++    gap: 0.5rem;
++    margin-bottom: 1.5rem;
++    color: var(--vc-muted);
++    font-size: 0.84rem;
++}
++
++.roadmap-breadcrumbs a {
++    color: var(--vc-ink);
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.roadmap-detail-header {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) 18rem;
++    gap: clamp(2rem, 6vw, 5rem);
++    align-items: end;
++    padding-bottom: 2rem;
++    border-bottom: 2px solid var(--vc-ink);
++}
++
++.roadmap-detail-copy h1 {
++    max-width: 48rem;
++    margin: 0.45rem 0 1rem;
++    font-size: clamp(2.8rem, 7vw, 5.5rem);
++    line-height: 0.98;
++    letter-spacing: -0.045em;
++}
++
++.roadmap-detail-copy .lead {
++    margin-bottom: 0;
++}
++
++.roadmap-detail-progress {
++    display: grid;
++    gap: 0.65rem;
++    align-content: end;
++}
++
++.roadmap-detail-progress > span:not(.roadmap-detail-percentage),
++.roadmap-detail-progress > strong {
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++}
++
++.roadmap-detail-percentage {
++    font-family: var(--vc-font-serif);
++    font-size: 2.4rem;
++    line-height: 1;
++}
++
++.roadmap-detail-progress form {
++    margin-top: 0.6rem;
++}
++
++.roadmap-summary-strip {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 2rem;
++    padding: 1rem 0;
++    border-bottom: 1px solid var(--vc-border);
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++}
++
++.roadmap-summary-strip strong {
++    color: var(--vc-ink);
++}
++
++.roadmap-outline {
++    margin-top: 2.5rem;
++}
++
++.roadmap-section {
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.roadmap-section:first-child {
++    border-top: 1px solid var(--vc-border);
++}
++
++.roadmap-section > summary {
++    display: grid;
++    grid-template-columns: 3rem minmax(0, 1fr) 2rem;
++    gap: 1rem;
++    align-items: center;
++    padding: 1.25rem 0;
++    cursor: pointer;
++    list-style: none;
++}
++
++.roadmap-section > summary::-webkit-details-marker {
++    display: none;
++}
++
++.roadmap-section-number {
++    color: var(--vc-burgundy);
++    font-family: var(--vc-font-serif);
++    font-size: 1.15rem;
++}
++
++.roadmap-section-heading {
++    display: flex;
++    align-items: baseline;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.roadmap-section-heading strong {
++    font-family: var(--vc-font-serif);
++    font-size: 1.25rem;
++}
++
++.roadmap-section-heading span {
++    color: var(--vc-muted);
++    font-size: 0.78rem;
++}
++
++.roadmap-section-toggle {
++    justify-self: end;
++    color: var(--vc-burgundy);
++    font-size: 1.4rem;
++}
++
++.roadmap-section[open] .roadmap-section-toggle {
++    transform: rotate(45deg);
++}
++
++.roadmap-section-description {
++    margin: 0 0 1rem 4rem;
++    color: var(--vc-muted);
++}
++
++.roadmap-topic-list {
++    padding: 0;
++    margin: 0 0 1.2rem 4rem;
++    list-style: none;
++    border-top: 1px solid var(--vc-border);
++}
++
++.roadmap-topic {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 1rem;
++    align-items: center;
++    min-height: 4rem;
++    padding: 0.8rem 0;
++    border-bottom: 1px solid var(--vc-border);
++    scroll-margin-top: 1rem;
++}
++
++.roadmap-topic:last-child {
++    border-bottom: 0;
++}
++
++.roadmap-topic-copy {
++    display: grid;
++    grid-template-columns: 1.5rem minmax(0, 1fr);
++    gap: 0.65rem;
++    align-items: start;
++}
++
++.roadmap-topic-copy strong {
++    font-size: 0.94rem;
++}
++
++.roadmap-topic-copy p {
++    margin: 0.25rem 0 0;
++    color: var(--vc-muted);
++    font-size: 0.82rem;
++}
++
++.roadmap-topic-marker {
++    color: var(--vc-muted);
++    font-weight: 800;
++}
++
++.roadmap-topic-completed .roadmap-topic-marker,
++.roadmap-topic-completed .roadmap-topic-copy strong {
++    color: var(--vc-success);
++}
++
++.roadmap-topic-in_progress .roadmap-topic-marker {
++    color: var(--vc-warning);
++}
++
++.roadmap-topic-actions {
++    display: flex;
++    align-items: center;
++    gap: 0.75rem;
++}
++
++.roadmap-status-label {
++    min-width: 5.5rem;
++    color: var(--vc-muted);
++    font-size: 0.75rem;
++    text-align: right;
++}
++
++.roadmap-status-buttons {
++    display: flex;
++    border: 1px solid var(--vc-border-strong);
++}
++
++.status-button {
++    display: grid;
++    width: 2rem;
++    height: 2rem;
++    place-items: center;
++    border: 0;
++    border-right: 1px solid var(--vc-border);
++    color: var(--vc-muted);
++    background: var(--vc-paper);
++    cursor: pointer;
++    font: inherit;
++    font-weight: 800;
++}
++
++.status-button:last-child {
++    border-right: 0;
++}
++
++.status-button:hover,
++.status-button.is-current {
++    color: var(--vc-burgundy-dark);
++    background: var(--vc-burgundy-soft);
++}
++
++.status-button.status-complete:hover,
++.status-button.status-complete.is-current {
++    color: var(--vc-success);
++    background: var(--vc-success-soft);
++}
++
++@media (max-width: 58rem) {
++    .roadmap-card,
++    .roadmap-detail-header {
++        grid-template-columns: 1fr;
++        gap: 1.5rem;
++    }
++
++    .roadmap-card-progress {
++        max-width: 28rem;
++    }
++
++    .roadmap-card-link {
++        justify-self: start;
++    }
++}
++
++@media (max-width: 42rem) {
++    .roadmap-group-heading,
++    .roadmap-section-heading,
++    .roadmap-topic,
++    .roadmap-topic-actions {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .roadmap-group-heading {
++        display: flex;
++    }
++
++    .roadmap-section > summary {
++        grid-template-columns: 2rem minmax(0, 1fr) 1.5rem;
++        gap: 0.65rem;
++    }
++
++    .roadmap-section-heading {
++        display: grid;
++        gap: 0.2rem;
++    }
++
++    .roadmap-section-description,
++    .roadmap-topic-list {
++        margin-left: 2.65rem;
++    }
++
++    .roadmap-topic {
++        display: grid;
++        grid-template-columns: 1fr;
++    }
++
++    .roadmap-topic-actions {
++        display: flex;
++        width: 100%;
++        justify-content: space-between;
++    }
++
++    .roadmap-status-label {
++        min-width: 0;
++        text-align: left;
++    }
++}
++
++@media (max-width: 48rem) {
++    .app-mobile-navigation {
++        grid-template-columns: repeat(5, 1fr);
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index b27edf0..087bd38 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -8,6 +8,7 @@
+     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
+     <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
++    <link rel="stylesheet" href="{% static 'css/roadmaps.css' %}">
+ </head>
+ <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+ {% if user.is_authenticated %}
+@@ -30,6 +31,13 @@
+                     </span>
+                     <span>Review</span>
+                 </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
++                   href="{% url 'roadmaps:list' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
++                    </span>
++                    <span>Roadmaps</span>
++                </a>
+                 <a class="app-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
+                    href="{% url 'questions:list' %}">
+                     <span class="app-nav-icon" aria-hidden="true">
+@@ -102,6 +110,11 @@
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
+                 <span>Review</span>
+             </a>
++            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
++               href="{% url 'roadmaps:list' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
++                <span>Paths</span>
++            </a>
+             <a class="mobile-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
+                href="{% url 'questions:list' %}">
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
+diff --git a/templates/roadmaps/roadmap_detail.html b/templates/roadmaps/roadmap_detail.html
+new file mode 100644
+index 0000000..158d2f3
+--- /dev/null
++++ b/templates/roadmaps/roadmap_detail.html
+@@ -0,0 +1,86 @@
++{% extends "base.html" %}
++
++{% block title %}{{ roadmap.title }} Roadmap | ViewCoach{% endblock %}
++
++{% block content %}
++<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
++    <span aria-hidden="true">/</span>
++    <span>{{ roadmap.title }}</span>
++</nav>
++
++<section class="roadmap-detail-header">
++    <div class="roadmap-detail-copy">
++        <p class="eyebrow">{{ roadmap.get_kind_display }}</p>
++        <h1>{{ roadmap.title }}</h1>
++        <p class="lead">{{ roadmap.description }}</p>
++    </div>
++    <div class="roadmap-detail-progress">
++        <span class="roadmap-detail-percentage">{{ progress.percentage }}%</span>
++        <span>{{ progress.completed_count }} of {{ progress.total_count }} topics complete</span>
++        <div class="roadmap-progress-track" role="progressbar" aria-label="Roadmap progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress.percentage }}">
++            <span style="width: {{ progress.percentage }}%"></span>
++        </div>
++        {% if user_roadmap %}
++            <strong>{{ user_roadmap.get_status_display }}</strong>
++        {% else %}
++            <form method="post" action="{% url 'roadmaps:start' roadmap.slug %}">
++                {% csrf_token %}
++                <button class="button" type="submit">Start this roadmap</button>
++            </form>
++        {% endif %}
++    </div>
++</section>
++
++<div class="roadmap-summary-strip">
++    <span><strong>{{ sections|length }}</strong> sections</span>
++    <span><strong>{{ progress.total_count }}</strong> topics</span>
++    <span><strong>{{ progress.in_progress_count }}</strong> currently learning</span>
++</div>
++
++<section class="roadmap-outline" aria-label="{{ roadmap.title }} curriculum">
++    {% for section in sections %}
++        <details class="roadmap-section" {% if forloop.first %}open{% endif %}>
++            <summary>
++                <span class="roadmap-section-number">{{ forloop.counter|stringformat:"02d" }}</span>
++                <span class="roadmap-section-heading">
++                    <strong>{{ section.title }}</strong>
++                    <span>{{ section.topic_items|length }} topic{{ section.topic_items|length|pluralize }}</span>
++                </span>
++                <span class="roadmap-section-toggle" aria-hidden="true">+</span>
++            </summary>
++            {% if section.description %}<p class="roadmap-section-description">{{ section.description }}</p>{% endif %}
++            <ol class="roadmap-topic-list">
++                {% for topic in section.topic_items %}
++                    <li id="topic-{{ topic.pk }}" class="roadmap-topic roadmap-topic-{{ topic.current_status|lower }}">
++                        <div class="roadmap-topic-copy">
++                            <span class="roadmap-topic-marker" aria-hidden="true">
++                                {% if topic.current_status == "COMPLETED" %}✓{% elif topic.current_status == "IN_PROGRESS" %}→{% else %}○{% endif %}
++                            </span>
++                            <div>
++                                <strong>{{ topic.title }}</strong>
++                                {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
++                            </div>
++                        </div>
++                        <form class="roadmap-topic-actions" method="post" action="{% url 'roadmaps:update_topic_status' roadmap.slug topic.pk %}">
++                            {% csrf_token %}
++                            <span class="roadmap-status-label">{{ topic.current_progress.get_status_display|default:"Not started" }}</span>
++                            <div class="roadmap-status-buttons" role="group" aria-label="Set status for {{ topic.title }}">
++                                <button class="status-button {% if topic.current_status == 'NOT_STARTED' %}is-current{% endif %}"
++                                        type="submit" name="status" value="NOT_STARTED"
++                                        aria-label="Mark {{ topic.title }} not started" aria-pressed="{% if topic.current_status == 'NOT_STARTED' %}true{% else %}false{% endif %}">○</button>
++                                <button class="status-button {% if topic.current_status == 'IN_PROGRESS' %}is-current{% endif %}"
++                                        type="submit" name="status" value="IN_PROGRESS"
++                                        aria-label="Mark {{ topic.title }} in progress" aria-pressed="{% if topic.current_status == 'IN_PROGRESS' %}true{% else %}false{% endif %}">→</button>
++                                <button class="status-button status-complete {% if topic.current_status == 'COMPLETED' %}is-current{% endif %}"
++                                        type="submit" name="status" value="COMPLETED"
++                                        aria-label="Mark {{ topic.title }} completed" aria-pressed="{% if topic.current_status == 'COMPLETED' %}true{% else %}false{% endif %}">✓</button>
++                            </div>
++                        </form>
++                    </li>
++                {% endfor %}
++            </ol>
++        </details>
++    {% endfor %}
++</section>
++{% endblock %}
+diff --git a/templates/roadmaps/roadmap_list.html b/templates/roadmaps/roadmap_list.html
+new file mode 100644
+index 0000000..fcf3fc9
+--- /dev/null
++++ b/templates/roadmaps/roadmap_list.html
+@@ -0,0 +1,60 @@
++{% extends "base.html" %}
++
++{% block title %}Roadmaps | ViewCoach{% endblock %}
++
++{% block content %}
++<section class="page-header roadmap-page-header">
++    <p class="eyebrow">Learning roadmaps</p>
++    <h1>Choose what you are building towards.</h1>
++    <p class="lead">Follow a structured path, learn each topic however you prefer, and keep your progress in one place.</p>
++</section>
++
++{% for group in roadmap_groups %}
++    <section class="roadmap-group">
++        <div class="roadmap-group-heading">
++            <div>
++                <p class="eyebrow">{{ group.label }}</p>
++                <h2>
++                    {% if group.kind == "ROLE" %}Prepare for a role
++                    {% elif group.kind == "SKILL" %}Build a focused skill
++                    {% else %}Turn knowledge into practice
++                    {% endif %}
++                </h2>
++            </div>
++            <span>{{ group.items|length }} roadmap{{ group.items|length|pluralize }}</span>
++        </div>
++
++        <div class="roadmap-catalogue">
++            {% for item in group.items %}
++                <article class="roadmap-card">
++                    <div class="roadmap-card-main">
++                        <div class="roadmap-card-meta">
++                            <span>{{ item.topic_count }} topics</span>
++                            {% if item.enrolment %}<span>{{ item.enrolment.get_status_display }}</span>{% else %}<span>Not started</span>{% endif %}
++                        </div>
++                        <h3><a href="{% url 'roadmaps:detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
++                        <p>{{ item.roadmap.description }}</p>
++                    </div>
++                    <div class="roadmap-card-progress">
++                        <div class="roadmap-progress-copy">
++                            <strong>{{ item.percentage }}%</strong>
++                            <span>{{ item.completed_count }} of {{ item.topic_count }} complete</span>
++                        </div>
++                        <div class="roadmap-progress-track" role="progressbar" aria-label="Roadmap progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
++                            <span style="width: {{ item.percentage }}%"></span>
++                        </div>
++                        <a class="roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
++                            {% if item.enrolment %}Continue roadmap{% else %}View roadmap{% endif %}
++                        </a>
++                    </div>
++                </article>
++            {% endfor %}
++        </div>
++    </section>
++{% empty %}
++    <div class="empty-state empty-state-wide">
++        <h2>No roadmaps are published yet</h2>
++        <p>Run the roadmap seed command to create the built-in catalogue.</p>
++    </div>
++{% endfor %}
++{% endblock %}
