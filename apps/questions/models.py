@@ -45,6 +45,13 @@ class Question(models.Model):
         null=True,
         blank=True,
     )
+    source_system_question = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="user_copies",
+        null=True,
+        blank=True,
+    )
     is_system = models.BooleanField(default=False)
     system_key = models.SlugField(max_length=140, unique=True, null=True, blank=True)
     title = models.CharField(max_length=180)
@@ -72,6 +79,10 @@ class Question(models.Model):
                 fields=["is_system", "question_type"],
                 name="question_system_type_idx",
             ),
+            models.Index(
+                fields=["owner", "source_system_question"],
+                name="question_owner_source_idx",
+            ),
         ]
         constraints = [
             models.CheckConstraint(
@@ -81,6 +92,7 @@ class Question(models.Model):
                         owner__isnull=True,
                         system_key__isnull=False,
                         import_batch__isnull=True,
+                        source_system_question__isnull=True,
                     )
                     | Q(
                         is_system=False,
@@ -89,7 +101,12 @@ class Question(models.Model):
                     )
                 ),
                 name="question_system_owner_consistency",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "source_system_question"],
+                condition=Q(source_system_question__isnull=False),
+                name="unique_user_system_question_copy",
+            ),
         ]
 
     def clean(self):
@@ -104,11 +121,25 @@ class Question(models.Model):
                 raise ValidationError("Built-in questions require a system key.")
             if self.import_batch_id:
                 raise ValidationError("Built-in questions cannot belong to an import batch.")
+            if self.source_system_question_id:
+                raise ValidationError(
+                    "Built-in questions cannot be copied from another question."
+                )
         else:
             if not self.owner_id:
                 raise ValidationError("User-created questions require an owner.")
             if self.system_key:
                 raise ValidationError("User-created questions cannot have a system key.")
+            if self.source_system_question_id:
+                source = self.source_system_question
+                if not source.is_system:
+                    raise ValidationError(
+                        "Question copies must come from a built-in question."
+                    )
+                if source.question_type != self.question_type:
+                    raise ValidationError(
+                        "Question copies must preserve their question type."
+                    )
 
     @property
     def specific(self):
@@ -131,6 +162,8 @@ class Question(models.Model):
     def source_label(self):
         if self.is_system:
             return "Built-in"
+        if self.source_system_question_id:
+            return "Added from built-in"
         if self.import_batch_id:
             return "Imported"
         return "My question"
