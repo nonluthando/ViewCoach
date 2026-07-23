@@ -26,18 +26,27 @@ def test_seed_command_creates_full_built_in_question_bank():
     assert ConceptQuestion.objects.filter(is_system=True).count() == 50
     assert DebugQuestion.objects.filter(is_system=True).count() == 10
     assert BehaviouralQuestion.objects.filter(is_system=True).count() == 10
-    assert ConceptQuestion.objects.filter(
-        is_system=True,
-        category=ConceptQuestion.Category.JAVA,
-    ).count() == 20
-    assert ConceptQuestion.objects.filter(
-        is_system=True,
-        category=ConceptQuestion.Category.PYTHON,
-    ).count() == 15
-    assert ConceptQuestion.objects.filter(
-        is_system=True,
-        category=ConceptQuestion.Category.BACKEND,
-    ).count() == 15
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.JAVA,
+        ).count()
+        == 20
+    )
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.PYTHON,
+        ).count()
+        == 15
+    )
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.BACKEND,
+        ).count()
+        == 15
+    )
 
 
 def test_seed_command_is_idempotent():
@@ -86,9 +95,7 @@ def test_user_can_save_private_notes_on_built_in_question(client, user):
 def test_seed_command_preserves_full_debugging_context():
     call_command("seed_question_bank")
 
-    question = DebugQuestion.objects.get(
-        system_key="debugging-partial-write-transaction"
-    )
+    question = DebugQuestion.objects.get(system_key="debugging-partial-write-transaction")
 
     assert "same database" in question.repository
     assert len(question.repository) > 160
@@ -109,6 +116,7 @@ def test_question_bank_json_has_unique_keys_and_expected_count():
     assert len(questions) == 100
     assert len(keys) == len(set(keys))
     assert len(titles) == len(set(titles))
+
 
 def test_saved_built_in_question_appears_in_my_library(client, user):
     call_command("seed_question_bank")
@@ -137,11 +145,14 @@ def test_bulk_save_built_in_questions(client, user):
     )
 
     assert response.status_code == 200
-    assert UserQuestionState.objects.filter(
-        user=user,
-        question__in=questions,
-        bookmarked=True,
-    ).count() == 2
+    assert (
+        UserQuestionState.objects.filter(
+            user=user,
+            question__in=questions,
+            bookmarked=True,
+        ).count()
+        == 2
+    )
     assert "Saved 2 built-in questions to your library." in response.content.decode()
 
 

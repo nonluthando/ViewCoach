@@ -95,7 +95,6 @@ def test_user_can_create_technical_question(client, user):
     assert created.question_type == Question.Type.TECHNICAL
 
 
-
 def test_repeated_create_submission_only_creates_one_question(client, user):
     client.force_login(user)
     submission_token = str(uuid.uuid4())
@@ -128,6 +127,7 @@ def test_repeated_create_submission_only_creates_one_question(client, user):
     assert questions.count() == 1
     assert first_response.url == reverse("questions:detail", args=[questions.get().pk])
     assert second_response.url == first_response.url
+
 
 def test_user_can_create_behavioural_question(client, user):
     client.force_login(user)

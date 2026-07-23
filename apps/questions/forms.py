@@ -190,9 +190,7 @@ class QuestionImportStartForm(forms.Form):
         required=False,
         label="Or upload a file",
         help_text="TXT, Markdown, CSV, DOCX, or a text-based PDF. Maximum 5 MB.",
-        widget=forms.ClearableFileInput(
-            attrs={"accept": ".txt,.md,.markdown,.csv,.docx,.pdf"}
-        ),
+        widget=forms.ClearableFileInput(attrs={"accept": ".txt,.md,.markdown,.csv,.docx,.pdf"}),
     )
 
     def __init__(self, *args, **kwargs):
