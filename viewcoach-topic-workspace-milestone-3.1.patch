@@ -1,0 +1,1335 @@
+diff --git a/apps/roadmaps/admin.py b/apps/roadmaps/admin.py
+index c3737a0..a6d0ee7 100644
+--- a/apps/roadmaps/admin.py
++++ b/apps/roadmaps/admin.py
+@@ -1,6 +1,13 @@
+ from django.contrib import admin
+ 
+-from .models import Roadmap, RoadmapSection, RoadmapTopic, UserRoadmap, UserTopicProgress
++from .models import (
++    Roadmap,
++    RoadmapSection,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++    UserTopicResource,
++)
+ 
+ 
+ class RoadmapTopicInline(admin.TabularInline):
+@@ -50,3 +57,11 @@ class UserTopicProgressAdmin(admin.ModelAdmin):
+     list_filter = ("status", "topic__section__roadmap")
+     search_fields = ("user__email", "topic__title")
+     raw_id_fields = ("user", "topic")
++
++
++@admin.register(UserTopicResource)
++class UserTopicResourceAdmin(admin.ModelAdmin):
++    list_display = ("title", "user", "topic", "created_at")
++    list_filter = ("topic__section__roadmap",)
++    search_fields = ("title", "url", "user__email", "topic__title")
++    raw_id_fields = ("user", "topic")
+diff --git a/apps/roadmaps/forms.py b/apps/roadmaps/forms.py
+new file mode 100644
+index 0000000..037ec6e
+--- /dev/null
++++ b/apps/roadmaps/forms.py
+@@ -0,0 +1,41 @@
++from django import forms
++
++from .models import UserTopicProgress, UserTopicResource
++
++
++class TopicNotesForm(forms.ModelForm):
++    class Meta:
++        model = UserTopicProgress
++        fields = ("notes",)
++        widgets = {
++            "notes": forms.Textarea(
++                attrs={
++                    "class": "topic-notes-input",
++                    "placeholder": (
++                        "Capture explanations, examples, mistakes, or anything "
++                        "you want to remember."
++                    ),
++                    "rows": 12,
++                }
++            )
++        }
++
++
++class TopicResourceForm(forms.ModelForm):
++    class Meta:
++        model = UserTopicResource
++        fields = ("title", "url")
++        widgets = {
++            "title": forms.TextInput(
++                attrs={
++                    "placeholder": "Resource title",
++                    "autocomplete": "off",
++                }
++            ),
++            "url": forms.URLInput(
++                attrs={
++                    "placeholder": "https://…",
++                    "inputmode": "url",
++                }
++            ),
++        }
+diff --git a/apps/roadmaps/migrations/0002_usertopicresource.py b/apps/roadmaps/migrations/0002_usertopicresource.py
+new file mode 100644
+index 0000000..4916006
+--- /dev/null
++++ b/apps/roadmaps/migrations/0002_usertopicresource.py
+@@ -0,0 +1,57 @@
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++        ("roadmaps", "0001_initial"),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="UserTopicResource",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=160)),
++                ("url", models.URLField(max_length=500)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "topic",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="user_resources",
++                        to="roadmaps.roadmaptopic",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_resources",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["created_at", "pk"],
++            },
++        ),
++        migrations.AddConstraint(
++            model_name="usertopicresource",
++            constraint=models.UniqueConstraint(
++                fields=("user", "topic", "url"),
++                name="unique_user_topic_resource_url",
++            ),
++        ),
++    ]
+diff --git a/apps/roadmaps/models.py b/apps/roadmaps/models.py
+index c94e932..b96768e 100644
+--- a/apps/roadmaps/models.py
++++ b/apps/roadmaps/models.py
+@@ -149,3 +149,32 @@ class UserTopicProgress(models.Model):
+ 
+     def __str__(self) -> str:
+         return f"{self.user}: {self.topic} ({self.get_status_display()})"
++
++
++class UserTopicResource(models.Model):
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="topic_resources",
++    )
++    topic = models.ForeignKey(
++        RoadmapTopic,
++        on_delete=models.CASCADE,
++        related_name="user_resources",
++    )
++    title = models.CharField(max_length=160)
++    url = models.URLField(max_length=500)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "topic", "url"],
++                name="unique_user_topic_resource_url",
++            ),
++        ]
++
++    def __str__(self) -> str:
++        return f"{self.user}: {self.topic} — {self.title}"
+diff --git a/apps/roadmaps/tests/test_models.py b/apps/roadmaps/tests/test_models.py
+index 482dd9e..2817b07 100644
+--- a/apps/roadmaps/tests/test_models.py
++++ b/apps/roadmaps/tests/test_models.py
+@@ -1,7 +1,11 @@
+ import pytest
+ from django.db import IntegrityError, transaction
+ 
+-from apps.roadmaps.models import UserRoadmap, UserTopicProgress
++from apps.roadmaps.models import (
++    UserRoadmap,
++    UserTopicProgress,
++    UserTopicResource,
++)
+ 
+ pytestmark = pytest.mark.django_db
+ 
+@@ -22,3 +26,16 @@ def test_user_has_one_progress_record_per_topic(user, topic):
+ 
+ def test_topic_exposes_parent_roadmap(topic, roadmap):
+     assert topic.roadmap == roadmap
++
++
++def test_topic_resource_belongs_to_one_user_and_topic(user, topic):
++    resource = UserTopicResource.objects.create(
++        user=user,
++        topic=topic,
++        title="PostgreSQL documentation",
++        url="https://www.postgresql.org/docs/",
++    )
++
++    assert resource.user == user
++    assert resource.topic == topic
++    assert "PostgreSQL documentation" in str(resource)
+diff --git a/apps/roadmaps/tests/test_views.py b/apps/roadmaps/tests/test_views.py
+index ba6aa9c..8150d34 100644
+--- a/apps/roadmaps/tests/test_views.py
++++ b/apps/roadmaps/tests/test_views.py
+@@ -8,6 +8,7 @@ from apps.roadmaps.models import (
+     RoadmapTopic,
+     UserRoadmap,
+     UserTopicProgress,
++    UserTopicResource,
+ )
+ 
+ pytestmark = pytest.mark.django_db
+@@ -170,3 +171,258 @@ def test_unpublished_roadmap_is_not_accessible(client, user):
+     response = client.get(reverse("roadmaps:detail", args=[roadmap.slug]))
+ 
+     assert response.status_code == 404
++
++
++def test_topic_workspace_requires_login(client, roadmap, topic):
++    response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
++    )
++
++    assert response.status_code == 302
++
++
++def test_topic_workspace_shows_notes_resources_and_status(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    progress = UserTopicProgress.objects.create(
++        user=user,
++        topic=topic,
++        status=UserTopicProgress.Status.IN_PROGRESS,
++        notes="Remember indexes and query plans.",
++    )
++    UserTopicResource.objects.create(
++        user=user,
++        topic=topic,
++        title="PostgreSQL documentation",
++        url="https://www.postgresql.org/docs/",
++    )
++    client.force_login(user)
++
++    response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
++    )
++
++    content = response.content.decode()
++    assert response.status_code == 200
++    assert "Study notes" in content
++    assert "Remember indexes and query plans." in content
++    assert "PostgreSQL documentation" in content
++    assert response.context["progress"] == progress
++    assert response.context["current_status"] == (
++        UserTopicProgress.Status.IN_PROGRESS
++    )
++
++
++def test_topic_navigation_crosses_section_boundaries(
++    client,
++    user,
++    roadmap,
++    section,
++    topic,
++):
++    next_section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="APIs",
++        slug="apis",
++        position=2,
++    )
++    next_topic = RoadmapTopic.objects.create(
++        section=next_section,
++        title="REST API design",
++        slug="rest-api-design",
++        position=1,
++    )
++    client.force_login(user)
++
++    first_response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
++    )
++    second_response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, next_topic.pk])
++    )
++
++    assert first_response.context["previous_topic"] is None
++    assert first_response.context["next_topic"] == next_topic
++    assert first_response.context["topic_number"] == 1
++    assert first_response.context["topic_count"] == 2
++    assert second_response.context["previous_topic"] == topic
++    assert second_response.context["next_topic"] is None
++
++
++def test_topic_workspace_rejects_topic_from_another_roadmap(
++    client,
++    user,
++    roadmap,
++):
++    other_roadmap = Roadmap.objects.create(
++        title="Python",
++        slug="python",
++        kind=Roadmap.Kind.SKILL,
++        position=2,
++    )
++    other_section = RoadmapSection.objects.create(
++        roadmap=other_roadmap,
++        title="Core Python",
++        slug="core-python",
++        position=1,
++    )
++    other_topic = RoadmapTopic.objects.create(
++        section=other_section,
++        title="Functions",
++        slug="functions",
++        position=1,
++    )
++    client.force_login(user)
++
++    response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, other_topic.pk])
++    )
++
++    assert response.status_code == 404
++
++
++def test_saving_topic_notes_creates_private_progress(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("roadmaps:save_topic_notes", args=[roadmap.slug, topic.pk]),
++        {"notes": "Use EXPLAIN ANALYZE when checking a slow query."},
++    )
++
++    assert response.status_code == 302
++    progress = UserTopicProgress.objects.get(user=user, topic=topic)
++    assert progress.notes == "Use EXPLAIN ANALYZE when checking a slow query."
++    assert progress.status == UserTopicProgress.Status.NOT_STARTED
++
++
++def test_adding_topic_resource_assigns_user_and_topic(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("roadmaps:add_topic_resource", args=[roadmap.slug, topic.pk]),
++        {
++            "title": "PostgreSQL documentation",
++            "url": "https://www.postgresql.org/docs/",
++        },
++    )
++
++    assert response.status_code == 302
++    resource = UserTopicResource.objects.get()
++    assert resource.user == user
++    assert resource.topic == topic
++    assert resource.title == "PostgreSQL documentation"
++
++
++def test_duplicate_topic_resource_url_is_not_added_twice(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    client.force_login(user)
++    resource_url = reverse(
++        "roadmaps:add_topic_resource",
++        args=[roadmap.slug, topic.pk],
++    )
++    payload = {
++        "title": "PostgreSQL documentation",
++        "url": "https://www.postgresql.org/docs/",
++    }
++
++    client.post(resource_url, payload)
++    client.post(resource_url, payload)
++
++    assert UserTopicResource.objects.filter(user=user, topic=topic).count() == 1
++
++
++def test_topic_workspace_hides_another_users_resources(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    other_user = User.objects.create_user(
++        email="resource-owner@example.com",
++        password="safe-test-password",
++    )
++    UserTopicResource.objects.create(
++        user=other_user,
++        topic=topic,
++        title="Private study link",
++        url="https://example.com/private-study-link",
++    )
++    client.force_login(user)
++
++    response = client.get(
++        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
++    )
++
++    assert "Private study link" not in response.content.decode()
++
++
++def test_user_cannot_delete_another_users_topic_resource(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    other_user = User.objects.create_user(
++        email="another-resource-owner@example.com",
++        password="safe-test-password",
++    )
++    resource = UserTopicResource.objects.create(
++        user=other_user,
++        topic=topic,
++        title="Private study link",
++        url="https://example.com/private-study-link",
++    )
++    client.force_login(user)
++
++    response = client.post(
++        reverse(
++            "roadmaps:delete_topic_resource",
++            args=[roadmap.slug, topic.pk, resource.pk],
++        )
++    )
++
++    assert response.status_code == 404
++    assert UserTopicResource.objects.filter(pk=resource.pk).exists()
++
++
++def test_status_update_can_return_to_topic_workspace(
++    client,
++    user,
++    roadmap,
++    topic,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse(
++            "roadmaps:update_topic_status",
++            args=[roadmap.slug, topic.pk],
++        ),
++        {
++            "status": UserTopicProgress.Status.IN_PROGRESS,
++            "return_to": "topic",
++        },
++    )
++
++    assert response.status_code == 302
++    assert response.url == reverse(
++        "roadmaps:topic_detail",
++        args=[roadmap.slug, topic.pk],
++    )
+diff --git a/apps/roadmaps/urls.py b/apps/roadmaps/urls.py
+index 247b30c..b9f0d49 100644
+--- a/apps/roadmaps/urls.py
++++ b/apps/roadmaps/urls.py
+@@ -8,9 +8,32 @@ urlpatterns = [
+     path("", views.roadmap_list, name="list"),
+     path("<slug:slug>/", views.roadmap_detail, name="detail"),
+     path("<slug:slug>/start/", views.start_roadmap, name="start"),
++    path(
++        "<slug:slug>/topics/<int:topic_id>/",
++        views.topic_detail,
++        name="topic_detail",
++    ),
+     path(
+         "<slug:slug>/topics/<int:topic_id>/status/",
+         views.update_topic_status,
+         name="update_topic_status",
+     ),
++    path(
++        "<slug:slug>/topics/<int:topic_id>/notes/",
++        views.save_topic_notes,
++        name="save_topic_notes",
++    ),
++    path(
++        "<slug:slug>/topics/<int:topic_id>/resources/",
++        views.add_topic_resource,
++        name="add_topic_resource",
++    ),
++    path(
++        (
++            "<slug:slug>/topics/<int:topic_id>/resources/"
++            "<int:resource_id>/delete/"
++        ),
++        views.delete_topic_resource,
++        name="delete_topic_resource",
++    ),
+ ]
+diff --git a/apps/roadmaps/views.py b/apps/roadmaps/views.py
+index a488c52..fde0b31 100644
+--- a/apps/roadmaps/views.py
++++ b/apps/roadmaps/views.py
+@@ -6,20 +6,79 @@ from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
+-from .models import Roadmap, RoadmapTopic, UserRoadmap, UserTopicProgress
++from .forms import TopicNotesForm, TopicResourceForm
++from .models import (
++    Roadmap,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++    UserTopicResource,
++)
+ from .services import grouped_roadmap_cards, roadmap_progress, sync_user_roadmap
+ 
+ 
+-def _accessible_roadmap(user, slug):
++def _accessible_roadmap(user, slug, *, with_topics=False):
++    roadmaps = Roadmap.objects.filter(Q(is_system=True) | Q(created_by=user))
++    if with_topics:
++        roadmaps = roadmaps.prefetch_related("sections__topics")
++
+     return get_object_or_404(
+-        Roadmap.objects.prefetch_related("sections__topics").filter(
+-            Q(is_system=True) | Q(created_by=user)
+-        ),
++        roadmaps,
+         slug=slug,
+         is_published=True,
+     )
+ 
+ 
++def _accessible_topic(user, slug, topic_id):
++    roadmap = _accessible_roadmap(user, slug)
++    topic = get_object_or_404(
++        RoadmapTopic.objects.select_related(
++            "section",
++            "section__roadmap",
++        ),
++        pk=topic_id,
++        section__roadmap=roadmap,
++    )
++    return roadmap, topic
++
++
++def _topic_navigation(roadmap, current_topic):
++    topics = list(
++        RoadmapTopic.objects.filter(section__roadmap=roadmap)
++        .select_related("section")
++        .order_by(
++            "section__position",
++            "section__title",
++            "position",
++            "title",
++            "pk",
++        )
++    )
++    current_index = next(
++        index for index, topic in enumerate(topics) if topic.pk == current_topic.pk
++    )
++    previous_topic = topics[current_index - 1] if current_index > 0 else None
++    next_topic = topics[current_index + 1] if current_index + 1 < len(topics) else None
++    return {
++        "previous_topic": previous_topic,
++        "next_topic": next_topic,
++        "topic_number": current_index + 1,
++        "topic_count": len(topics),
++    }
++
++
++def _redirect_after_status_update(request, roadmap, topic):
++    if request.POST.get("return_to") == "topic":
++        return redirect(
++            "roadmaps:topic_detail",
++            slug=roadmap.slug,
++            topic_id=topic.pk,
++        )
++
++    detail_url = reverse("roadmaps:detail", kwargs={"slug": roadmap.slug})
++    return redirect(f"{detail_url}#topic-{topic.pk}")
++
++
+ @login_required
+ def roadmap_list(request):
+     return render(
+@@ -31,7 +90,7 @@ def roadmap_list(request):
+ 
+ @login_required
+ def roadmap_detail(request, slug):
+-    roadmap = _accessible_roadmap(request.user, slug)
++    roadmap = _accessible_roadmap(request.user, slug, with_topics=True)
+     progress_by_topic = {
+         progress.topic_id: progress
+         for progress in UserTopicProgress.objects.filter(
+@@ -66,6 +125,38 @@ def roadmap_detail(request, slug):
+     )
+ 
+ 
++@login_required
++def topic_detail(request, slug, topic_id):
++    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
++    progress = UserTopicProgress.objects.filter(
++        user=request.user,
++        topic=topic,
++    ).first()
++    navigation = _topic_navigation(roadmap, topic)
++
++    return render(
++        request,
++        "roadmaps/topic_detail.html",
++        {
++            "roadmap": roadmap,
++            "topic": topic,
++            "progress": progress,
++            "current_status": (
++                progress.status
++                if progress
++                else UserTopicProgress.Status.NOT_STARTED
++            ),
++            "notes_form": TopicNotesForm(instance=progress),
++            "resource_form": TopicResourceForm(),
++            "resources": UserTopicResource.objects.filter(
++                user=request.user,
++                topic=topic,
++            ),
++            **navigation,
++        },
++    )
++
++
+ @login_required
+ @require_POST
+ def start_roadmap(request, slug):
+@@ -91,20 +182,12 @@ def start_roadmap(request, slug):
+ @login_required
+ @require_POST
+ def update_topic_status(request, slug, topic_id):
+-    roadmap = _accessible_roadmap(request.user, slug)
+-    topic = get_object_or_404(
+-        RoadmapTopic.objects.select_related(
+-            "section",
+-            "section__roadmap",
+-        ),
+-        pk=topic_id,
+-        section__roadmap=roadmap,
+-    )
++    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
+     status = request.POST.get("status", "")
+     valid_statuses = {value for value, _ in UserTopicProgress.Status.choices}
+     if status not in valid_statuses:
+         messages.error(request, "Choose a valid topic status.")
+-        return redirect("roadmaps:detail", slug=roadmap.slug)
++        return _redirect_after_status_update(request, roadmap, topic)
+ 
+     now = timezone.now()
+     progress, _ = UserTopicProgress.objects.get_or_create(
+@@ -125,5 +208,71 @@ def update_topic_status(request, slug, topic_id):
+     sync_user_roadmap(user=request.user, roadmap=roadmap)
+ 
+     messages.success(request, f"Updated {topic.title} to {progress.get_status_display()}.")
+-    detail_url = reverse("roadmaps:detail", kwargs={"slug": roadmap.slug})
+-    return redirect(f"{detail_url}#topic-{topic.pk}")
++    return _redirect_after_status_update(request, roadmap, topic)
++
++
++@login_required
++@require_POST
++def save_topic_notes(request, slug, topic_id):
++    _, topic = _accessible_topic(request.user, slug, topic_id)
++    progress, _ = UserTopicProgress.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    form = TopicNotesForm(request.POST, instance=progress)
++    if form.is_valid():
++        form.save()
++        messages.success(request, "Topic notes saved.")
++    else:
++        messages.error(request, "Your notes could not be saved.")
++
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def add_topic_resource(request, slug, topic_id):
++    _, topic = _accessible_topic(request.user, slug, topic_id)
++    form = TopicResourceForm(request.POST)
++    if form.is_valid():
++        _, created = UserTopicResource.objects.get_or_create(
++            user=request.user,
++            topic=topic,
++            url=form.cleaned_data["url"],
++            defaults={"title": form.cleaned_data["title"]},
++        )
++        if created:
++            messages.success(request, "Learning resource added.")
++        else:
++            messages.info(request, "That resource is already saved for this topic.")
++    else:
++        messages.error(request, "Add a title and a valid resource URL.")
++
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def delete_topic_resource(request, slug, topic_id, resource_id):
++    _, topic = _accessible_topic(request.user, slug, topic_id)
++    resource = get_object_or_404(
++        UserTopicResource,
++        pk=resource_id,
++        user=request.user,
++        topic=topic,
++    )
++    resource.delete()
++    messages.success(request, "Learning resource removed.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=slug,
++        topic_id=topic.pk,
++    )
+diff --git a/static/css/roadmaps.css b/static/css/roadmaps.css
+index fab943c..5f5689b 100644
+--- a/static/css/roadmaps.css
++++ b/static/css/roadmaps.css
+@@ -417,3 +417,403 @@
+         grid-template-columns: repeat(5, 1fr);
+     }
+ }
++
++.roadmap-topic-link {
++    color: inherit;
++    text-decoration: none;
++}
++
++.roadmap-topic-link:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.sr-only {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    padding: 0;
++    margin: -1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++    border: 0;
++}
++
++.topic-workspace-header {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 2rem;
++    align-items: end;
++    padding-bottom: 2rem;
++    border-bottom: 2px solid var(--vc-ink);
++}
++
++.topic-workspace-header h1 {
++    max-width: 58rem;
++    margin: 0.45rem 0 1rem;
++    font-size: clamp(2.5rem, 6vw, 4.8rem);
++    line-height: 0.98;
++    letter-spacing: -0.04em;
++}
++
++.topic-workspace-header .lead {
++    max-width: 52rem;
++    margin-bottom: 0;
++}
++
++.topic-back-link {
++    padding-bottom: 0.2rem;
++    color: var(--vc-ink);
++    font-size: 0.84rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.topic-back-link:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.topic-workspace-layout {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
++    gap: clamp(2rem, 5vw, 4.5rem);
++    align-items: start;
++    margin-top: 2.5rem;
++}
++
++.topic-workspace-main,
++.topic-workspace-sidebar {
++    display: grid;
++    gap: 2.5rem;
++}
++
++.topic-workspace-panel {
++    padding-bottom: 2.5rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.topic-panel-heading {
++    display: flex;
++    align-items: end;
++    justify-content: space-between;
++    gap: 1rem;
++    margin-bottom: 1rem;
++}
++
++.topic-panel-heading h2,
++.topic-sidebar-panel h2 {
++    margin: 0.25rem 0 0;
++    font-size: 1.45rem;
++}
++
++.topic-panel-heading > span {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.topic-notes-input {
++    width: 100%;
++    min-height: 18rem;
++    resize: vertical;
++    padding: 1rem;
++    border: 1px solid var(--vc-border-strong);
++    border-radius: 0;
++    color: var(--vc-ink);
++    background: var(--vc-paper);
++    font: inherit;
++    line-height: 1.65;
++}
++
++.topic-notes-input:focus,
++.topic-resource-form input:focus {
++    border-color: var(--vc-burgundy);
++    outline: 2px solid var(--vc-burgundy-soft);
++    outline-offset: 1px;
++}
++
++.topic-form-actions {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1.5rem;
++    margin-top: 0.9rem;
++}
++
++.topic-form-actions p {
++    max-width: 38rem;
++    margin: 0;
++    color: var(--vc-muted);
++    font-size: 0.8rem;
++    line-height: 1.5;
++}
++
++.topic-resource-list {
++    padding: 0;
++    margin: 0;
++    list-style: none;
++    border-top: 1px solid var(--vc-border);
++}
++
++.topic-resource-list li {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 1rem;
++    align-items: center;
++    padding: 0.9rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.topic-resource-list li > div {
++    display: grid;
++    gap: 0.2rem;
++    min-width: 0;
++}
++
++.topic-resource-list a {
++    width: fit-content;
++    color: var(--vc-ink);
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.topic-resource-list a:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.topic-resource-list span {
++    overflow: hidden;
++    color: var(--vc-muted);
++    font-size: 0.74rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.topic-resource-delete {
++    padding: 0;
++    border: 0;
++    color: var(--vc-muted);
++    background: transparent;
++    cursor: pointer;
++    font: inherit;
++    font-size: 0.75rem;
++    font-weight: 700;
++}
++
++.topic-resource-delete:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.topic-empty-state {
++    padding: 1.25rem 0;
++    border-top: 1px solid var(--vc-border);
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.topic-empty-state p {
++    max-width: 38rem;
++    margin: 0.35rem 0 0;
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++    line-height: 1.55;
++}
++
++.topic-resource-form {
++    display: grid;
++    grid-template-columns: minmax(10rem, 0.8fr) minmax(14rem, 1.2fr) auto;
++    gap: 0.8rem;
++    align-items: end;
++    margin-top: 1.25rem;
++}
++
++.topic-resource-form > div {
++    display: grid;
++    gap: 0.35rem;
++}
++
++.topic-resource-form label {
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    font-weight: 750;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++}
++
++.topic-resource-form input {
++    width: 100%;
++    min-height: 2.65rem;
++    padding: 0.65rem 0.75rem;
++    border: 1px solid var(--vc-border-strong);
++    border-radius: 0;
++    color: var(--vc-ink);
++    background: var(--vc-paper);
++    font: inherit;
++    font-size: 0.86rem;
++}
++
++.topic-sidebar-panel {
++    padding: 1.25rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.topic-current-status {
++    margin: 0.75rem 0 1rem;
++    color: var(--vc-muted);
++    font-size: 0.85rem;
++}
++
++.topic-status-form {
++    display: grid;
++    border-top: 1px solid var(--vc-border);
++}
++
++.topic-status-option {
++    display: grid;
++    grid-template-columns: 1.5rem minmax(0, 1fr);
++    gap: 0.5rem;
++    align-items: center;
++    min-height: 2.8rem;
++    padding: 0.6rem 0;
++    border: 0;
++    border-bottom: 1px solid var(--vc-border);
++    color: var(--vc-muted);
++    background: transparent;
++    cursor: pointer;
++    font: inherit;
++    text-align: left;
++}
++
++.topic-status-option:hover,
++.topic-status-option.is-current {
++    color: var(--vc-burgundy-dark);
++    font-weight: 750;
++}
++
++.topic-status-complete:hover,
++.topic-status-complete.is-current {
++    color: var(--vc-success);
++}
++
++.topic-timeline {
++    margin: 0.9rem 0 0;
++}
++
++.topic-timeline > div {
++    display: grid;
++    grid-template-columns: 5rem minmax(0, 1fr);
++    gap: 0.75rem;
++    padding: 0.7rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.topic-timeline dt {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.topic-timeline dd {
++    margin: 0;
++    font-size: 0.8rem;
++    text-align: right;
++}
++
++.topic-pagination {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 2rem;
++    margin-top: 3rem;
++    padding-top: 1.5rem;
++    border-top: 2px solid var(--vc-ink);
++}
++
++.topic-pagination > div {
++    display: grid;
++    gap: 0.3rem;
++}
++
++.topic-pagination-next {
++    justify-items: end;
++    text-align: right;
++}
++
++.topic-pagination span {
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    font-weight: 750;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++}
++
++.topic-pagination a {
++    color: var(--vc-ink);
++    font-family: var(--vc-font-serif);
++    font-size: 1.05rem;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.topic-pagination a:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++@media (max-width: 58rem) {
++    .topic-workspace-header,
++    .topic-workspace-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .topic-back-link {
++        justify-self: start;
++    }
++
++    .topic-workspace-sidebar {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        grid-row: 1;
++    }
++
++    .topic-resource-form {
++        grid-template-columns: 1fr 1fr;
++    }
++
++    .topic-resource-form .button {
++        justify-self: start;
++    }
++}
++
++@media (max-width: 42rem) {
++    .topic-panel-heading,
++    .topic-form-actions {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .topic-panel-heading,
++    .topic-form-actions {
++        display: flex;
++    }
++
++    .topic-workspace-sidebar,
++    .topic-resource-form,
++    .topic-pagination {
++        grid-template-columns: 1fr;
++    }
++
++    .topic-resource-list li {
++        grid-template-columns: 1fr;
++    }
++
++    .topic-resource-list span {
++        white-space: normal;
++        overflow-wrap: anywhere;
++    }
++
++    .topic-pagination-next {
++        justify-items: start;
++        text-align: left;
++    }
++}
+diff --git a/templates/roadmaps/roadmap_detail.html b/templates/roadmaps/roadmap_detail.html
+index 158d2f3..e97d6a4 100644
+--- a/templates/roadmaps/roadmap_detail.html
++++ b/templates/roadmaps/roadmap_detail.html
+@@ -58,7 +58,9 @@
+                                 {% if topic.current_status == "COMPLETED" %}✓{% elif topic.current_status == "IN_PROGRESS" %}→{% else %}○{% endif %}
+                             </span>
+                             <div>
+-                                <strong>{{ topic.title }}</strong>
++                                <strong>
++                                    <a class="roadmap-topic-link" href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">{{ topic.title }}</a>
++                                </strong>
+                                 {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
+                             </div>
+                         </div>
+diff --git a/templates/roadmaps/topic_detail.html b/templates/roadmaps/topic_detail.html
+new file mode 100644
+index 0000000..2cffd6e
+--- /dev/null
++++ b/templates/roadmaps/topic_detail.html
+@@ -0,0 +1,152 @@
++{% extends "base.html" %}
++
++{% block title %}{{ topic.title }} | {{ roadmap.title }} | ViewCoach{% endblock %}
++
++{% block content %}
++<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
++    <span aria-hidden="true">/</span>
++    <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
++    <span aria-hidden="true">/</span>
++    <span>{{ topic.title }}</span>
++</nav>
++
++<section class="topic-workspace-header">
++    <div>
++        <p class="eyebrow">{{ topic.section.title }} · Topic {{ topic_number }} of {{ topic_count }}</p>
++        <h1>{{ topic.title }}</h1>
++        {% if topic.description %}
++            <p class="lead">{{ topic.description }}</p>
++        {% else %}
++            <p class="lead">Use this workspace to keep the material, links and notes for this topic together.</p>
++        {% endif %}
++    </div>
++    <a class="topic-back-link" href="{% url 'roadmaps:detail' roadmap.slug %}#topic-{{ topic.pk }}">Back to roadmap</a>
++</section>
++
++<div class="topic-workspace-layout">
++    <main class="topic-workspace-main">
++        <section class="topic-workspace-panel" aria-labelledby="topic-notes-heading">
++            <div class="topic-panel-heading">
++                <div>
++                    <p class="eyebrow">Your workspace</p>
++                    <h2 id="topic-notes-heading">Study notes</h2>
++                </div>
++                {% if progress.updated_at %}
++                    <span>Updated {{ progress.updated_at|date:"j M Y, H:i" }}</span>
++                {% endif %}
++            </div>
++            <form method="post" action="{% url 'roadmaps:save_topic_notes' roadmap.slug topic.pk %}">
++                {% csrf_token %}
++                <label class="sr-only" for="{{ notes_form.notes.id_for_label }}">Study notes</label>
++                {{ notes_form.notes }}
++                <div class="topic-form-actions">
++                    <p>Keep explanations, examples and mistakes here so you do not have to rebuild the context later.</p>
++                    <button class="button" type="submit">Save notes</button>
++                </div>
++            </form>
++        </section>
++
++        <section class="topic-workspace-panel" aria-labelledby="topic-resources-heading">
++            <div class="topic-panel-heading">
++                <div>
++                    <p class="eyebrow">Reference material</p>
++                    <h2 id="topic-resources-heading">Learning resources</h2>
++                </div>
++                <span>{{ resources|length }} saved</span>
++            </div>
++
++            {% if resources %}
++                <ul class="topic-resource-list">
++                    {% for resource in resources %}
++                        <li>
++                            <div>
++                                <a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">{{ resource.title }}</a>
++                                <span>{{ resource.url }}</span>
++                            </div>
++                            <form method="post" action="{% url 'roadmaps:delete_topic_resource' roadmap.slug topic.pk resource.pk %}">
++                                {% csrf_token %}
++                                <button class="topic-resource-delete" type="submit" aria-label="Remove {{ resource.title }}">Remove</button>
++                            </form>
++                        </li>
++                    {% endfor %}
++                </ul>
++            {% else %}
++                <div class="topic-empty-state">
++                    <strong>No resources saved yet.</strong>
++                    <p>Add the article, video, documentation or exercise you plan to use for this topic.</p>
++                </div>
++            {% endif %}
++
++            <form class="topic-resource-form" method="post" action="{% url 'roadmaps:add_topic_resource' roadmap.slug topic.pk %}">
++                {% csrf_token %}
++                <div>
++                    <label for="{{ resource_form.title.id_for_label }}">Title</label>
++                    {{ resource_form.title }}
++                </div>
++                <div>
++                    <label for="{{ resource_form.url.id_for_label }}">URL</label>
++                    {{ resource_form.url }}
++                </div>
++                <button class="button button-secondary" type="submit">Add resource</button>
++            </form>
++        </section>
++    </main>
++
++    <aside class="topic-workspace-sidebar">
++        <section class="topic-sidebar-panel" aria-labelledby="topic-status-heading">
++            <p class="eyebrow">Progress</p>
++            <h2 id="topic-status-heading">Topic status</h2>
++            <p class="topic-current-status">
++                {% if progress %}{{ progress.get_status_display }}{% else %}Not started{% endif %}
++            </p>
++            <form class="topic-status-form" method="post" action="{% url 'roadmaps:update_topic_status' roadmap.slug topic.pk %}">
++                {% csrf_token %}
++                <input type="hidden" name="return_to" value="topic">
++                <button class="topic-status-option {% if current_status == 'NOT_STARTED' %}is-current{% endif %}" type="submit" name="status" value="NOT_STARTED">
++                    <span aria-hidden="true">○</span>
++                    <span>Not started</span>
++                </button>
++                <button class="topic-status-option {% if current_status == 'IN_PROGRESS' %}is-current{% endif %}" type="submit" name="status" value="IN_PROGRESS">
++                    <span aria-hidden="true">→</span>
++                    <span>Learning</span>
++                </button>
++                <button class="topic-status-option topic-status-complete {% if current_status == 'COMPLETED' %}is-current{% endif %}" type="submit" name="status" value="COMPLETED">
++                    <span aria-hidden="true">✓</span>
++                    <span>Completed</span>
++                </button>
++            </form>
++        </section>
++
++        <section class="topic-sidebar-panel" aria-labelledby="topic-activity-heading">
++            <p class="eyebrow">Activity</p>
++            <h2 id="topic-activity-heading">Learning timeline</h2>
++            <dl class="topic-timeline">
++                <div>
++                    <dt>Started</dt>
++                    <dd>{% if progress.started_at %}{{ progress.started_at|date:"j M Y, H:i" }}{% else %}Not yet{% endif %}</dd>
++                </div>
++                <div>
++                    <dt>Completed</dt>
++                    <dd>{% if progress.completed_at %}{{ progress.completed_at|date:"j M Y, H:i" }}{% else %}Not yet{% endif %}</dd>
++                </div>
++            </dl>
++        </section>
++    </aside>
++</div>
++
++<nav class="topic-pagination" aria-label="Topic navigation">
++    <div>
++        {% if previous_topic %}
++            <span>Previous topic</span>
++            <a href="{% url 'roadmaps:topic_detail' roadmap.slug previous_topic.pk %}">← {{ previous_topic.title }}</a>
++        {% endif %}
++    </div>
++    <div class="topic-pagination-next">
++        {% if next_topic %}
++            <span>Next topic</span>
++            <a href="{% url 'roadmaps:topic_detail' roadmap.slug next_topic.pk %}">{{ next_topic.title }} →</a>
++        {% endif %}
++    </div>
++</nav>
++{% endblock %}
