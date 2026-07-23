@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
     <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
+    <link rel="stylesheet" href="{% static 'css/roadmaps.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
@@ -29,6 +30,13 @@
                         <svg viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
                     </span>
                     <span>Review</span>
+                </a>
+                <a class="app-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
+                   href="{% url 'roadmaps:list' %}">
+                    <span class="app-nav-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
+                    </span>
+                    <span>Roadmaps</span>
                 </a>
                 <a class="app-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
                    href="{% url 'questions:list' %}">
@@ -101,6 +109,11 @@
                href="{% url 'reviews:queue' %}">
                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
                 <span>Review</span>
+            </a>
+            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
+               href="{% url 'roadmaps:list' %}">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
+                <span>Paths</span>
             </a>
             <a class="mobile-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
                href="{% url 'questions:list' %}">

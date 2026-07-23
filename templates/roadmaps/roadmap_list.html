@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Roadmaps | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="page-header roadmap-page-header">
+    <p class="eyebrow">Learning roadmaps</p>
+    <h1>Choose what you are building towards.</h1>
+    <p class="lead">Follow a structured path, learn each topic however you prefer, and keep your progress in one place.</p>
+</section>
+
+{% for group in roadmap_groups %}
+    <section class="roadmap-group">
+        <div class="roadmap-group-heading">
+            <div>
+                <p class="eyebrow">{{ group.label }}</p>
+                <h2>
+                    {% if group.kind == "ROLE" %}Prepare for a role
+                    {% elif group.kind == "SKILL" %}Build a focused skill
+                    {% else %}Turn knowledge into practice
+                    {% endif %}
+                </h2>
+            </div>
+            <span>{{ group.items|length }} roadmap{{ group.items|length|pluralize }}</span>
+        </div>
+
+        <div class="roadmap-catalogue">
+            {% for item in group.items %}
+                <article class="roadmap-card">
+                    <div class="roadmap-card-main">
+                        <div class="roadmap-card-meta">
+                            <span>{{ item.topic_count }} topics</span>
+                            {% if item.enrolment %}<span>{{ item.enrolment.get_status_display }}</span>{% else %}<span>Not started</span>{% endif %}
+                        </div>
+                        <h3><a href="{% url 'roadmaps:detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
+                        <p>{{ item.roadmap.description }}</p>
+                    </div>
+                    <div class="roadmap-card-progress">
+                        <div class="roadmap-progress-copy">
+                            <strong>{{ item.percentage }}%</strong>
+                            <span>{{ item.completed_count }} of {{ item.topic_count }} complete</span>
+                        </div>
+                        <div class="roadmap-progress-track" role="progressbar" aria-label="Roadmap progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
+                            <span style="width: {{ item.percentage }}%"></span>
+                        </div>
+                        <a class="roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+                            {% if item.enrolment %}Continue roadmap{% else %}View roadmap{% endif %}
+                        </a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </section>
+{% empty %}
+    <div class="empty-state empty-state-wide">
+        <h2>No roadmaps are published yet</h2>
+        <p>Run the roadmap seed command to create the built-in catalogue.</p>
+    </div>
+{% endfor %}
+{% endblock %}
