@@ -1,89 +1,119 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | Adaptive Interview Coach{% endblock %}
+{% block title %}Dashboard | ViewCoach{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
 
 {% block content %}
-<section class="page-header page-header-split dashboard-header">
+<section class="dashboard-editorial-header">
     <div>
         <p class="eyebrow">Dashboard</p>
-        <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
-        <p class="lead">Build the interview material you want to recall under pressure.</p>
+        <h1>Today{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
+        <p>Start with the work that is due, then shape the library behind it.</p>
     </div>
     <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
 </section>
 
-<div class="stats-grid">
-    <div class="stat-card">
-        <span class="stat-value">{{ question_count }}</span>
-        <span class="stat-label">Questions in my library</span>
-    </div>
-    <div class="stat-card">
-        <span class="stat-value">{{ ready_question_count }}</span>
-        <span class="stat-label">Ready for review</span>
-    </div>
-    <div class="stat-card{% if not due_review_count %} stat-card-muted{% endif %}">
-        <span class="stat-value">{{ due_review_count }}</span>
-        <span class="stat-label">Reviews due now</span>
-    </div>
-</div>
+<div class="dashboard-editorial-layout">
+    <div class="dashboard-primary-column">
+        <section class="dashboard-priority" aria-labelledby="today-work-heading">
+            <div class="dashboard-section-label">
+                <span class="dashboard-status-dot{% if not due_review_count %} is-clear{% endif %}" aria-hidden="true"></span>
+                <span>Today’s work</span>
+            </div>
 
-<section class="dashboard-section">
-    <div class="section-heading">
-        <div>
-            <p class="eyebrow">Review engine</p>
-            <h2>{% if due_review_count %}Your next review is ready{% else %}Your review queue is clear{% endif %}</h2>
-        </div>
-        <a href="{% url 'reviews:history' %}">{{ reviewed_today_count }} reviewed today</a>
-    </div>
+            {% if due_review_count and next_review_state %}
+                <p class="dashboard-priority-number">{{ due_review_count }} <span>review{{ due_review_count|pluralize }} due</span></p>
+                <h2 id="today-work-heading">Begin with {{ next_review_state.question.title }}</h2>
+                <p class="dashboard-priority-copy">{{ next_review_state.question.prompt|truncatewords:30 }}</p>
+                <div class="dashboard-priority-actions">
+                    <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start review session</a>
+                    <a class="dashboard-text-link" href="{% url 'reviews:queue' %}">Open full queue</a>
+                </div>
+            {% elif ready_question_count %}
+                <p class="dashboard-priority-number">0 <span>reviews due</span></p>
+                <h2 id="today-work-heading">Your queue is clear</h2>
+                <p class="dashboard-priority-copy">Your ready questions are scheduled. View the queue to see what is coming next.</p>
+                <div class="dashboard-priority-actions">
+                    <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
+                </div>
+            {% else %}
+                <p class="dashboard-priority-number">0 <span>questions ready</span></p>
+                <h2 id="today-work-heading">Prepare your first review</h2>
+                <p class="dashboard-priority-copy">Complete the notes on one of your questions, then mark it ready to begin spaced review.</p>
+                <div class="dashboard-priority-actions">
+                    <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
+                </div>
+            {% endif %}
+        </section>
 
-    {% if due_review_count and next_review_state %}
-        <div class="empty-state empty-state-wide">
-            <h2>{{ next_review_state.question.title }}</h2>
-            <p>{{ next_review_state.question.prompt|truncatewords:24 }}</p>
-            <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start due reviews</a>
-        </div>
-    {% elif ready_question_count %}
-        <div class="empty-state empty-state-wide">
-            <h2>Nothing is due right now</h2>
-            <p>Your ready questions are scheduled. The queue will surface them when they are due.</p>
-            <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
-        </div>
-    {% else %}
-        <div class="empty-state empty-state-wide">
-            <h2>No questions are ready for review</h2>
-            <p>Complete the notes on a question and mark it ready to begin spaced review.</p>
-            <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
-        </div>
-    {% endif %}
-</section>
+        <section class="dashboard-recent" aria-labelledby="recent-questions-heading">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="eyebrow">Question library</p>
+                    <h2 id="recent-questions-heading">Recently updated</h2>
+                </div>
+                {% if recent_questions %}<a href="{% url 'questions:list' %}">View all questions</a>{% endif %}
+            </div>
 
-<section class="dashboard-section">
-    <div class="section-heading">
-        <div>
-            <p class="eyebrow">Question library</p>
-            <h2>Recently updated</h2>
-        </div>
-        {% if recent_questions %}<a href="{% url 'questions:list' %}">View all</a>{% endif %}
-    </div>
-
-    {% if recent_questions %}
-        <div class="question-grid compact-question-grid">
-            {% for question in recent_questions %}
-                <article class="question-card">
-                    <div class="question-card-meta">
-                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+            {% if recent_questions %}
+                <ol class="dashboard-recent-list">
+                    {% for question in recent_questions %}
+                        <li>
+                            <a class="dashboard-recent-question" href="{% url 'questions:detail' question.pk %}">
+                                <span class="dashboard-recent-main">
+                                    <strong>{{ question.title }}</strong>
+                                    <span>{{ question.prompt|truncatewords:16 }}</span>
+                                </span>
+                                <span class="dashboard-recent-meta">
+                                    <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                                    <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M" }}</time>
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <div class="dashboard-empty-row">
+                    <div>
+                        <h3>Start with one real interview question</h3>
+                        <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
                     </div>
-                    <h3><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h3>
-                    <p>{{ question.prompt|truncatewords:18 }}</p>
-                </article>
-            {% endfor %}
+                    <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <aside class="dashboard-brief" aria-labelledby="dashboard-brief-heading">
+        <div class="dashboard-brief-heading">
+            <p class="eyebrow">At a glance</p>
+            <h2 id="dashboard-brief-heading">Study status</h2>
         </div>
-    {% else %}
-        <div class="empty-state empty-state-wide">
-            <h2>Start with one real interview question</h2>
-            <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
-            <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
+
+        <dl class="dashboard-facts">
+            <div>
+                <dt>Due now</dt>
+                <dd>{{ due_review_count }}</dd>
+            </div>
+            <div>
+                <dt>Reviewed today</dt>
+                <dd>{{ reviewed_today_count }}</dd>
+            </div>
+            <div>
+                <dt>Ready for review</dt>
+                <dd>{{ ready_question_count }}</dd>
+            </div>
+            <div>
+                <dt>In my library</dt>
+                <dd>{{ question_count }}</dd>
+            </div>
+        </dl>
+
+        <div class="dashboard-brief-links">
+            <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
+            <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
+            <a href="{% url 'questions:import_start' %}">Import questions <span aria-hidden="true">→</span></a>
         </div>
-    {% endif %}
-</section>
+    </aside>
+</div>
 {% endblock %}

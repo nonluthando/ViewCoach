@@ -1,28 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}Question Library | Adaptive Interview Coach{% endblock %}
+{% block title %}Question Bank | ViewCoach{% endblock %}
+{% block body_class %}question-bank-page{% endblock %}
 
 {% block content %}
-<section class="page-header page-header-split">
+<section class="bank-page-header">
     <div>
-        <p class="eyebrow">Question library</p>
+        <p class="eyebrow">Question bank</p>
         <h1>Your interview material</h1>
-        <p class="lead">Practise the curated starter library, then add your own questions and notes.</p>
+        <p>Search the starter bank, organise your own questions and move completed notes into review.</p>
     </div>
-    <div class="button-row">
-        <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import questions</a>
+    <div class="button-row bank-header-actions">
+        <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import</a>
         <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
     </div>
 </section>
 
-<form class="filter-panel" method="get" role="search">
-    <div class="filter-grid">
-        <div class="form-field filter-search">
+<form class="bank-filter-panel" method="get" role="search">
+    <div class="bank-filter-grid">
+        <div class="bank-filter-field bank-search-field">
             <label for="question-search">Search</label>
-            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic, company…">
+            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic or company">
         </div>
 
-        <div class="form-field">
+        <div class="bank-filter-field">
             <label for="question-source">Library</label>
             <select id="question-source" name="source">
                 <option value="">All questions</option>
@@ -31,7 +32,7 @@
                 <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
             </select>
         </div>
-        <div class="form-field">
+        <div class="bank-filter-field">
             <label for="question-type">Type</label>
             <select id="question-type" name="type">
                 <option value="">All types</option>
@@ -40,7 +41,7 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="form-field">
+        <div class="bank-filter-field">
             <label for="question-difficulty">Difficulty</label>
             <select id="question-difficulty" name="difficulty">
                 <option value="">All levels</option>
@@ -49,7 +50,7 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="form-field">
+        <div class="bank-filter-field">
             <label for="question-status">Status</label>
             <select id="question-status" name="status">
                 <option value="">All statuses</option>
@@ -59,77 +60,119 @@
             </select>
         </div>
     </div>
-    <div class="button-row">
+    <div class="bank-filter-actions">
         <button class="button button-small" type="submit">Apply filters</button>
-        <a class="button button-small button-secondary" href="{% url 'questions:list' %}">Clear</a>
-        <a href="{% url 'questions:import_history' %}">Import history</a>
+        <a class="bank-clear-link" href="{% url 'questions:list' %}">Clear all</a>
+        <a class="bank-history-link" href="{% url 'questions:import_history' %}">Import history</a>
     </div>
 </form>
 
 {% if page.object_list %}
-    <form method="post">
+    <form class="bank-results-form" method="post">
         {% csrf_token %}
-        <div class="bulk-toolbar">
-            <span>Add built-in questions to your library or move completed questions into the future review queue.</span>
-            <div class="button-row">
+        <div class="bank-results-bar">
+            <div>
+                <strong>{{ page.paginator.count }} question{{ page.paginator.count|pluralize }}</strong>
+                <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+            </div>
+            <div class="bank-bulk-actions">
+                <span>Selected rows</span>
                 <button
                     class="button button-small button-secondary"
                     type="submit"
                     formaction="{% url 'questions:bulk_save_built_in' %}"
-                >Add selected built-in</button>
+                >Add built-in</button>
                 <button
                     class="button button-small"
                     type="submit"
                     formaction="{% url 'questions:bulk_mark_ready' %}"
-                >Mark my selected ready</button>
+                >Mark ready</button>
             </div>
         </div>
 
-        <div class="question-grid">
-            {% for question in page.object_list %}
-                <article class="question-card question-card-selectable">
-                    <label class="question-select">
-                        {% if question.is_system %}
-                            {% if question.user_copy_id %}
-                                <span>In my library</span>
-                            {% else %}
-                                <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
-                                <span>Select to add</span>
-                            {% endif %}
-                        {% else %}
-                            <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
-                            <span>Select</span>
-                        {% endif %}
-                    </label>
-                    <div class="question-card-meta">
-                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.user_copy_id %}<span class="badge badge-neutral">In my library</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
-                        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
-                    </div>
-                    <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
-                    <p>{{ question.prompt|truncatewords:24 }}</p>
-                    <div class="question-card-footer">
-                        <span>{{ question.source_label }}{% if question.company %} · {{ question.company }}{% endif %}</span>
-                        <span>Updated {{ question.updated_at|date:"j M" }}</span>
-                    </div>
-                </article>
-            {% endfor %}
+        <div class="bank-table-wrap">
+            <table class="bank-table">
+                <thead>
+                    <tr>
+                        <th class="bank-select-column"><span class="visually-hidden">Select</span></th>
+                        <th>Question</th>
+                        <th>Type</th>
+                        <th>Library status</th>
+                        <th>Difficulty</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in page.object_list %}
+                        <tr>
+                            <td class="bank-select-cell" data-label="Select">
+                                {% if question.is_system %}
+                                    {% if question.user_copy_id %}
+                                        <span class="bank-selection-status" title="Already in my library">Added</span>
+                                    {% else %}
+                                        <label class="bank-checkbox">
+                                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+                                            <span class="visually-hidden">Select {{ question.title }} to add</span>
+                                        </label>
+                                    {% endif %}
+                                {% else %}
+                                    <label class="bank-checkbox">
+                                        <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+                                        <span class="visually-hidden">Select {{ question.title }}</span>
+                                    </label>
+                                {% endif %}
+                            </td>
+                            <td class="bank-question-cell" data-label="Question">
+                                <a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a>
+                                <p>{{ question.prompt|truncatewords:18 }}</p>
+                                {% if question.company %}<span class="bank-company">{{ question.company }}</span>{% endif %}
+                            </td>
+                            <td data-label="Type">
+                                <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+                            </td>
+                            <td data-label="Library status">
+                                {% if question.is_system %}
+                                    <span class="bank-status-text">Built-in{% if question.user_copy_id %} · In my library{% endif %}</span>
+                                {% else %}
+                                    <span class="bank-status-text">{{ question.get_status_display }}</span>
+                                    <small>{{ question.source_label }}</small>
+                                {% endif %}
+                            </td>
+                            <td data-label="Difficulty">
+                                {% if question.difficulty %}
+                                    <span class="bank-difficulty bank-difficulty-{{ question.difficulty|lower }}">{{ question.get_difficulty_display }}</span>
+                                {% else %}
+                                    <span class="bank-muted-value">—</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Updated">
+                                <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M Y" }}</time>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </form>
 
     {% if page.paginator.num_pages > 1 %}
-        <nav class="pagination" aria-label="Question library pages">
+        <nav class="bank-pagination" aria-label="Question bank pages">
             {% if page.has_previous %}
                 <a href="?page={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}&source={{ filters.source }}">Previous</a>
+            {% else %}
+                <span aria-hidden="true">Previous</span>
             {% endif %}
-            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+            <strong>{{ page.number }} / {{ page.paginator.num_pages }}</strong>
             {% if page.has_next %}
                 <a href="?page={{ page.next_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}&source={{ filters.source }}">Next</a>
+            {% else %}
+                <span aria-hidden="true">Next</span>
             {% endif %}
         </nav>
     {% endif %}
 {% else %}
-    <div class="empty-state empty-state-wide">
+    <div class="bank-empty-state">
+        <p class="eyebrow">Nothing to show</p>
         <h2>{% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}No matching questions{% else %}Your library is empty{% endif %}</h2>
         <p>{% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}Try clearing a filter or searching for something else.{% else %}Create one question or import a list to build your library quickly.{% endif %}</p>
         {% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}
