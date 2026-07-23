@@ -1,0 +1,1570 @@
+diff --git a/apps/core/views.py b/apps/core/views.py
+index b975afdbf8885ff2418bb279a84c00b7e028b261..58976dbefcb92b26ac94281faf205c7ee3b09c4f 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -4,6 +4,7 @@ from django.http import JsonResponse
+ from django.shortcuts import render
+ 
+ from apps.questions.models import Question
++from apps.reviews.services import review_dashboard_summary
+ 
+ 
+ def landing_page(request):
+@@ -13,6 +14,8 @@ def landing_page(request):
+ @login_required
+ def dashboard(request):
+     questions = Question.objects.filter(owner=request.user)
++    review_summary = review_dashboard_summary(user=request.user)
++
+     return render(
+         request,
+         "core/dashboard.html",
+@@ -21,6 +24,11 @@ def dashboard(request):
+             "ready_question_count": questions.filter(
+                 status=Question.Status.READY_FOR_REVIEW
+             ).count(),
++            "due_review_count": review_summary["due_count"],
++            "reviewed_today_count": review_summary[
++                "reviewed_today_count"
++            ],
++            "next_review_state": review_summary["next_state"],
+             "recent_questions": questions.select_related(
+                 "technicalquestion",
+                 "conceptquestion",
+diff --git a/apps/reviews/__init__.py b/apps/reviews/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/reviews/admin.py b/apps/reviews/admin.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b4e8f8fb3bfd4ff8c28589be8ab15ac2bf571278
+--- /dev/null
++++ b/apps/reviews/admin.py
+@@ -0,0 +1,34 @@
++from django.contrib import admin
++
++from .models import ReviewAttempt, ReviewState
++
++
++@admin.register(ReviewState)
++class ReviewStateAdmin(admin.ModelAdmin):
++    list_display = (
++        "question",
++        "user",
++        "due_at",
++        "interval_days",
++        "repetitions",
++        "lapses",
++    )
++    list_filter = ("due_at",)
++    search_fields = ("question__title", "user__email")
++    raw_id_fields = ("user", "question")
++
++
++@admin.register(ReviewAttempt)
++class ReviewAttemptAdmin(admin.ModelAdmin):
++    list_display = (
++        "state",
++        "rating",
++        "reviewed_at",
++        "scheduled_due_at",
++    )
++    list_filter = ("rating", "reviewed_at")
++    search_fields = (
++        "state__question__title",
++        "state__user__email",
++    )
++    raw_id_fields = ("state",)
+diff --git a/apps/reviews/apps.py b/apps/reviews/apps.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..a56e2efb5c595fc451f3d4a64d55bb761d18a645
+--- /dev/null
++++ b/apps/reviews/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class ReviewsConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.reviews"
+diff --git a/apps/reviews/migrations/0001_initial.py b/apps/reviews/migrations/0001_initial.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..a6123f07672c85d9430557db54cac36d46f13b09
+--- /dev/null
++++ b/apps/reviews/migrations/0001_initial.py
+@@ -0,0 +1,182 @@
++import decimal
++
++import django.db.models.deletion
++import django.utils.timezone
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++        ("questions", "0006_question_source_system_question"),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="ReviewState",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "due_at",
++                    models.DateTimeField(default=django.utils.timezone.now),
++                ),
++                (
++                    "interval_days",
++                    models.PositiveIntegerField(default=0),
++                ),
++                (
++                    "ease_factor",
++                    models.DecimalField(
++                        decimal_places=2,
++                        default=decimal.Decimal("2.50"),
++                        max_digits=4,
++                    ),
++                ),
++                (
++                    "repetitions",
++                    models.PositiveIntegerField(default=0),
++                ),
++                (
++                    "lapses",
++                    models.PositiveIntegerField(default=0),
++                ),
++                (
++                    "last_reviewed_at",
++                    models.DateTimeField(blank=True, null=True),
++                ),
++                (
++                    "created_at",
++                    models.DateTimeField(auto_now_add=True),
++                ),
++                (
++                    "updated_at",
++                    models.DateTimeField(auto_now=True),
++                ),
++                (
++                    "question",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="review_states",
++                        to="questions.question",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="review_states",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["due_at", "created_at"],
++            },
++        ),
++        migrations.CreateModel(
++            name="ReviewAttempt",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "rating",
++                    models.CharField(
++                        choices=[
++                            ("AGAIN", "Again"),
++                            ("HARD", "Hard"),
++                            ("GOOD", "Good"),
++                            ("EASY", "Easy"),
++                        ],
++                        max_length=10,
++                    ),
++                ),
++                (
++                    "reviewed_at",
++                    models.DateTimeField(
++                        default=django.utils.timezone.now
++                    ),
++                ),
++                ("previous_due_at", models.DateTimeField()),
++                ("scheduled_due_at", models.DateTimeField()),
++                (
++                    "previous_interval_days",
++                    models.PositiveIntegerField(),
++                ),
++                (
++                    "scheduled_interval_days",
++                    models.PositiveIntegerField(),
++                ),
++                (
++                    "previous_ease_factor",
++                    models.DecimalField(
++                        decimal_places=2,
++                        max_digits=4,
++                    ),
++                ),
++                (
++                    "scheduled_ease_factor",
++                    models.DecimalField(
++                        decimal_places=2,
++                        max_digits=4,
++                    ),
++                ),
++                (
++                    "state",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="attempts",
++                        to="reviews.reviewstate",
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["-reviewed_at", "-pk"],
++            },
++        ),
++        migrations.AddConstraint(
++            model_name="reviewstate",
++            constraint=models.UniqueConstraint(
++                fields=("user", "question"),
++                name="unique_user_review_state",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="reviewstate",
++            index=models.Index(
++                fields=["user", "due_at"],
++                name="review_state_user_due_idx",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="reviewattempt",
++            index=models.Index(
++                fields=["state", "-reviewed_at"],
++                name="review_attempt_state_time_idx",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="reviewattempt",
++            index=models.Index(
++                fields=["rating", "-reviewed_at"],
++                name="review_attempt_rating_idx",
++            ),
++        ),
++    ]
+diff --git a/apps/reviews/migrations/__init__.py b/apps/reviews/migrations/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/reviews/models.py b/apps/reviews/models.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b6c4670ae80895ed3ba2b34c5a88fe1ca94ef6de
+--- /dev/null
++++ b/apps/reviews/models.py
+@@ -0,0 +1,88 @@
++from decimal import Decimal
++
++from django.conf import settings
++from django.db import models
++from django.utils import timezone
++
++from apps.questions.models import Question
++
++
++class ReviewState(models.Model):
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="review_states",
++    )
++    question = models.ForeignKey(
++        Question,
++        on_delete=models.CASCADE,
++        related_name="review_states",
++    )
++    due_at = models.DateTimeField(default=timezone.now)
++    interval_days = models.PositiveIntegerField(default=0)
++    ease_factor = models.DecimalField(
++        max_digits=4,
++        decimal_places=2,
++        default=Decimal("2.50"),
++    )
++    repetitions = models.PositiveIntegerField(default=0)
++    lapses = models.PositiveIntegerField(default=0)
++    last_reviewed_at = models.DateTimeField(null=True, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["due_at", "created_at"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "question"],
++                name="unique_user_review_state",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "due_at"],
++                name="review_state_user_due_idx",
++            )
++        ]
++
++    def __str__(self):
++        return f"{self.user} · {self.question}"
++
++
++class ReviewAttempt(models.Model):
++    class Rating(models.TextChoices):
++        AGAIN = "AGAIN", "Again"
++        HARD = "HARD", "Hard"
++        GOOD = "GOOD", "Good"
++        EASY = "EASY", "Easy"
++
++    state = models.ForeignKey(
++        ReviewState,
++        on_delete=models.CASCADE,
++        related_name="attempts",
++    )
++    rating = models.CharField(max_length=10, choices=Rating.choices)
++    reviewed_at = models.DateTimeField(default=timezone.now)
++    previous_due_at = models.DateTimeField()
++    scheduled_due_at = models.DateTimeField()
++    previous_interval_days = models.PositiveIntegerField()
++    scheduled_interval_days = models.PositiveIntegerField()
++    previous_ease_factor = models.DecimalField(max_digits=4, decimal_places=2)
++    scheduled_ease_factor = models.DecimalField(max_digits=4, decimal_places=2)
++
++    class Meta:
++        ordering = ["-reviewed_at", "-pk"]
++        indexes = [
++            models.Index(
++                fields=["state", "-reviewed_at"],
++                name="review_attempt_state_time_idx",
++            ),
++            models.Index(
++                fields=["rating", "-reviewed_at"],
++                name="review_attempt_rating_idx",
++            ),
++        ]
++
++    def __str__(self):
++        return f"{self.state.question} · {self.get_rating_display()}"
+diff --git a/apps/reviews/services.py b/apps/reviews/services.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..0c5f6496433a3b52daabcbf8f02eff4a79dfca70
+--- /dev/null
++++ b/apps/reviews/services.py
+@@ -0,0 +1,244 @@
++from datetime import timedelta
++from decimal import Decimal, ROUND_HALF_UP
++
++from django.db import transaction
++from django.utils import timezone
++
++from apps.questions.models import Question
++
++from .models import ReviewAttempt, ReviewState
++
++MINIMUM_EASE = Decimal("1.30")
++AGAIN_DELAY_MINUTES = 10
++
++
++def sync_ready_review_states(*, user, now=None):
++    current_time = now or timezone.now()
++    ready_question_ids = Question.objects.filter(
++        owner=user,
++        status=Question.Status.READY_FOR_REVIEW,
++    ).values_list("pk", flat=True)
++
++    existing_ids = set(
++        ReviewState.objects.filter(
++            user=user,
++            question_id__in=ready_question_ids,
++        ).values_list("question_id", flat=True)
++    )
++
++    ReviewState.objects.bulk_create(
++        [
++            ReviewState(
++                user=user,
++                question_id=question_id,
++                due_at=current_time,
++            )
++            for question_id in ready_question_ids
++            if question_id not in existing_ids
++        ],
++        ignore_conflicts=True,
++    )
++
++
++def due_review_states(*, user, now=None):
++    current_time = now or timezone.now()
++    sync_ready_review_states(user=user, now=current_time)
++    return (
++        ReviewState.objects.filter(
++            user=user,
++            question__owner=user,
++            question__status=Question.Status.READY_FOR_REVIEW,
++            due_at__lte=current_time,
++        )
++        .select_related(
++            "question",
++            "question__technicalquestion",
++            "question__conceptquestion",
++            "question__behaviouralquestion",
++            "question__debugquestion",
++        )
++        .order_by("due_at", "pk")
++    )
++
++
++def upcoming_review_states(*, user, now=None):
++    current_time = now or timezone.now()
++    sync_ready_review_states(user=user, now=current_time)
++    return (
++        ReviewState.objects.filter(
++            user=user,
++            question__owner=user,
++            question__status=Question.Status.READY_FOR_REVIEW,
++            due_at__gt=current_time,
++        )
++        .select_related("question")
++        .order_by("due_at", "pk")
++    )
++
++
++def review_dashboard_summary(*, user, now=None):
++    current_time = now or timezone.now()
++    sync_ready_review_states(user=user, now=current_time)
++
++    active_states = ReviewState.objects.filter(
++        user=user,
++        question__owner=user,
++        question__status=Question.Status.READY_FOR_REVIEW,
++    )
++    due_states = active_states.filter(due_at__lte=current_time)
++    next_state = active_states.order_by("due_at", "pk").first()
++
++    return {
++        "due_count": due_states.count(),
++        "scheduled_count": active_states.count(),
++        "reviewed_today_count": ReviewAttempt.objects.filter(
++            state__user=user,
++            reviewed_at__date=timezone.localdate(current_time),
++        ).count(),
++        "next_state": next_state,
++    }
++
++
++def _rounded_days(value):
++    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
++    return max(1, int(rounded))
++
++
++def _schedule_values(*, state, rating, now):
++    previous_interval = state.interval_days
++    previous_ease = state.ease_factor
++
++    if rating == ReviewAttempt.Rating.AGAIN:
++        interval_days = 0
++        due_at = now + timedelta(minutes=AGAIN_DELAY_MINUTES)
++        repetitions = 0
++        lapses = state.lapses + 1
++        ease_factor = max(MINIMUM_EASE, previous_ease - Decimal("0.20"))
++    elif rating == ReviewAttempt.Rating.HARD:
++        if state.repetitions == 0:
++            interval_days = 1
++        else:
++            base_interval = Decimal(max(previous_interval, 1))
++            interval_days = _rounded_days(base_interval * Decimal("1.20"))
++        due_at = now + timedelta(days=interval_days)
++        repetitions = state.repetitions + 1
++        lapses = state.lapses
++        ease_factor = max(MINIMUM_EASE, previous_ease - Decimal("0.15"))
++    elif rating == ReviewAttempt.Rating.GOOD:
++        if state.repetitions == 0:
++            interval_days = 1
++        elif state.repetitions == 1:
++            interval_days = 3
++        else:
++            base_interval = Decimal(max(previous_interval, 1))
++            interval_days = _rounded_days(base_interval * previous_ease)
++        due_at = now + timedelta(days=interval_days)
++        repetitions = state.repetitions + 1
++        lapses = state.lapses
++        ease_factor = previous_ease
++    elif rating == ReviewAttempt.Rating.EASY:
++        if state.repetitions == 0:
++            interval_days = 4
++        else:
++            base_interval = Decimal(max(previous_interval, 1))
++            interval_days = max(
++                4,
++                _rounded_days(
++                    base_interval * previous_ease * Decimal("1.30")
++                ),
++            )
++        due_at = now + timedelta(days=interval_days)
++        repetitions = state.repetitions + 1
++        lapses = state.lapses
++        ease_factor = previous_ease + Decimal("0.15")
++    else:
++        raise ValueError("Unsupported review rating.")
++
++    return {
++        "due_at": due_at,
++        "interval_days": interval_days,
++        "repetitions": repetitions,
++        "lapses": lapses,
++        "ease_factor": ease_factor,
++    }
++
++
++def rating_previews(*, state, now=None):
++    current_time = now or timezone.now()
++    previews = []
++
++    for value, label in ReviewAttempt.Rating.choices:
++        scheduled = _schedule_values(
++            state=state,
++            rating=value,
++            now=current_time,
++        )
++        if value == ReviewAttempt.Rating.AGAIN:
++            interval_label = f"{AGAIN_DELAY_MINUTES} min"
++        elif scheduled["interval_days"] == 1:
++            interval_label = "1 day"
++        else:
++            interval_label = f"{scheduled['interval_days']} days"
++
++        previews.append(
++            {
++                "value": value,
++                "label": label,
++                "interval_label": interval_label,
++            }
++        )
++
++    return previews
++
++
++def record_review(*, state, rating, now=None):
++    current_time = now or timezone.now()
++
++    with transaction.atomic():
++        locked_state = (
++            ReviewState.objects.select_for_update()
++            .select_related("question")
++            .get(pk=state.pk)
++        )
++        if locked_state.question.owner_id != locked_state.user_id:
++            raise ValueError("Review state ownership is invalid.")
++        if locked_state.question.status != Question.Status.READY_FOR_REVIEW:
++            raise ValueError("Only ready questions can be reviewed.")
++
++        scheduled = _schedule_values(
++            state=locked_state,
++            rating=rating,
++            now=current_time,
++        )
++
++        attempt = ReviewAttempt.objects.create(
++            state=locked_state,
++            rating=rating,
++            reviewed_at=current_time,
++            previous_due_at=locked_state.due_at,
++            scheduled_due_at=scheduled["due_at"],
++            previous_interval_days=locked_state.interval_days,
++            scheduled_interval_days=scheduled["interval_days"],
++            previous_ease_factor=locked_state.ease_factor,
++            scheduled_ease_factor=scheduled["ease_factor"],
++        )
++
++        locked_state.due_at = scheduled["due_at"]
++        locked_state.interval_days = scheduled["interval_days"]
++        locked_state.ease_factor = scheduled["ease_factor"]
++        locked_state.repetitions = scheduled["repetitions"]
++        locked_state.lapses = scheduled["lapses"]
++        locked_state.last_reviewed_at = current_time
++        locked_state.save(
++            update_fields=[
++                "due_at",
++                "interval_days",
++                "ease_factor",
++                "repetitions",
++                "lapses",
++                "last_reviewed_at",
++                "updated_at",
++            ]
++        )
++
++    return attempt
+diff --git a/apps/reviews/tests/__init__.py b/apps/reviews/tests/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/reviews/tests/test_services.py b/apps/reviews/tests/test_services.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..51c4d330f3b4b7264b8f8c26728f5e566b11d8c1
+--- /dev/null
++++ b/apps/reviews/tests/test_services.py
+@@ -0,0 +1,130 @@
++from datetime import timedelta
++from decimal import Decimal
++
++import pytest
++from django.utils import timezone
++
++from apps.questions.models import Question, TechnicalQuestion
++from apps.reviews.models import ReviewAttempt, ReviewState
++from apps.reviews.services import (
++    due_review_states,
++    record_review,
++    sync_ready_review_states,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def _ready_question(user, title="Two Sum"):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title=title,
++        prompt="Return two indices whose values sum to the target.",
++        status=Question.Status.READY_FOR_REVIEW,
++        intuition="Look up the complement before inserting.",
++        optimal_approach="Use a hash map.",
++    )
++
++
++def test_sync_creates_states_only_for_ready_owned_questions(user):
++    ready = _ready_question(user)
++    TechnicalQuestion.objects.create(
++        owner=user,
++        title="Draft",
++        prompt="Not ready.",
++        status=Question.Status.NEEDS_NOTES,
++    )
++
++    sync_ready_review_states(user=user)
++
++    states = ReviewState.objects.filter(user=user)
++    assert states.count() == 1
++    assert states.get().question == ready
++
++
++def test_good_rating_uses_one_three_then_ease_intervals(user):
++    question = _ready_question(user)
++    now = timezone.now()
++    state = ReviewState.objects.create(
++        user=user,
++        question=question,
++        due_at=now,
++    )
++
++    record_review(
++        state=state,
++        rating=ReviewAttempt.Rating.GOOD,
++        now=now,
++    )
++    state.refresh_from_db()
++    assert state.interval_days == 1
++
++    second_time = now + timedelta(days=1)
++    record_review(
++        state=state,
++        rating=ReviewAttempt.Rating.GOOD,
++        now=second_time,
++    )
++    state.refresh_from_db()
++    assert state.interval_days == 3
++
++    third_time = second_time + timedelta(days=3)
++    record_review(
++        state=state,
++        rating=ReviewAttempt.Rating.GOOD,
++        now=third_time,
++    )
++    state.refresh_from_db()
++    assert state.interval_days == 8
++    assert state.repetitions == 3
++
++
++def test_again_rating_records_lapse_and_short_retry(user):
++    question = _ready_question(user)
++    now = timezone.now()
++    state = ReviewState.objects.create(
++        user=user,
++        question=question,
++        due_at=now,
++        interval_days=8,
++        repetitions=3,
++        ease_factor=Decimal("2.50"),
++    )
++
++    attempt = record_review(
++        state=state,
++        rating=ReviewAttempt.Rating.AGAIN,
++        now=now,
++    )
++    state.refresh_from_db()
++
++    assert state.interval_days == 0
++    assert state.repetitions == 0
++    assert state.lapses == 1
++    assert state.due_at == now + timedelta(minutes=10)
++    assert state.ease_factor == Decimal("2.30")
++    assert attempt.previous_interval_days == 8
++
++
++def test_due_queue_orders_oldest_due_first(user):
++    first_question = _ready_question(user, "First")
++    second_question = _ready_question(user, "Second")
++    now = timezone.now()
++
++    ReviewState.objects.create(
++        user=user,
++        question=second_question,
++        due_at=now - timedelta(minutes=5),
++    )
++    ReviewState.objects.create(
++        user=user,
++        question=first_question,
++        due_at=now - timedelta(hours=1),
++    )
++
++    states = list(due_review_states(user=user, now=now))
++
++    assert [state.question for state in states] == [
++        first_question,
++        second_question,
++    ]
+diff --git a/apps/reviews/tests/test_views.py b/apps/reviews/tests/test_views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9bf9dd768bb37aa626fb86e5c676c58b89900bdc
+--- /dev/null
++++ b/apps/reviews/tests/test_views.py
+@@ -0,0 +1,71 @@
++import pytest
++from django.urls import reverse
++from django.utils import timezone
++
++from apps.questions.models import Question, TechnicalQuestion
++from apps.reviews.models import ReviewAttempt, ReviewState
++
++pytestmark = pytest.mark.django_db
++
++
++def _ready_question(user, title="Two Sum"):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title=title,
++        prompt="Return two indices whose values sum to the target.",
++        status=Question.Status.READY_FOR_REVIEW,
++        intuition="Look up the complement before inserting.",
++        optimal_approach="Use a hash map.",
++    )
++
++
++def test_queue_lists_due_ready_questions(client, user):
++    question = _ready_question(user)
++    client.force_login(user)
++
++    response = client.get(reverse("reviews:queue"))
++
++    assert response.status_code == 200
++    assert question.title in response.content.decode()
++    assert response.context["summary"]["due_count"] == 1
++
++
++def test_user_cannot_review_another_users_question(client, user, other_user):
++    question = _ready_question(other_user)
++    client.force_login(user)
++
++    response = client.get(
++        reverse("reviews:review", args=[question.pk])
++    )
++
++    assert response.status_code == 404
++
++
++def test_submitting_rating_records_attempt_and_reschedules(client, user):
++    question = _ready_question(user)
++    state = ReviewState.objects.create(
++        user=user,
++        question=question,
++        due_at=timezone.now(),
++    )
++    client.force_login(user)
++
++    response = client.post(
++        reverse("reviews:submit", args=[question.pk]),
++        {"rating": ReviewAttempt.Rating.GOOD},
++    )
++
++    assert response.status_code == 302
++    state.refresh_from_db()
++    assert state.interval_days == 1
++    assert state.attempts.count() == 1
++
++
++def test_dashboard_shows_due_review_count(client, user):
++    _ready_question(user)
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.status_code == 200
++    assert response.context["due_review_count"] == 1
+diff --git a/apps/reviews/urls.py b/apps/reviews/urls.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0b100b2144794bf20d6ea9523e4d24a0b21f939
+--- /dev/null
++++ b/apps/reviews/urls.py
+@@ -0,0 +1,12 @@
++from django.urls import path
++
++from . import views
++
++app_name = "reviews"
++
++urlpatterns = [
++    path("", views.review_queue, name="queue"),
++    path("history/", views.review_history, name="history"),
++    path("<int:pk>/", views.review_question, name="review"),
++    path("<int:pk>/rate/", views.submit_review, name="submit"),
++]
+diff --git a/apps/reviews/views.py b/apps/reviews/views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..8284dd2d8c60094ddff19cc38809458f9704e8d3
+--- /dev/null
++++ b/apps/reviews/views.py
+@@ -0,0 +1,143 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.core.paginator import Paginator
++from django.http import Http404
++from django.shortcuts import get_object_or_404, redirect, render
++from django.utils import timezone
++from django.views.decorators.http import require_POST
++
++from apps.questions.models import Question
++
++from .models import ReviewAttempt, ReviewState
++from .services import (
++    due_review_states,
++    rating_previews,
++    record_review,
++    review_dashboard_summary,
++    sync_ready_review_states,
++    upcoming_review_states,
++)
++
++
++def _ready_question_for_user(user, pk):
++    return get_object_or_404(
++        Question.objects.select_related(
++            "technicalquestion",
++            "conceptquestion",
++            "behaviouralquestion",
++            "debugquestion",
++        ),
++        pk=pk,
++        owner=user,
++        status=Question.Status.READY_FOR_REVIEW,
++    )
++
++
++@login_required
++def review_queue(request):
++    current_time = timezone.now()
++    summary = review_dashboard_summary(
++        user=request.user,
++        now=current_time,
++    )
++    due_states = list(
++        due_review_states(
++            user=request.user,
++            now=current_time,
++        )[:20]
++    )
++    upcoming_states = list(
++        upcoming_review_states(
++            user=request.user,
++            now=current_time,
++        )[:8]
++    )
++
++    return render(
++        request,
++        "reviews/review_queue.html",
++        {
++            "summary": summary,
++            "due_states": due_states,
++            "upcoming_states": upcoming_states,
++        },
++    )
++
++
++@login_required
++def review_question(request, pk):
++    question = _ready_question_for_user(request.user, pk)
++    state, _ = ReviewState.objects.get_or_create(
++        user=request.user,
++        question=question,
++        defaults={"due_at": timezone.now()},
++    )
++
++    return render(
++        request,
++        "reviews/review_question.html",
++        {
++            "question": question,
++            "specific": question.specific,
++            "review_state": state,
++            "rating_previews": rating_previews(state=state),
++        },
++    )
++
++
++@login_required
++@require_POST
++def submit_review(request, pk):
++    question = _ready_question_for_user(request.user, pk)
++    state, _ = ReviewState.objects.get_or_create(
++        user=request.user,
++        question=question,
++        defaults={"due_at": timezone.now()},
++    )
++    rating = request.POST.get("rating", "")
++    valid_ratings = {
++        value
++        for value, _ in ReviewAttempt.Rating.choices
++    }
++    if rating not in valid_ratings:
++        messages.error(request, "Choose how well you recalled the answer.")
++        return redirect("reviews:review", pk=question.pk)
++
++    attempt = record_review(
++        state=state,
++        rating=rating,
++    )
++    messages.success(
++        request,
++        (
++            f"Review recorded as {attempt.get_rating_display()}. "
++            f"Next review: {attempt.scheduled_due_at:%d %b %Y}."
++        ),
++    )
++
++    next_state = due_review_states(user=request.user).first()
++    if next_state is not None:
++        return redirect(
++            "reviews:review",
++            pk=next_state.question_id,
++        )
++    return redirect("reviews:queue")
++
++
++@login_required
++def review_history(request):
++    attempts = (
++        ReviewAttempt.objects.filter(
++            state__user=request.user,
++            state__question__owner=request.user,
++        )
++        .select_related("state", "state__question")
++        .order_by("-reviewed_at", "-pk")
++    )
++    page = Paginator(attempts, 25).get_page(request.GET.get("page"))
++
++    return render(
++        request,
++        "reviews/review_history.html",
++        {"page": page},
++    )
+diff --git a/config/settings/base.py b/config/settings/base.py
+index a36e8efe711447239101419bf3572431eaf4ad25..4f16e74758eaf49525e0e10ab346c68304e6098d 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -17,6 +17,7 @@ INSTALLED_APPS = [
+     "apps.core.apps.CoreConfig",
+     "apps.accounts.apps.AccountsConfig",
+     "apps.questions.apps.QuestionsConfig",
++    "apps.reviews.apps.ReviewsConfig",
+ ]
+ 
+ MIDDLEWARE = [
+diff --git a/config/urls.py b/config/urls.py
+index cdd89979a510e969134d7d5c9871e400ebc6d39e..5dd91346dd365ad7f9410127bc3357510281325d 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -6,4 +6,5 @@ urlpatterns = [
+     path("", include("apps.core.urls")),
+     path("accounts/", include("apps.accounts.urls")),
+     path("questions/", include("apps.questions.urls")),
++    path("reviews/", include("apps.reviews.urls")),
+ ]
+diff --git a/docs/architecture/review-engine.md b/docs/architecture/review-engine.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..8659c9cf67a19a0c0125b4b94aa3f687de20d766
+--- /dev/null
++++ b/docs/architecture/review-engine.md
+@@ -0,0 +1,44 @@
++# Review Engine
++
++Milestone 2 introduces deterministic review scheduling for user-owned questions.
++
++## Boundary
++
++The review module owns:
++
++- per-user scheduling state;
++- due queues;
++- recall ratings;
++- immutable review attempts;
++- interval updates;
++- review history.
++
++The questions module continues to own question content, readiness and authorization.
++
++## Eligibility
++
++Only questions that:
++
++1. belong to the authenticated user; and
++2. have status `READY_FOR_REVIEW`
++
++enter the review engine.
++
++Review states are created lazily and idempotently when the dashboard or review queue is opened.
++
++## Ratings
++
++The first release uses four explicit recall ratings:
++
++| Rating | Meaning | Initial schedule |
++|---|---|---|
++| Again | Could not retrieve the answer | 10 minutes |
++| Hard | Retrieved with substantial effort | 1 day |
++| Good | Correct recall with acceptable effort | 1 day, then 3 days |
++| Easy | Immediate, confident recall | 4 days |
++
++Later intervals use the current interval and ease factor. Again and Hard reduce ease; Easy increases it. The minimum ease factor is 1.30.
++
++## Auditability
++
++Every rating creates a `ReviewAttempt` containing the previous and newly scheduled due dates, intervals and ease factors. Scheduling logic is deterministic and does not depend on AI.
+diff --git a/static/css/reviews.css b/static/css/reviews.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..8f9979549a3a71c2be16d2e5f88b67d441171097
+--- /dev/null
++++ b/static/css/reviews.css
+@@ -0,0 +1,182 @@
++/* Milestone 2: deterministic review engine */
++
++.review-summary-grid {
++    display: grid;
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    gap: 1rem;
++    margin-bottom: 3rem;
++}
++
++.review-section {
++    margin-top: 2.5rem;
++}
++
++.review-list,
++.history-list {
++    display: grid;
++    gap: 0.9rem;
++}
++
++.review-list-item,
++.history-item,
++.review-instructions,
++.review-answer,
++.review-session-header {
++    border: 1px solid #e2e5ef;
++    border-radius: 1rem;
++    background: #ffffff;
++}
++
++.review-list-item,
++.history-item {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 2rem;
++    padding: 1.25rem;
++}
++
++.review-list-item h3,
++.history-item h2 {
++    margin: 0.65rem 0 0.35rem;
++}
++
++.review-list-item p,
++.history-item p {
++    margin: 0;
++    color: #606a7e;
++}
++
++.compact-review-item {
++    padding-block: 1rem;
++}
++
++.review-session-header,
++.review-instructions {
++    padding: 1.5rem;
++    margin-bottom: 1.25rem;
++}
++
++.review-session-header h1 {
++    font-size: clamp(2.2rem, 5vw, 3.8rem);
++}
++
++.review-prompt {
++    font-size: 1.15rem;
++}
++
++.review-instructions h2 {
++    margin-top: 0;
++}
++
++.review-answer {
++    overflow: hidden;
++}
++
++.review-answer > summary {
++    padding: 1.25rem 1.5rem;
++    cursor: pointer;
++    color: #ffffff;
++    background: #3c4bc6;
++    font-weight: 800;
++}
++
++.review-answer-content {
++    padding: 1.5rem;
++}
++
++.rating-panel {
++    padding-top: 1.5rem;
++    margin-top: 2rem;
++    border-top: 1px solid #e2e5ef;
++}
++
++.rating-grid {
++    display: grid;
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++    gap: 0.75rem;
++}
++
++.rating-button {
++    display: grid;
++    gap: 0.2rem;
++    padding: 1rem 0.75rem;
++    border: 1px solid #cbd0de;
++    border-radius: 0.75rem;
++    color: #172033;
++    background: #f7f8fb;
++    cursor: pointer;
++    font: inherit;
++    text-align: center;
++}
++
++.rating-button:hover {
++    border-color: #6874cd;
++    transform: translateY(-1px);
++}
++
++.rating-button span {
++    color: #606a7e;
++    font-size: 0.85rem;
++}
++
++.rating-again {
++    border-color: #efb7be;
++    background: #fff0f2;
++}
++
++.rating-hard {
++    border-color: #ead29f;
++    background: #fff8e9;
++}
++
++.rating-good {
++    border-color: #adcdb6;
++    background: #edf8f0;
++}
++
++.rating-easy {
++    border-color: #b5bce8;
++    background: #f0f2ff;
++}
++
++.rating-badge-again {
++    color: #8b2935;
++    background: #ffe4e7;
++}
++
++.rating-badge-hard {
++    color: #78570c;
++    background: #fff3cf;
++}
++
++.rating-badge-good {
++    color: #375f42;
++    background: #e5f5e9;
++}
++
++.rating-badge-easy {
++    color: #3442ad;
++    background: #e9ebff;
++}
++
++@media (max-width: 52rem) {
++    .review-summary-grid,
++    .rating-grid {
++        grid-template-columns: 1fr 1fr;
++    }
++
++    .review-list-item,
++    .history-item {
++        align-items: flex-start;
++        flex-direction: column;
++        gap: 1rem;
++    }
++}
++
++@media (max-width: 32rem) {
++    .review-summary-grid,
++    .rating-grid {
++        grid-template-columns: 1fr;
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index e75112494c7895e401ef3f018c8927813b9cd567..8a44435d5977dc3e36db14a400ecda5649aa9fb9 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -6,6 +6,7 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+     <title>{% block title %}Adaptive Interview Coach{% endblock %}</title>
+     <link rel="stylesheet" href="{% static 'css/app.css' %}">
++    <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
+ </head>
+ <body>
+ <header class="site-header">
+@@ -15,6 +16,7 @@
+             {% if user.is_authenticated %}
+                 <a href="{% url 'dashboard' %}">Dashboard</a>
+                 <a href="{% url 'questions:list' %}">Questions</a>
++                <a href="{% url 'reviews:queue' %}">Reviews</a>
+                 <form method="post" action="{% url 'logout' %}">
+                     {% csrf_token %}
+                     <button class="link-button" type="submit">Log out</button>
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index ac7a38d9e29f7d954d3ea0ec2e2ccbebcccf2c0d..d4f2d22e524dab2fc77df9da7dd63a943532ff01 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -21,12 +21,42 @@
+         <span class="stat-value">{{ ready_question_count }}</span>
+         <span class="stat-label">Ready for review</span>
+     </div>
+-    <div class="stat-card stat-card-muted">
+-        <span class="stat-value">—</span>
+-        <span class="stat-label">Reviews due · coming next</span>
++    <div class="stat-card{% if not due_review_count %} stat-card-muted{% endif %}">
++        <span class="stat-value">{{ due_review_count }}</span>
++        <span class="stat-label">Reviews due now</span>
+     </div>
+ </div>
+ 
++<section class="dashboard-section">
++    <div class="section-heading">
++        <div>
++            <p class="eyebrow">Review engine</p>
++            <h2>{% if due_review_count %}Your next review is ready{% else %}Your review queue is clear{% endif %}</h2>
++        </div>
++        <a href="{% url 'reviews:history' %}">{{ reviewed_today_count }} reviewed today</a>
++    </div>
++
++    {% if due_review_count and next_review_state %}
++        <div class="empty-state empty-state-wide">
++            <h2>{{ next_review_state.question.title }}</h2>
++            <p>{{ next_review_state.question.prompt|truncatewords:24 }}</p>
++            <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start due reviews</a>
++        </div>
++    {% elif ready_question_count %}
++        <div class="empty-state empty-state-wide">
++            <h2>Nothing is due right now</h2>
++            <p>Your ready questions are scheduled. The queue will surface them when they are due.</p>
++            <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
++        </div>
++    {% else %}
++        <div class="empty-state empty-state-wide">
++            <h2>No questions are ready for review</h2>
++            <p>Complete the notes on a question and mark it ready to begin spaced review.</p>
++            <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
++        </div>
++    {% endif %}
++</section>
++
+ <section class="dashboard-section">
+     <div class="section-heading">
+         <div>
+diff --git a/templates/reviews/review_history.html b/templates/reviews/review_history.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..1ebb3537462d639873c6cf87f3bc02720fd012e4
+--- /dev/null
++++ b/templates/reviews/review_history.html
+@@ -0,0 +1,49 @@
++{% extends "base.html" %}
++
++{% block title %}Review history | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="page-header page-header-split dashboard-header">
++    <div>
++        <p class="eyebrow">Review history</p>
++        <h1>Your retrieval record.</h1>
++        <p class="lead">Every rating is stored so later milestones can identify weak patterns and changing recall.</p>
++    </div>
++    <a class="button" href="{% url 'reviews:queue' %}">Review queue</a>
++</section>
++
++{% if page %}
++    <div class="history-list">
++        {% for attempt in page %}
++            <article class="history-item">
++                <div>
++                    <div class="question-card-meta">
++                        <span class="badge rating-badge-{{ attempt.rating|lower }}">{{ attempt.get_rating_display }}</span>
++                        <span class="badge badge-neutral">{{ attempt.reviewed_at|date:"j M Y, H:i" }}</span>
++                    </div>
++                    <h2><a href="{% url 'questions:detail' attempt.state.question_id %}">{{ attempt.state.question.title }}</a></h2>
++                    <p>
++                        Interval changed from {{ attempt.previous_interval_days }}
++                        to {{ attempt.scheduled_interval_days }} day{{ attempt.scheduled_interval_days|pluralize }}.
++                    </p>
++                </div>
++                <span>Next: {{ attempt.scheduled_due_at|date:"j M Y, H:i" }}</span>
++            </article>
++        {% empty %}
++            <div class="empty-state empty-state-wide">
++                <h2>No reviews recorded yet</h2>
++                <p>Complete your first due review and it will appear here.</p>
++                <a class="button" href="{% url 'reviews:queue' %}">Open review queue</a>
++            </div>
++        {% endfor %}
++    </div>
++
++    {% if page.has_other_pages %}
++        <nav class="pagination" aria-label="Review history pages">
++            {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
++            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++            {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
++        </nav>
++    {% endif %}
++{% endif %}
++{% endblock %}
+diff --git a/templates/reviews/review_question.html b/templates/reviews/review_question.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..09d0822f3706b125d4433650cf785d4c3df6de7c
+--- /dev/null
++++ b/templates/reviews/review_question.html
+@@ -0,0 +1,72 @@
++{% extends "base.html" %}
++
++{% block title %}Review {{ question.title }} | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="review-session-header">
++    <div class="question-card-meta">
++        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
++        <span class="badge badge-neutral">
++            {% if review_state.last_reviewed_at %}Interval {{ review_state.interval_days }} day{{ review_state.interval_days|pluralize }}{% else %}New review{% endif %}
++        </span>
++    </div>
++    <p class="eyebrow">Recall before reveal</p>
++    <h1>{{ question.title }}</h1>
++    <div class="review-prompt rich-text">{{ question.prompt|linebreaks }}</div>
++</section>
++
++<section class="review-instructions">
++    <h2>Answer from memory</h2>
++    <p>Explain it aloud, trace the algorithm, write the code or structure the story before opening the answer.</p>
++</section>
++
++<details class="review-answer">
++    <summary>Reveal the answer and rate your recall</summary>
++    <div class="review-answer-content">
++        {% if question.question_type == "TECHNICAL" %}
++            {% if specific.intuition %}<h2>Intuition</h2><div class="rich-text">{{ specific.intuition|linebreaks }}</div>{% endif %}
++            {% if specific.brute_force %}<h2>Brute force</h2><div class="rich-text">{{ specific.brute_force|linebreaks }}</div>{% endif %}
++            {% if specific.optimal_approach %}<h2>Optimal approach</h2><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
++            {% if specific.complexity %}<h2>Complexity</h2><p>{{ specific.complexity }}</p>{% endif %}
++            {% if specific.code %}<h2>Code</h2><pre><code>{{ specific.code }}</code></pre>{% endif %}
++        {% elif question.question_type == "CONCEPT" %}
++            {% if specific.canonical_answer %}<h2>Canonical answer</h2><div class="rich-text">{{ specific.canonical_answer|linebreaks }}</div>{% endif %}
++            {% if specific.key_points %}
++                <h2>Key points</h2>
++                <ul>{% for point in specific.key_points %}<li>{{ point }}</li>{% endfor %}</ul>
++            {% endif %}
++            {% if specific.example %}<h2>Example</h2><div class="rich-text">{{ specific.example|linebreaks }}</div>{% endif %}
++            {% if specific.common_misconception %}<h2>Common misconception</h2><div class="rich-text">{{ specific.common_misconception|linebreaks }}</div>{% endif %}
++            {% if specific.code_snippet %}<h2>Code example</h2><pre><code>{{ specific.code_snippet }}</code></pre>{% endif %}
++        {% elif question.question_type == "BEHAVIOURAL" %}
++            {% if specific.star_answer %}<h2>STAR answer</h2><div class="rich-text">{{ specific.star_answer|linebreaks }}</div>{% endif %}
++            {% if specific.stories %}<h2>Story notes</h2><div class="rich-text">{{ specific.stories|linebreaks }}</div>{% endif %}
++            {% if specific.follow_ups %}<h2>Likely follow-ups</h2><div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% endif %}
++        {% elif question.question_type == "DEBUG" %}
++            {% if specific.likely_bug %}<h2>Likely bug</h2><div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>{% endif %}
++            {% if specific.reasoning %}<h2>Reasoning</h2><div class="rich-text">{{ specific.reasoning|linebreaks }}</div>{% endif %}
++            {% if specific.fix %}<h2>Fix</h2><div class="rich-text">{{ specific.fix|linebreaks }}</div>{% endif %}
++            {% if specific.tests %}<h2>Verification tests</h2><div class="rich-text">{{ specific.tests|linebreaks }}</div>{% endif %}
++        {% endif %}
++
++        <div class="rating-panel">
++            <h2>How difficult was retrieval?</h2>
++            <p class="muted">Rate the recall, not how much you like the question.</p>
++            <form method="post" action="{% url 'reviews:submit' question.pk %}">
++                {% csrf_token %}
++                <div class="rating-grid">
++                    {% for preview in rating_previews %}
++                        <button class="rating-button rating-{{ preview.value|lower }}" type="submit" name="rating" value="{{ preview.value }}">
++                            <strong>{{ preview.label }}</strong>
++                            <span>{{ preview.interval_label }}</span>
++                        </button>
++                    {% endfor %}
++                </div>
++            </form>
++        </div>
++    </div>
++</details>
++
++<p class="back-link"><a href="{% url 'reviews:queue' %}">Back to review queue</a></p>
++{% endblock %}
+diff --git a/templates/reviews/review_queue.html b/templates/reviews/review_queue.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3ff392a788c47e42788d8600b8c60ccecb20f40
+--- /dev/null
++++ b/templates/reviews/review_queue.html
+@@ -0,0 +1,95 @@
++{% extends "base.html" %}
++
++{% block title %}Review queue | Adaptive Interview Coach{% endblock %}
++
++{% block content %}
++<section class="page-header page-header-split dashboard-header">
++    <div>
++        <p class="eyebrow">Review engine</p>
++        <h1>Review what is due.</h1>
++        <p class="lead">Recall first, reveal the answer, then rate how difficult the retrieval felt.</p>
++    </div>
++    <a class="button button-secondary" href="{% url 'reviews:history' %}">Review history</a>
++</section>
++
++<div class="review-summary-grid">
++    <div class="stat-card">
++        <span class="stat-value">{{ summary.due_count }}</span>
++        <span class="stat-label">Due now</span>
++    </div>
++    <div class="stat-card">
++        <span class="stat-value">{{ summary.reviewed_today_count }}</span>
++        <span class="stat-label">Reviewed today</span>
++    </div>
++    <div class="stat-card">
++        <span class="stat-value">{{ summary.scheduled_count }}</span>
++        <span class="stat-label">In the review system</span>
++    </div>
++</div>
++
++<section class="review-section">
++    <div class="section-heading">
++        <div>
++            <p class="eyebrow">Due queue</p>
++            <h2>Start with the oldest due question</h2>
++        </div>
++        {% if due_states %}
++            <a class="button" href="{% url 'reviews:review' due_states.0.question_id %}">Start review</a>
++        {% endif %}
++    </div>
++
++    {% if due_states %}
++        <div class="review-list">
++            {% for state in due_states %}
++                <article class="review-list-item">
++                    <div>
++                        <div class="question-card-meta">
++                            <span class="badge badge-{{ state.question.question_type|lower }}">{{ state.question.get_question_type_display }}</span>
++                            {% if state.last_reviewed_at %}
++                                <span class="badge badge-neutral">Due {{ state.due_at|timesince }} ago</span>
++                            {% else %}
++                                <span class="badge badge-neutral">New</span>
++                            {% endif %}
++                        </div>
++                        <h3>{{ state.question.title }}</h3>
++                        <p>{{ state.question.prompt|truncatewords:24 }}</p>
++                    </div>
++                    <a class="button button-secondary" href="{% url 'reviews:review' state.question_id %}">Review</a>
++                </article>
++            {% endfor %}
++        </div>
++    {% else %}
++        <div class="empty-state empty-state-wide">
++            <h2>Nothing is due right now</h2>
++            {% if summary.scheduled_count %}
++                <p>Your ready questions are scheduled. Come back when the next one is due.</p>
++            {% else %}
++                <p>Mark a complete question as Ready for review to add it to the queue.</p>
++                <a class="button" href="{% url 'questions:list' %}?source=mine">Open my library</a>
++            {% endif %}
++        </div>
++    {% endif %}
++</section>
++
++{% if upcoming_states %}
++<section class="review-section">
++    <div class="section-heading">
++        <div>
++            <p class="eyebrow">Coming up</p>
++            <h2>Next scheduled reviews</h2>
++        </div>
++    </div>
++    <div class="review-list">
++        {% for state in upcoming_states %}
++            <article class="review-list-item compact-review-item">
++                <div>
++                    <h3>{{ state.question.title }}</h3>
++                    <p>Due {{ state.due_at|date:"j M Y, H:i" }}</p>
++                </div>
++                <a href="{% url 'reviews:review' state.question_id %}">Review early</a>
++            </article>
++        {% endfor %}
++    </div>
++</section>
++{% endif %}
++{% endblock %}
