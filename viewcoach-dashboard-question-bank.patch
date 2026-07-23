@@ -1,0 +1,991 @@
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -1,89 +1,119 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Dashboard | Adaptive Interview Coach{% endblock %}
++{% block title %}Dashboard | ViewCoach{% endblock %}
++{% block body_class %}dashboard-page{% endblock %}
+ 
+ {% block content %}
+-<section class="page-header page-header-split dashboard-header">
++<section class="dashboard-editorial-header">
+     <div>
+         <p class="eyebrow">Dashboard</p>
+-        <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
+-        <p class="lead">Build the interview material you want to recall under pressure.</p>
++        <h1>Today{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
++        <p>Start with the work that is due, then shape the library behind it.</p>
+     </div>
+     <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+ </section>
+ 
+-<div class="stats-grid">
+-    <div class="stat-card">
+-        <span class="stat-value">{{ question_count }}</span>
+-        <span class="stat-label">Questions in my library</span>
+-    </div>
+-    <div class="stat-card">
+-        <span class="stat-value">{{ ready_question_count }}</span>
+-        <span class="stat-label">Ready for review</span>
+-    </div>
+-    <div class="stat-card{% if not due_review_count %} stat-card-muted{% endif %}">
+-        <span class="stat-value">{{ due_review_count }}</span>
+-        <span class="stat-label">Reviews due now</span>
+-    </div>
+-</div>
+-
+-<section class="dashboard-section">
+-    <div class="section-heading">
+-        <div>
+-            <p class="eyebrow">Review engine</p>
+-            <h2>{% if due_review_count %}Your next review is ready{% else %}Your review queue is clear{% endif %}</h2>
+-        </div>
+-        <a href="{% url 'reviews:history' %}">{{ reviewed_today_count }} reviewed today</a>
+-    </div>
+-
+-    {% if due_review_count and next_review_state %}
+-        <div class="empty-state empty-state-wide">
+-            <h2>{{ next_review_state.question.title }}</h2>
+-            <p>{{ next_review_state.question.prompt|truncatewords:24 }}</p>
+-            <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start due reviews</a>
+-        </div>
+-    {% elif ready_question_count %}
+-        <div class="empty-state empty-state-wide">
+-            <h2>Nothing is due right now</h2>
+-            <p>Your ready questions are scheduled. The queue will surface them when they are due.</p>
+-            <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
+-        </div>
+-    {% else %}
+-        <div class="empty-state empty-state-wide">
+-            <h2>No questions are ready for review</h2>
+-            <p>Complete the notes on a question and mark it ready to begin spaced review.</p>
+-            <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
+-        </div>
+-    {% endif %}
+-</section>
+-
+-<section class="dashboard-section">
+-    <div class="section-heading">
+-        <div>
+-            <p class="eyebrow">Question library</p>
+-            <h2>Recently updated</h2>
+-        </div>
+-        {% if recent_questions %}<a href="{% url 'questions:list' %}">View all</a>{% endif %}
+-    </div>
+-
+-    {% if recent_questions %}
+-        <div class="question-grid compact-question-grid">
+-            {% for question in recent_questions %}
+-                <article class="question-card">
+-                    <div class="question-card-meta">
+-                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++<div class="dashboard-editorial-layout">
++    <div class="dashboard-primary-column">
++        <section class="dashboard-priority" aria-labelledby="today-work-heading">
++            <div class="dashboard-section-label">
++                <span class="dashboard-status-dot{% if not due_review_count %} is-clear{% endif %}" aria-hidden="true"></span>
++                <span>Today’s work</span>
++            </div>
++
++            {% if due_review_count and next_review_state %}
++                <p class="dashboard-priority-number">{{ due_review_count }} <span>review{{ due_review_count|pluralize }} due</span></p>
++                <h2 id="today-work-heading">Begin with {{ next_review_state.question.title }}</h2>
++                <p class="dashboard-priority-copy">{{ next_review_state.question.prompt|truncatewords:30 }}</p>
++                <div class="dashboard-priority-actions">
++                    <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start review session</a>
++                    <a class="dashboard-text-link" href="{% url 'reviews:queue' %}">Open full queue</a>
++                </div>
++            {% elif ready_question_count %}
++                <p class="dashboard-priority-number">0 <span>reviews due</span></p>
++                <h2 id="today-work-heading">Your queue is clear</h2>
++                <p class="dashboard-priority-copy">Your ready questions are scheduled. View the queue to see what is coming next.</p>
++                <div class="dashboard-priority-actions">
++                    <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
++                </div>
++            {% else %}
++                <p class="dashboard-priority-number">0 <span>questions ready</span></p>
++                <h2 id="today-work-heading">Prepare your first review</h2>
++                <p class="dashboard-priority-copy">Complete the notes on one of your questions, then mark it ready to begin spaced review.</p>
++                <div class="dashboard-priority-actions">
++                    <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
++                </div>
++            {% endif %}
++        </section>
++
++        <section class="dashboard-recent" aria-labelledby="recent-questions-heading">
++            <div class="dashboard-section-heading">
++                <div>
++                    <p class="eyebrow">Question library</p>
++                    <h2 id="recent-questions-heading">Recently updated</h2>
++                </div>
++                {% if recent_questions %}<a href="{% url 'questions:list' %}">View all questions</a>{% endif %}
++            </div>
++
++            {% if recent_questions %}
++                <ol class="dashboard-recent-list">
++                    {% for question in recent_questions %}
++                        <li>
++                            <a class="dashboard-recent-question" href="{% url 'questions:detail' question.pk %}">
++                                <span class="dashboard-recent-main">
++                                    <strong>{{ question.title }}</strong>
++                                    <span>{{ question.prompt|truncatewords:16 }}</span>
++                                </span>
++                                <span class="dashboard-recent-meta">
++                                    <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++                                    <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M" }}</time>
++                                </span>
++                            </a>
++                        </li>
++                    {% endfor %}
++                </ol>
++            {% else %}
++                <div class="dashboard-empty-row">
++                    <div>
++                        <h3>Start with one real interview question</h3>
++                        <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
+                     </div>
+-                    <h3><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h3>
+-                    <p>{{ question.prompt|truncatewords:18 }}</p>
+-                </article>
+-            {% endfor %}
+-        </div>
+-    {% else %}
+-        <div class="empty-state empty-state-wide">
+-            <h2>Start with one real interview question</h2>
+-            <p>Capture the reasoning you need to explain—not just an answer you can recognise.</p>
+-            <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
++                    <a class="button" href="{% url 'questions:choose_type' %}">Create your first question</a>
++                </div>
++            {% endif %}
++        </section>
++    </div>
++
++    <aside class="dashboard-brief" aria-labelledby="dashboard-brief-heading">
++        <div class="dashboard-brief-heading">
++            <p class="eyebrow">At a glance</p>
++            <h2 id="dashboard-brief-heading">Study status</h2>
++        </div>
++
++        <dl class="dashboard-facts">
++            <div>
++                <dt>Due now</dt>
++                <dd>{{ due_review_count }}</dd>
++            </div>
++            <div>
++                <dt>Reviewed today</dt>
++                <dd>{{ reviewed_today_count }}</dd>
++            </div>
++            <div>
++                <dt>Ready for review</dt>
++                <dd>{{ ready_question_count }}</dd>
++            </div>
++            <div>
++                <dt>In my library</dt>
++                <dd>{{ question_count }}</dd>
++            </div>
++        </dl>
++
++        <div class="dashboard-brief-links">
++            <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
++            <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
++            <a href="{% url 'questions:import_start' %}">Import questions <span aria-hidden="true">→</span></a>
+         </div>
+-    {% endif %}
+-</section>
++    </aside>
++</div>
+ {% endblock %}
+diff --git a/templates/questions/question_list.html b/templates/questions/question_list.html
+--- a/templates/questions/question_list.html
++++ b/templates/questions/question_list.html
+@@ -1,28 +1,29 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Question Library | Adaptive Interview Coach{% endblock %}
++{% block title %}Question Bank | ViewCoach{% endblock %}
++{% block body_class %}question-bank-page{% endblock %}
+ 
+ {% block content %}
+-<section class="page-header page-header-split">
++<section class="bank-page-header">
+     <div>
+-        <p class="eyebrow">Question library</p>
++        <p class="eyebrow">Question bank</p>
+         <h1>Your interview material</h1>
+-        <p class="lead">Practise the curated starter library, then add your own questions and notes.</p>
++        <p>Search the starter bank, organise your own questions and move completed notes into review.</p>
+     </div>
+-    <div class="button-row">
+-        <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import questions</a>
++    <div class="button-row bank-header-actions">
++        <a class="button button-secondary" href="{% url 'questions:import_start' %}">Import</a>
+         <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+     </div>
+ </section>
+ 
+-<form class="filter-panel" method="get" role="search">
+-    <div class="filter-grid">
+-        <div class="form-field filter-search">
++<form class="bank-filter-panel" method="get" role="search">
++    <div class="bank-filter-grid">
++        <div class="bank-filter-field bank-search-field">
+             <label for="question-search">Search</label>
+-            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic, company…">
++            <input id="question-search" type="search" name="q" value="{{ filters.q }}" placeholder="Title, prompt, topic or company">
+         </div>
+ 
+-        <div class="form-field">
++        <div class="bank-filter-field">
+             <label for="question-source">Library</label>
+             <select id="question-source" name="source">
+                 <option value="">All questions</option>
+@@ -31,7 +32,7 @@
+                 <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
+             </select>
+         </div>
+-        <div class="form-field">
++        <div class="bank-filter-field">
+             <label for="question-type">Type</label>
+             <select id="question-type" name="type">
+                 <option value="">All types</option>
+@@ -40,7 +41,7 @@
+                 {% endfor %}
+             </select>
+         </div>
+-        <div class="form-field">
++        <div class="bank-filter-field">
+             <label for="question-difficulty">Difficulty</label>
+             <select id="question-difficulty" name="difficulty">
+                 <option value="">All levels</option>
+@@ -49,7 +50,7 @@
+                 {% endfor %}
+             </select>
+         </div>
+-        <div class="form-field">
++        <div class="bank-filter-field">
+             <label for="question-status">Status</label>
+             <select id="question-status" name="status">
+                 <option value="">All statuses</option>
+@@ -59,77 +60,119 @@
+             </select>
+         </div>
+     </div>
+-    <div class="button-row">
++    <div class="bank-filter-actions">
+         <button class="button button-small" type="submit">Apply filters</button>
+-        <a class="button button-small button-secondary" href="{% url 'questions:list' %}">Clear</a>
+-        <a href="{% url 'questions:import_history' %}">Import history</a>
++        <a class="bank-clear-link" href="{% url 'questions:list' %}">Clear all</a>
++        <a class="bank-history-link" href="{% url 'questions:import_history' %}">Import history</a>
+     </div>
+ </form>
+ 
+ {% if page.object_list %}
+-    <form method="post">
++    <form class="bank-results-form" method="post">
+         {% csrf_token %}
+-        <div class="bulk-toolbar">
+-            <span>Add built-in questions to your library or move completed questions into the future review queue.</span>
+-            <div class="button-row">
++        <div class="bank-results-bar">
++            <div>
++                <strong>{{ page.paginator.count }} question{{ page.paginator.count|pluralize }}</strong>
++                <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++            </div>
++            <div class="bank-bulk-actions">
++                <span>Selected rows</span>
+                 <button
+                     class="button button-small button-secondary"
+                     type="submit"
+                     formaction="{% url 'questions:bulk_save_built_in' %}"
+-                >Add selected built-in</button>
++                >Add built-in</button>
+                 <button
+                     class="button button-small"
+                     type="submit"
+                     formaction="{% url 'questions:bulk_mark_ready' %}"
+-                >Mark my selected ready</button>
++                >Mark ready</button>
+             </div>
+         </div>
+ 
+-        <div class="question-grid">
+-            {% for question in page.object_list %}
+-                <article class="question-card question-card-selectable">
+-                    <label class="question-select">
+-                        {% if question.is_system %}
+-                            {% if question.user_copy_id %}
+-                                <span>In my library</span>
+-                            {% else %}
+-                                <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+-                                <span>Select to add</span>
+-                            {% endif %}
+-                        {% else %}
+-                            <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+-                            <span>Select</span>
+-                        {% endif %}
+-                    </label>
+-                    <div class="question-card-meta">
+-                        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.user_copy_id %}<span class="badge badge-neutral">In my library</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+-                        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+-                    </div>
+-                    <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>
+-                    <p>{{ question.prompt|truncatewords:24 }}</p>
+-                    <div class="question-card-footer">
+-                        <span>{{ question.source_label }}{% if question.company %} · {{ question.company }}{% endif %}</span>
+-                        <span>Updated {{ question.updated_at|date:"j M" }}</span>
+-                    </div>
+-                </article>
+-            {% endfor %}
++        <div class="bank-table-wrap">
++            <table class="bank-table">
++                <thead>
++                    <tr>
++                        <th class="bank-select-column"><span class="visually-hidden">Select</span></th>
++                        <th>Question</th>
++                        <th>Type</th>
++                        <th>Library status</th>
++                        <th>Difficulty</th>
++                        <th>Updated</th>
++                    </tr>
++                </thead>
++                <tbody>
++                    {% for question in page.object_list %}
++                        <tr>
++                            <td class="bank-select-cell" data-label="Select">
++                                {% if question.is_system %}
++                                    {% if question.user_copy_id %}
++                                        <span class="bank-selection-status" title="Already in my library">Added</span>
++                                    {% else %}
++                                        <label class="bank-checkbox">
++                                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
++                                            <span class="visually-hidden">Select {{ question.title }} to add</span>
++                                        </label>
++                                    {% endif %}
++                                {% else %}
++                                    <label class="bank-checkbox">
++                                        <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
++                                        <span class="visually-hidden">Select {{ question.title }}</span>
++                                    </label>
++                                {% endif %}
++                            </td>
++                            <td class="bank-question-cell" data-label="Question">
++                                <a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a>
++                                <p>{{ question.prompt|truncatewords:18 }}</p>
++                                {% if question.company %}<span class="bank-company">{{ question.company }}</span>{% endif %}
++                            </td>
++                            <td data-label="Type">
++                                <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
++                            </td>
++                            <td data-label="Library status">
++                                {% if question.is_system %}
++                                    <span class="bank-status-text">Built-in{% if question.user_copy_id %} · In my library{% endif %}</span>
++                                {% else %}
++                                    <span class="bank-status-text">{{ question.get_status_display }}</span>
++                                    <small>{{ question.source_label }}</small>
++                                {% endif %}
++                            </td>
++                            <td data-label="Difficulty">
++                                {% if question.difficulty %}
++                                    <span class="bank-difficulty bank-difficulty-{{ question.difficulty|lower }}">{{ question.get_difficulty_display }}</span>
++                                {% else %}
++                                    <span class="bank-muted-value">—</span>
++                                {% endif %}
++                            </td>
++                            <td data-label="Updated">
++                                <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M Y" }}</time>
++                            </td>
++                        </tr>
++                    {% endfor %}
++                </tbody>
++            </table>
+         </div>
+     </form>
+ 
+     {% if page.paginator.num_pages > 1 %}
+-        <nav class="pagination" aria-label="Question library pages">
++        <nav class="bank-pagination" aria-label="Question bank pages">
+             {% if page.has_previous %}
+                 <a href="?page={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}&source={{ filters.source }}">Previous</a>
++            {% else %}
++                <span aria-hidden="true">Previous</span>
+             {% endif %}
+-            <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++            <strong>{{ page.number }} / {{ page.paginator.num_pages }}</strong>
+             {% if page.has_next %}
+                 <a href="?page={{ page.next_page_number }}&q={{ filters.q|urlencode }}&type={{ filters.type }}&difficulty={{ filters.difficulty }}&status={{ filters.status }}&source={{ filters.source }}">Next</a>
++            {% else %}
++                <span aria-hidden="true">Next</span>
+             {% endif %}
+         </nav>
+     {% endif %}
+ {% else %}
+-    <div class="empty-state empty-state-wide">
++    <div class="bank-empty-state">
++        <p class="eyebrow">Nothing to show</p>
+         <h2>{% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}No matching questions{% else %}Your library is empty{% endif %}</h2>
+         <p>{% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}Try clearing a filter or searching for something else.{% else %}Create one question or import a list to build your library quickly.{% endif %}</p>
+         {% if filters.q or filters.type or filters.difficulty or filters.status or filters.source %}
+diff --git a/static/css/editorial.css b/static/css/editorial.css
+--- a/static/css/editorial.css
++++ b/static/css/editorial.css
+@@ -768,5 +768,556 @@
+ .mobile-nav-link svg {
+     width: 1.15rem;
+     height: 1.15rem;
+     margin-bottom: 0.18rem;
+ }
++
++/* Milestone 2.1B: editorial dashboard and question bank */
++.visually-hidden {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    padding: 0;
++    margin: -1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++    border: 0;
++}
++
++.dashboard-editorial-header,
++.bank-page-header {
++    display: flex;
++    align-items: flex-end;
++    justify-content: space-between;
++    gap: 2rem;
++    width: min(100%, 80rem);
++    padding-bottom: 1.75rem;
++    margin: 0 auto 2rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.dashboard-editorial-header h1,
++.bank-page-header h1 {
++    margin: 0.3rem 0 0.6rem;
++    font-size: clamp(2.65rem, 6vw, 4.7rem);
++    line-height: 0.98;
++    letter-spacing: -0.045em;
++}
++
++.dashboard-editorial-header p:last-child,
++.bank-page-header p:last-child {
++    max-width: 43rem;
++    margin: 0;
++    color: var(--vc-muted);
++}
++
++.dashboard-editorial-layout {
++    display: grid;
++    width: min(100%, 80rem);
++    grid-template-columns: minmax(0, 1fr) 20rem;
++    gap: clamp(1.5rem, 3vw, 3rem);
++    align-items: start;
++    margin-inline: auto;
++}
++
++.dashboard-primary-column {
++    display: grid;
++    gap: 2.5rem;
++    min-width: 0;
++}
++
++.dashboard-priority {
++    padding: clamp(1.5rem, 3vw, 2.5rem);
++    border: 1px solid var(--vc-border);
++    border-top: 4px solid var(--vc-burgundy);
++    background: var(--vc-paper);
++}
++
++.dashboard-section-label {
++    display: flex;
++    align-items: center;
++    gap: 0.55rem;
++    color: var(--vc-muted);
++    font-size: 0.75rem;
++    font-weight: 800;
++    letter-spacing: 0.1em;
++    text-transform: uppercase;
++}
++
++.dashboard-status-dot {
++    width: 0.55rem;
++    height: 0.55rem;
++    border-radius: 50%;
++    background: var(--vc-burgundy);
++}
++
++.dashboard-status-dot.is-clear { background: var(--vc-success); }
++
++.dashboard-priority-number {
++    margin: 1.75rem 0 0.4rem;
++    font-family: var(--vc-font-serif);
++    font-size: clamp(3rem, 8vw, 5.5rem);
++    line-height: 0.9;
++    letter-spacing: -0.055em;
++}
++
++.dashboard-priority-number span {
++    color: var(--vc-muted);
++    font-family: var(--vc-font-sans);
++    font-size: 0.88rem;
++    font-weight: 750;
++    letter-spacing: 0;
++}
++
++.dashboard-priority h2 {
++    max-width: 48rem;
++    margin: 1.3rem 0 0.65rem;
++    font-size: clamp(1.65rem, 3vw, 2.4rem);
++    line-height: 1.12;
++}
++
++.dashboard-priority-copy {
++    max-width: 48rem;
++    margin: 0;
++    color: var(--vc-muted);
++    line-height: 1.7;
++}
++
++.dashboard-priority-actions {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 1rem;
++    margin-top: 1.75rem;
++}
++
++.dashboard-text-link,
++.dashboard-section-heading > a {
++    color: var(--vc-burgundy-dark);
++    font-size: 0.84rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.dashboard-text-link:hover,
++.dashboard-section-heading > a:hover { text-decoration: underline; }
++
++.dashboard-recent { border-top: 2px solid var(--vc-ink); }
++
++.dashboard-section-heading {
++    display: flex;
++    align-items: end;
++    justify-content: space-between;
++    gap: 1.5rem;
++    padding: 1.25rem 0 1rem;
++}
++
++.dashboard-section-heading h2 {
++    margin: 0.2rem 0 0;
++    font-size: 1.55rem;
++}
++
++.dashboard-recent-list {
++    padding: 0;
++    margin: 0;
++    border-bottom: 1px solid var(--vc-border);
++    list-style: none;
++}
++
++.dashboard-recent-list li { border-top: 1px solid var(--vc-border); }
++
++.dashboard-recent-question {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 1.5rem;
++    align-items: center;
++    padding: 1.15rem 0.2rem;
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.dashboard-recent-question:hover strong { color: var(--vc-burgundy); }
++
++.dashboard-recent-main,
++.dashboard-recent-meta { display: flex; }
++
++.dashboard-recent-main {
++    min-width: 0;
++    flex-direction: column;
++    gap: 0.25rem;
++}
++
++.dashboard-recent-main strong,
++.dashboard-recent-main > span {
++    overflow: hidden;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-recent-main strong {
++    font-family: var(--vc-font-serif);
++    font-size: 1.05rem;
++}
++
++.dashboard-recent-main > span,
++.dashboard-recent-meta time {
++    color: var(--vc-muted);
++    font-size: 0.8rem;
++}
++
++.dashboard-recent-meta {
++    align-items: center;
++    gap: 0.85rem;
++}
++
++.dashboard-recent-meta time { text-align: right; }
++
++.dashboard-empty-row {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 2rem;
++    padding: 1.5rem 0;
++    border-block: 1px solid var(--vc-border);
++}
++
++.dashboard-empty-row h3 { margin: 0 0 0.35rem; }
++.dashboard-empty-row p { margin: 0; color: var(--vc-muted); }
++
++.dashboard-brief {
++    position: sticky;
++    top: 2rem;
++    border-top: 4px solid var(--vc-ink);
++    background: var(--vc-paper);
++}
++
++.dashboard-brief-heading,
++.dashboard-facts,
++.dashboard-brief-links { border-inline: 1px solid var(--vc-border); }
++
++.dashboard-brief-heading {
++    padding: 1.35rem 1.25rem 1rem;
++}
++
++.dashboard-brief-heading h2 {
++    margin: 0.2rem 0 0;
++    font-size: 1.45rem;
++}
++
++.dashboard-facts { margin: 0; }
++
++.dashboard-facts > div {
++    display: flex;
++    align-items: baseline;
++    justify-content: space-between;
++    gap: 1rem;
++    padding: 1rem 1.25rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.dashboard-facts dt {
++    color: var(--vc-muted);
++    font-size: 0.82rem;
++    font-weight: 700;
++}
++
++.dashboard-facts dd {
++    margin: 0;
++    font-family: var(--vc-font-serif);
++    font-size: 1.55rem;
++    font-weight: 700;
++}
++
++.dashboard-brief-links {
++    display: grid;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.dashboard-brief-links a {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    padding: 0.85rem 1.25rem;
++    border-top: 1px solid var(--vc-border);
++    color: var(--vc-ink);
++    font-size: 0.82rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.dashboard-brief-links a:hover {
++    color: var(--vc-burgundy);
++    background: #f3eee7;
++}
++
++.bank-page-header,
++.bank-filter-panel,
++.bank-results-form,
++.bank-pagination,
++.bank-empty-state { width: min(100%, 86rem); margin-inline: auto; }
++
++.bank-filter-panel {
++    padding: 1.2rem 0;
++    margin-bottom: 1.75rem;
++    border-block: 1px solid var(--vc-border);
++}
++
++.bank-filter-grid {
++    display: grid;
++    grid-template-columns: minmax(16rem, 2.2fr) repeat(4, minmax(8rem, 1fr));
++    gap: 0.75rem;
++    align-items: end;
++}
++
++.bank-filter-field { min-width: 0; }
++
++.bank-filter-field label {
++    display: block;
++    margin-bottom: 0.35rem;
++    color: var(--vc-muted);
++    font-size: 0.7rem;
++    font-weight: 800;
++    letter-spacing: 0.08em;
++    text-transform: uppercase;
++}
++
++.bank-filter-field input,
++.bank-filter-field select {
++    width: 100%;
++    min-height: 2.7rem;
++    padding: 0.6rem 0.7rem;
++    border: 1px solid var(--vc-border-strong);
++    border-radius: 0.2rem;
++    color: var(--vc-ink);
++    background: var(--vc-paper-strong);
++    font: inherit;
++    font-size: 0.86rem;
++}
++
++.bank-filter-field input:focus,
++.bank-filter-field select:focus { border-color: var(--vc-burgundy); }
++
++.bank-filter-actions,
++.bank-bulk-actions,
++.bank-results-bar > div:first-child {
++    display: flex;
++    align-items: center;
++    gap: 0.75rem;
++}
++
++.bank-filter-actions { margin-top: 0.9rem; }
++
++.bank-clear-link,
++.bank-history-link {
++    font-size: 0.8rem;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.bank-history-link { margin-left: auto; }
++.bank-clear-link:hover, .bank-history-link:hover { text-decoration: underline; }
++
++.bank-results-bar {
++    display: flex;
++    min-height: 3.75rem;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1.5rem;
++    padding: 0.75rem 1rem;
++    border: 1px solid var(--vc-border);
++    border-bottom: 0;
++    background: #f0ebe4;
++}
++
++.bank-results-bar strong {
++    font-family: var(--vc-font-serif);
++    font-size: 1.05rem;
++}
++
++.bank-results-bar span { color: var(--vc-muted); font-size: 0.75rem; }
++
++.bank-table-wrap {
++    overflow-x: auto;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.bank-table {
++    width: 100%;
++    min-width: 62rem;
++    border-collapse: collapse;
++    table-layout: fixed;
++}
++
++.bank-table th,
++.bank-table td {
++    padding: 0.9rem 0.8rem;
++    border-bottom: 1px solid var(--vc-border);
++    vertical-align: middle;
++    text-align: left;
++}
++
++.bank-table th {
++    color: var(--vc-muted);
++    background: #faf7f1;
++    font-size: 0.68rem;
++    font-weight: 800;
++    letter-spacing: 0.08em;
++    text-transform: uppercase;
++}
++
++.bank-table tbody tr:last-child td { border-bottom: 0; }
++.bank-table tbody tr:hover { background: #fbf7f1; }
++.bank-table th:nth-child(1), .bank-table td:nth-child(1) { width: 3.25rem; text-align: center; }
++.bank-table th:nth-child(2), .bank-table td:nth-child(2) { width: 40%; }
++.bank-table th:nth-child(3), .bank-table td:nth-child(3) { width: 10rem; }
++.bank-table th:nth-child(4), .bank-table td:nth-child(4) { width: 11rem; }
++.bank-table th:nth-child(5), .bank-table td:nth-child(5) { width: 7.5rem; }
++.bank-table th:nth-child(6), .bank-table td:nth-child(6) { width: 7rem; }
++
++.bank-checkbox { display: inline-grid; place-items: center; cursor: pointer; }
++.bank-checkbox input { width: 1rem; height: 1rem; accent-color: var(--vc-burgundy); }
++
++.bank-selection-status {
++    color: var(--vc-success);
++    font-size: 0.68rem;
++    font-weight: 800;
++    text-transform: uppercase;
++}
++
++.bank-question-cell > a {
++    color: var(--vc-ink);
++    font-family: var(--vc-font-serif);
++    font-size: 1.02rem;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.bank-question-cell > a:hover { color: var(--vc-burgundy); text-decoration: underline; }
++
++.bank-question-cell p {
++    margin: 0.28rem 0 0;
++    overflow: hidden;
++    color: var(--vc-muted);
++    font-size: 0.78rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.bank-company,
++.bank-status-text,
++.bank-table time,
++.bank-table small {
++    display: block;
++    color: var(--vc-muted);
++    font-size: 0.74rem;
++}
++
++.bank-company { margin-top: 0.25rem; font-weight: 700; }
++.bank-status-text { color: #4b4540; font-size: 0.78rem; }
++.bank-table small { margin-top: 0.15rem; }
++
++.bank-difficulty {
++    display: inline-flex;
++    align-items: center;
++    gap: 0.35rem;
++    color: #4b4540;
++    font-size: 0.77rem;
++    font-weight: 700;
++}
++
++.bank-difficulty::before {
++    width: 0.42rem;
++    height: 0.42rem;
++    border-radius: 50%;
++    background: var(--vc-muted);
++    content: "";
++}
++
++.bank-difficulty-easy::before { background: var(--vc-success); }
++.bank-difficulty-medium::before { background: var(--vc-warning); }
++.bank-difficulty-hard::before { background: var(--vc-danger); }
++.bank-muted-value { color: var(--vc-muted); }
++
++.bank-pagination {
++    display: grid;
++    grid-template-columns: 1fr auto 1fr;
++    align-items: center;
++    padding: 1.1rem 0;
++    font-size: 0.82rem;
++}
++
++.bank-pagination a,
++.bank-pagination span { color: var(--vc-muted); text-decoration: none; }
++.bank-pagination a:last-child, .bank-pagination span:last-child { text-align: right; }
++.bank-pagination a:hover { color: var(--vc-burgundy); }
++.bank-pagination strong { font-family: var(--vc-font-serif); }
++
++.bank-empty-state {
++    padding: clamp(2rem, 5vw, 4rem);
++    border-top: 3px solid var(--vc-ink);
++    border-bottom: 1px solid var(--vc-border);
++    text-align: center;
++}
++
++.bank-empty-state h2 { margin: 0.3rem 0 0.7rem; font-size: clamp(1.8rem, 4vw, 2.8rem); }
++.bank-empty-state > p:not(.eyebrow) { max-width: 34rem; margin: 0 auto 1.5rem; color: var(--vc-muted); }
++.bank-empty-state .button-row { justify-content: center; }
++
++@media (max-width: 72rem) {
++    .dashboard-editorial-layout { grid-template-columns: minmax(0, 1fr) 17rem; }
++    .bank-filter-grid { grid-template-columns: minmax(15rem, 2fr) repeat(2, minmax(8rem, 1fr)); }
++}
++
++@media (max-width: 60rem) {
++    .dashboard-editorial-layout { grid-template-columns: 1fr; }
++    .dashboard-brief { position: static; }
++    .dashboard-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
++    .dashboard-facts > div:nth-child(odd) { border-right: 1px solid var(--vc-border); }
++}
++
++@media (max-width: 48rem) {
++    .dashboard-editorial-header,
++    .bank-page-header,
++    .dashboard-section-heading,
++    .dashboard-empty-row,
++    .bank-results-bar {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .dashboard-editorial-header,
++    .bank-page-header { gap: 1.2rem; margin-bottom: 1.4rem; }
++
++    .dashboard-editorial-header h1,
++    .bank-page-header h1 { font-size: clamp(2.6rem, 13vw, 4rem); }
++
++    .dashboard-editorial-header .button,
++    .bank-header-actions { width: 100%; }
++
++    .bank-header-actions .button { flex: 1; text-align: center; }
++    .dashboard-priority { padding: 1.35rem 1.15rem; }
++    .dashboard-priority-number { font-size: 3.7rem; }
++    .dashboard-recent-question { grid-template-columns: 1fr; gap: 0.65rem; }
++    .dashboard-recent-main strong, .dashboard-recent-main > span { white-space: normal; }
++    .dashboard-recent-meta { justify-content: space-between; }
++    .bank-filter-grid { grid-template-columns: 1fr 1fr; }
++    .bank-search-field { grid-column: 1 / -1; }
++    .bank-filter-actions, .bank-bulk-actions { flex-wrap: wrap; }
++    .bank-history-link { width: 100%; margin: 0; }
++    .bank-bulk-actions { width: 100%; }
++    .bank-bulk-actions > span { width: 100%; }
++    .bank-bulk-actions .button { flex: 1; text-align: center; }
++
++    .bank-table-wrap { overflow: visible; border: 0; background: transparent; }
++    .bank-table { min-width: 0; border-collapse: separate; border-spacing: 0 0.75rem; table-layout: auto; }
++    .bank-table thead { display: none; }
++    .bank-table, .bank-table tbody, .bank-table tr, .bank-table td { display: block; width: 100%; }
++    .bank-table tr { position: relative; padding: 1rem; border: 1px solid var(--vc-border); background: var(--vc-paper); }
++    .bank-table td, .bank-table td:nth-child(n) { width: auto; padding: 0; border: 0; text-align: left; }
++    .bank-table td:not(.bank-question-cell):not(.bank-select-cell) { display: inline-flex; margin: 0.75rem 0.75rem 0 0; }
++    .bank-select-cell { position: absolute; top: 1rem; right: 1rem; z-index: 2; }
++    .bank-question-cell { padding-right: 2rem !important; }
++    .bank-question-cell > a { font-size: 1.12rem; }
++    .bank-question-cell p { margin-top: 0.4rem; white-space: normal; }
++}
