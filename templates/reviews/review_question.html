@@ -1,72 +1,223 @@
 {% extends "base.html" %}
 
-{% block title %}Review {{ question.title }} | Adaptive Interview Coach{% endblock %}
+{% block title %}Review {{ question.title }} | ViewCoach{% endblock %}
+{% block body_class %}review-page{% endblock %}
+{% block main_class %}review-main{% endblock %}
 
 {% block content %}
-<section class="review-session-header">
-    <div class="question-card-meta">
-        <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-        {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
-        <span class="badge badge-neutral">
-            {% if review_state.last_reviewed_at %}Interval {{ review_state.interval_days }} day{{ review_state.interval_days|pluralize }}{% else %}New review{% endif %}
-        </span>
+<header class="review-session-topbar">
+    <div class="review-breadcrumbs">
+        <a href="{% url 'reviews:queue' %}">Review queue</a>
+        <span aria-hidden="true">/</span>
+        <span>{{ question.get_question_type_display }}</span>
     </div>
-    <p class="eyebrow">Recall before reveal</p>
-    <h1>{{ question.title }}</h1>
-    <div class="review-prompt rich-text">{{ question.prompt|linebreaks }}</div>
-</section>
+    <div class="review-topbar-actions">
+        <a class="review-text-link" href="{% url 'questions:notes' question.pk %}">Edit notes</a>
+        <a class="review-text-link" href="{% url 'reviews:queue' %}">End session</a>
+    </div>
+</header>
 
-<section class="review-instructions">
-    <h2>Answer from memory</h2>
-    <p>Explain it aloud, trace the algorithm, write the code or structure the story before opening the answer.</p>
-</section>
-
-<details class="review-answer">
-    <summary>Reveal the answer and rate your recall</summary>
-    <div class="review-answer-content">
-        {% if question.question_type == "TECHNICAL" %}
-            {% if specific.intuition %}<h2>Intuition</h2><div class="rich-text">{{ specific.intuition|linebreaks }}</div>{% endif %}
-            {% if specific.brute_force %}<h2>Brute force</h2><div class="rich-text">{{ specific.brute_force|linebreaks }}</div>{% endif %}
-            {% if specific.optimal_approach %}<h2>Optimal approach</h2><div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>{% endif %}
-            {% if specific.complexity %}<h2>Complexity</h2><p>{{ specific.complexity }}</p>{% endif %}
-            {% if specific.code %}<h2>Code</h2><pre><code>{{ specific.code }}</code></pre>{% endif %}
-        {% elif question.question_type == "CONCEPT" %}
-            {% if specific.canonical_answer %}<h2>Canonical answer</h2><div class="rich-text">{{ specific.canonical_answer|linebreaks }}</div>{% endif %}
-            {% if specific.key_points %}
-                <h2>Key points</h2>
-                <ul>{% for point in specific.key_points %}<li>{{ point }}</li>{% endfor %}</ul>
-            {% endif %}
-            {% if specific.example %}<h2>Example</h2><div class="rich-text">{{ specific.example|linebreaks }}</div>{% endif %}
-            {% if specific.common_misconception %}<h2>Common misconception</h2><div class="rich-text">{{ specific.common_misconception|linebreaks }}</div>{% endif %}
-            {% if specific.code_snippet %}<h2>Code example</h2><pre><code>{{ specific.code_snippet }}</code></pre>{% endif %}
-        {% elif question.question_type == "BEHAVIOURAL" %}
-            {% if specific.star_answer %}<h2>STAR answer</h2><div class="rich-text">{{ specific.star_answer|linebreaks }}</div>{% endif %}
-            {% if specific.stories %}<h2>Story notes</h2><div class="rich-text">{{ specific.stories|linebreaks }}</div>{% endif %}
-            {% if specific.follow_ups %}<h2>Likely follow-ups</h2><div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% endif %}
-        {% elif question.question_type == "DEBUG" %}
-            {% if specific.likely_bug %}<h2>Likely bug</h2><div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>{% endif %}
-            {% if specific.reasoning %}<h2>Reasoning</h2><div class="rich-text">{{ specific.reasoning|linebreaks }}</div>{% endif %}
-            {% if specific.fix %}<h2>Fix</h2><div class="rich-text">{{ specific.fix|linebreaks }}</div>{% endif %}
-            {% if specific.tests %}<h2>Verification tests</h2><div class="rich-text">{{ specific.tests|linebreaks }}</div>{% endif %}
-        {% endif %}
-
-        <div class="rating-panel">
-            <h2>How difficult was retrieval?</h2>
-            <p class="muted">Rate the recall, not how much you like the question.</p>
-            <form method="post" action="{% url 'reviews:submit' question.pk %}">
-                {% csrf_token %}
-                <div class="rating-grid">
-                    {% for preview in rating_previews %}
-                        <button class="rating-button rating-{{ preview.value|lower }}" type="submit" name="rating" value="{{ preview.value }}">
-                            <strong>{{ preview.label }}</strong>
-                            <span>{{ preview.interval_label }}</span>
-                        </button>
-                    {% endfor %}
-                </div>
-            </form>
+<div class="review-layout">
+    <article class="review-workspace">
+        <div class="review-question-meta">
+            <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+            {% if specific.topic %}<span class="badge badge-neutral">{{ specific.topic }}</span>{% endif %}
+            {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+            <span class="badge badge-neutral">
+                {% if review_state.last_reviewed_at %}
+                    {{ review_state.interval_days }} day{{ review_state.interval_days|pluralize }} interval
+                {% else %}
+                    New review
+                {% endif %}
+            </span>
         </div>
-    </div>
-</details>
 
-<p class="back-link"><a href="{% url 'reviews:queue' %}">Back to review queue</a></p>
+        <p class="review-kicker">Recall before reveal</p>
+        <h1 class="review-question-title">{{ question.title }}</h1>
+        <div class="review-question-prompt rich-text">{{ question.prompt|linebreaks }}</div>
+
+        <section class="review-recall-note" aria-labelledby="recall-heading">
+            <strong id="recall-heading">Answer from memory</strong>
+            <p>Explain it aloud, trace the algorithm, write the code or structure the story before opening the answer.</p>
+        </section>
+
+        <details class="review-answer-disclosure">
+            <summary>Reveal answer</summary>
+            <div class="review-answer-content-editorial">
+                {% if question.question_type == "TECHNICAL" %}
+                    {% if specific.intuition %}
+                        <section class="review-answer-section">
+                            <h2>Intuition</h2>
+                            <div class="rich-text">{{ specific.intuition|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.brute_force %}
+                        <section class="review-answer-section">
+                            <h2>Brute force</h2>
+                            <div class="rich-text">{{ specific.brute_force|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.optimal_approach %}
+                        <section class="review-answer-section">
+                            <h2>Optimal approach</h2>
+                            <div class="rich-text">{{ specific.optimal_approach|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.complexity %}
+                        <section class="review-answer-section">
+                            <h2>Complexity</h2>
+                            <p>{{ specific.complexity }}</p>
+                        </section>
+                    {% endif %}
+                    {% if specific.code %}
+                        <section class="review-answer-section">
+                            <h2>Code</h2>
+                            <pre><code>{{ specific.code }}</code></pre>
+                        </section>
+                    {% endif %}
+                {% elif question.question_type == "CONCEPT" %}
+                    {% if specific.canonical_answer %}
+                        <section class="review-answer-section">
+                            <h2>Canonical answer</h2>
+                            <div class="rich-text">{{ specific.canonical_answer|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.key_points %}
+                        <section class="review-answer-section">
+                            <h2>Key points</h2>
+                            <ul>{% for point in specific.key_points %}<li>{{ point }}</li>{% endfor %}</ul>
+                        </section>
+                    {% endif %}
+                    {% if specific.example %}
+                        <section class="review-answer-section">
+                            <h2>Example</h2>
+                            <div class="rich-text">{{ specific.example|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.common_misconception %}
+                        <section class="review-answer-section">
+                            <h2>Common misconception</h2>
+                            <div class="rich-text">{{ specific.common_misconception|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.code_snippet %}
+                        <section class="review-answer-section">
+                            <h2>Code example</h2>
+                            <pre><code>{{ specific.code_snippet }}</code></pre>
+                        </section>
+                    {% endif %}
+                {% elif question.question_type == "BEHAVIOURAL" %}
+                    {% if specific.star_answer %}
+                        <section class="review-answer-section">
+                            <h2>STAR answer</h2>
+                            <div class="rich-text">{{ specific.star_answer|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.stories %}
+                        <section class="review-answer-section">
+                            <h2>Story notes</h2>
+                            <div class="rich-text">{{ specific.stories|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.follow_ups %}
+                        <section class="review-answer-section">
+                            <h2>Likely follow-ups</h2>
+                            <div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                {% elif question.question_type == "DEBUG" %}
+                    {% if specific.likely_bug %}
+                        <section class="review-answer-section">
+                            <h2>Likely bug</h2>
+                            <div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.reasoning %}
+                        <section class="review-answer-section">
+                            <h2>Reasoning</h2>
+                            <div class="rich-text">{{ specific.reasoning|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.fix %}
+                        <section class="review-answer-section">
+                            <h2>Fix</h2>
+                            <div class="rich-text">{{ specific.fix|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                    {% if specific.tests %}
+                        <section class="review-answer-section">
+                            <h2>Verification tests</h2>
+                            <div class="rich-text">{{ specific.tests|linebreaks }}</div>
+                        </section>
+                    {% endif %}
+                {% endif %}
+
+                <section class="review-rating-panel" aria-labelledby="rating-heading">
+                    <div class="review-rating-heading">
+                        <h2 id="rating-heading">How difficult was retrieval?</h2>
+                        <p>Rate the recall, not how much you like the question.</p>
+                    </div>
+                    <form method="post" action="{% url 'reviews:submit' question.pk %}">
+                        {% csrf_token %}
+                        <div class="rating-grid">
+                            {% for preview in rating_previews %}
+                                <button class="rating-button rating-{{ preview.value|lower }}"
+                                        type="submit"
+                                        name="rating"
+                                        value="{{ preview.value }}">
+                                    <strong>{{ preview.label }}</strong>
+                                    <span>{{ preview.interval_label }}</span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </details>
+    </article>
+
+    <aside class="review-sidebar" aria-label="Review details">
+        <section class="review-sidebar-section">
+            <h2>Review details</h2>
+            <dl class="review-facts">
+                <div class="review-fact">
+                    <dt>Due</dt>
+                    <dd>{{ review_state.due_at|date:"j M Y, H:i" }}</dd>
+                </div>
+                <div class="review-fact">
+                    <dt>Last reviewed</dt>
+                    <dd>
+                        {% if review_state.last_reviewed_at %}
+                            {{ review_state.last_reviewed_at|date:"j M Y" }}
+                        {% else %}
+                            Not reviewed yet
+                        {% endif %}
+                    </dd>
+                </div>
+                <div class="review-fact">
+                    <dt>Successful reviews</dt>
+                    <dd>{{ review_state.repetitions }}</dd>
+                </div>
+                <div class="review-fact">
+                    <dt>Lapses</dt>
+                    <dd>{{ review_state.lapses }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="review-sidebar-section">
+            <h2>How to use this screen</h2>
+            <p class="review-sidebar-copy">
+                Attempt the question before revealing the stored answer. Choose the rating that best reflects how easily you retrieved it.
+            </p>
+        </section>
+
+        <section class="review-sidebar-section review-sidebar-links">
+            <h2>Session links</h2>
+            <a href="{% url 'reviews:history' %}">Review history</a>
+            <a href="{% url 'questions:detail' question.pk %}">Open question details</a>
+            <a href="{% url 'reviews:queue' %}">Back to review queue</a>
+        </section>
+    </aside>
+</div>
 {% endblock %}
