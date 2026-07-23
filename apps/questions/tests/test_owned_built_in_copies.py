@@ -4,7 +4,6 @@ from django.urls import reverse
 
 from apps.questions.models import Question, TechnicalQuestion, UserQuestionState
 
-
 pytestmark = pytest.mark.django_db
 
 

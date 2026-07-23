@@ -12,7 +12,6 @@ from .models import (
     UserQuestionState,
 )
 
-
 COMMON_COPY_FIELDS = (
     "title",
     "prompt",
