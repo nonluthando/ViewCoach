@@ -1,0 +1,820 @@
+
+
+===== apps/questions/models.py =====
+
+--- Question ---
+class Question(models.Model):
+    class Type(models.TextChoices):
+        TECHNICAL = "TECHNICAL", "Technical"
+        CONCEPT = "CONCEPT", "Concept"
+        BEHAVIOURAL = "BEHAVIOURAL", "Behavioural"
+        DEBUG = "DEBUG", "Repository debugging"
+
+    class Difficulty(models.TextChoices):
+        EASY = "EASY", "Easy"
+        MEDIUM = "MEDIUM", "Medium"
+        HARD = "HARD", "Hard"
+
+    class Status(models.TextChoices):
+        NEEDS_NOTES = "NEEDS_NOTES", "Needs notes"
+        READY_FOR_REVIEW = "READY_FOR_REVIEW", "Ready for review"
+        ARCHIVED = "ARCHIVED", "Archived"
+
+    creation_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="questions",
+        null=True,
+        blank=True,
+    )
+    import_batch = models.ForeignKey(
+        "QuestionImportBatch",
+        on_delete=models.SET_NULL,
+        related_name="created_questions",
+        null=True,
+        blank=True,
+    )
+    is_system = models.BooleanField(default=False)
+    system_key = models.SlugField(max_length=140, unique=True, null=True, blank=True)
+    title = models.CharField(max_length=180)
+    prompt = models.TextField()
+    question_type = models.CharField(max_length=20, choices=Type.choices, editable=False)
+    company = models.CharField(max_length=120, blank=True)
+    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEEDS_NOTES,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["owner", "status", "-updated_at"],
+                name="question_owner_status_idx",
+            ),
+            models.Index(fields=["owner", "question_type"], name="question_owner_type_idx"),
+            models.Index(
+                fields=["is_system", "question_type"],
+                name="question_system_type_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        is_system=True,
+                        owner__isnull=True,
+                        system_key__isnull=False,
+                        import_batch__isnull=True,
+                    )
+                    | Q(
+                        is_system=False,
+                        owner__isnull=False,
+                        system_key__isnull=True,
+                    )
+                ),
+                name="question_system_owner_consistency",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.__class__ is Question:
+            raise ValidationError("Questions must be created using a supported question type.")
+
+        if self.is_system:
+            if self.owner_id:
+                raise ValidationError("Built-in questions cannot have a user owner.")
+            if not self.system_key:
+                raise ValidationError("Built-in questions require a system key.")
+            if self.import_batch_id:
+                raise ValidationError("Built-in questions cannot belong to an import batch.")
+        else:
+            if not self.owner_id:
+                raise ValidationError("User-created questions require an owner.")
+            if self.system_key:
+                raise ValidationError("User-created questions cannot have a system key.")
+
+    @property
+    def specific(self):
+        relation_by_type = {
+            self.Type.TECHNICAL: "technicalquestion",
+            self.Type.CONCEPT: "conceptquestion",
+            self.Type.BEHAVIOURAL: "behaviouralquestion",
+            self.Type.DEBUG: "debugquestion",
+        }
+        relation_name = relation_by_type.get(self.question_type)
+        if not relation_name:
+            return self
+
+        try:
+            return getattr(self, relation_name)
+        except ObjectDoesNotExist:
+            return self
+
+    @property
+    def source_label(self):
+        if self.is_system:
+            return "Built-in"
+        if self.import_batch_id:
+            return "Imported"
+        return "My question"
+
+    def readiness_errors(self):
+        if self.is_system:
+            return []
+
+        errors = []
+        if not self.prompt.strip():
+            errors.append("problem or question text")
+
+        specific = self.specific
+        if specific is self:
+            errors.append("type-specific notes")
+            return errors
+
+        if self.question_type == self.Type.TECHNICAL:
+            has_solution_notes = any(
+                value.strip()
+                for value in (
+                    specific.intuition,
+                    specific.brute_force,
+                    specific.optimal_approach,
+                )
+            )
+            if not has_solution_notes:
+                errors.append("intuition or solution notes")
+        elif self.question_type == self.Type.CONCEPT:
+            if not specific.canonical_answer.strip():
+                errors.append("canonical answer")
+        elif self.question_type == self.Type.BEHAVIOURAL:
+            if not specific.star_answer.strip():
+                errors.append("STAR answer")
+        elif self.question_type == self.Type.DEBUG:
+            if not specific.fix.strip():
+                errors.append("diagnosis or fix")
+
+        return errors
+
+    @property
+    def can_mark_ready(self):
+        return not self.readiness_errors()
+
+    def mark_ready(self):
+        if self.is_system:
+            raise ValidationError("Built-in questions use per-user review state.")
+
+        missing_fields = self.readiness_errors()
+        if missing_fields:
+            raise ValidationError(
+                f"Add {', '.join(missing_fields)} before marking this question ready."
+            )
+
+        Question.objects.filter(pk=self.pk).update(
+            status=self.Status.READY_FOR_REVIEW,
+            updated_at=timezone.now(),
+        )
+        self.status = self.Status.READY_FOR_REVIEW
+
+    def ensure_valid_readiness_status(self):
+        if self.is_system:
+            return
+        if self.status == self.Status.READY_FOR_REVIEW and self.readiness_errors():
+            Question.objects.filter(pk=self.pk).update(
+                status=self.Status.NEEDS_NOTES,
+                updated_at=timezone.now(),
+            )
+            self.status = self.Status.NEEDS_NOTES
+
+    def __str__(self) -> str:
+        return self.title
+
+--- TechnicalQuestion ---
+class TechnicalQuestion(Question):
+    topic = models.CharField(max_length=120, blank=True)
+    first_hint = models.TextField(blank=True)
+    pattern = models.CharField(max_length=120, blank=True)
+    data_structure = models.CharField(max_length=120, blank=True)
+    intuition = models.TextField(blank=True)
+    brute_force = models.TextField(blank=True)
+    brute_force_time_complexity = models.CharField(max_length=255, blank=True)
+    brute_force_space_complexity = models.CharField(max_length=255, blank=True)
+    optimal_approach = models.TextField(blank=True)
+    optimal_time_complexity = models.CharField(max_length=255, blank=True)
+    optimal_space_complexity = models.CharField(max_length=255, blank=True)
+    complexity = models.CharField(max_length=255, blank=True)
+    mistakes = models.TextField(blank=True)
+    progressive_hints = models.JSONField(default=list, blank=True)
+    code = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        self.question_type = Question.Type.TECHNICAL
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "technical question"
+        verbose_name_plural = "technical questions"
+
+--- ConceptQuestion ---
+class ConceptQuestion(Question):
+    class Category(models.TextChoices):
+        JAVA = "JAVA", "Java"
+        PYTHON = "PYTHON", "Python"
+        BACKEND = "BACKEND", "Backend / CS fundamentals"
+        DATABASES = "DATABASES", "Databases"
+        NETWORKING = "NETWORKING", "Networking"
+        OPERATING_SYSTEMS = "OPERATING_SYSTEMS", "Operating systems"
+        OTHER = "OTHER", "Other"
+
+    category = models.CharField(max_length=30, choices=Category.choices)
+    canonical_answer = models.TextField(blank=True)
+    key_points = models.JSONField(default=list, blank=True)
+    example = models.TextField(blank=True)
+    common_misconception = models.TextField(blank=True)
+    code_snippet = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        self.question_type = Question.Type.CONCEPT
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "concept question"
+        verbose_name_plural = "concept questions"
+
+--- BehaviouralQuestion ---
+class BehaviouralQuestion(Question):
+    star_answer = models.TextField(blank=True)
+    leadership_principles = models.TextField(
+        blank=True,
+        help_text="Competencies, values or leadership principles this answer demonstrates.",
+    )
+    stories = models.TextField(blank=True)
+    follow_ups = models.TextField(blank=True)
+    competencies = models.JSONField(default=list, blank=True)
+    star_outline = models.JSONField(default=dict, blank=True)
+    personal_detail_prompts = models.JSONField(default=list, blank=True)
+    follow_up_questions = models.JSONField(default=list, blank=True)
+    common_mistakes = models.JSONField(default=list, blank=True)
+
+    def save(self, *args, **kwargs):
+        self.question_type = Question.Type.BEHAVIOURAL
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "behavioural question"
+        verbose_name_plural = "behavioural questions"
+
+--- DebugQuestion ---
+class DebugQuestion(Question):
+    class BugType(models.TextChoices):
+        SORTING = "SORTING", "Broken sorting"
+        MISSING_FIELD = "MISSING_FIELD", "Missing field"
+        WRONG_COMPARISON = "WRONG_COMPARISON", "Wrong comparison"
+        INCORRECT_DEFAULT = "INCORRECT_DEFAULT", "Incorrect default"
+        NULL_HANDLING = "NULL_HANDLING", "Null handling"
+        KEY_TYPO = "KEY_TYPO", "Dictionary key typo"
+        OFF_BY_ONE = "OFF_BY_ONE", "Off-by-one"
+        API_RESPONSE = "API_RESPONSE", "Wrong API response"
+        OTHER = "OTHER", "Other"
+
+    repository = models.TextField(blank=True)
+    bug_type = models.CharField(max_length=30, choices=BugType.choices, blank=True)
+    failing_test_or_symptom = models.TextField(blank=True)
+    broken_code = models.TextField(blank=True)
+    likely_bug = models.TextField(blank=True)
+    reasoning = models.TextField(blank=True)
+    fix = models.TextField(blank=True)
+    tests = models.TextField(blank=True)
+    common_mistake = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        self.question_type = Question.Type.DEBUG
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "debugging question"
+        verbose_name_plural = "debugging questions"
+
+--- UserQuestionState ---
+class UserQuestionState(models.Model):
+    class Status(models.TextChoices):
+        NOT_STARTED = "NOT_STARTED", "Not started"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        READY_FOR_REVIEW = "READY_FOR_REVIEW", "Ready for review"
+        ARCHIVED = "ARCHIVED", "Archived"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="question_states",
+    )
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="user_states",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NOT_STARTED,
+    )
+    bookmarked = models.BooleanField(default=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ready_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "question"],
+                name="unique_user_question_state",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "status", "-updated_at"],
+                name="uqstate_user_status_idx",
+            )
+        ]
+
+    def mark_in_progress(self):
+        if self.status == self.Status.NOT_STARTED:
+            self.status = self.Status.IN_PROGRESS
+            self.started_at = timezone.now()
+
+    def __str__(self):
+        return f"{self.user} · {self.question}"
+
+--- UserQuestionNote ---
+class UserQuestionNote(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="question_notes",
+    )
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="user_notes",
+    )
+    notes = models.TextField(blank=True)
+    mistakes = models.TextField(blank=True)
+    code_notes = models.TextField(blank=True)
+    behavioural_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "question"],
+                name="unique_user_question_note",
+            )
+        ]
+
+    def __str__(self):
+        return f"Notes for {self.question} by {self.user}"
+
+
+===== apps/questions/views.py =====
+
+--- question_list ---
+def question_list(request):
+    bookmarked_state = UserQuestionState.objects.filter(
+        user=request.user,
+        question_id=OuterRef("pk"),
+        bookmarked=True,
+    )
+    questions = _accessible_questions(request.user).annotate(is_bookmarked=Exists(bookmarked_state))
+
+    search_term = request.GET.get("q", "").strip()
+    question_type = request.GET.get("type", "").strip()
+    difficulty = request.GET.get("difficulty", "").strip()
+    status = request.GET.get("status", "").strip()
+    source = request.GET.get("source", "").strip()
+
+    if search_term:
+        questions = questions.filter(
+            Q(title__icontains=search_term)
+            | Q(prompt__icontains=search_term)
+            | Q(company__icontains=search_term)
+            | Q(technicalquestion__topic__icontains=search_term)
+            | Q(technicalquestion__pattern__icontains=search_term)
+            | Q(technicalquestion__first_hint__icontains=search_term)
+            | Q(technicalquestion__intuition__icontains=search_term)
+            | Q(technicalquestion__optimal_approach__icontains=search_term)
+            | Q(technicalquestion__mistakes__icontains=search_term)
+            | Q(conceptquestion__canonical_answer__icontains=search_term)
+            | Q(conceptquestion__category__icontains=search_term)
+            | Q(behaviouralquestion__leadership_principles__icontains=search_term)
+            | Q(behaviouralquestion__stories__icontains=search_term)
+            | Q(debugquestion__repository__icontains=search_term)
+        ).distinct()
+
+    valid_types = {choice for choice, _ in Question.Type.choices}
+    valid_difficulties = {choice for choice, _ in Question.Difficulty.choices}
+    valid_statuses = {choice for choice, _ in Question.Status.choices}
+
+    if question_type in valid_types:
+        questions = questions.filter(question_type=question_type)
+    if difficulty in valid_difficulties:
+        questions = questions.filter(difficulty=difficulty)
+    if status in valid_statuses:
+        questions = questions.filter(status=status)
+    if source == "built_in":
+        questions = questions.filter(is_system=True)
+    elif source == "saved":
+        questions = questions.filter(is_system=True, is_bookmarked=True)
+    elif source == "mine":
+        questions = questions.filter(Q(owner=request.user) | Q(is_bookmarked=True))
+
+    paginator = Paginator(questions, 20)
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "questions/question_list.html",
+        {
+            "page": page,
+            "question_types": Question.Type.choices,
+            "difficulties": Question.Difficulty.choices,
+            "statuses": Question.Status.choices,
+            "filters": {
+                "q": search_term,
+                "type": question_type,
+                "difficulty": difficulty,
+                "status": status,
+                "source": source,
+            },
+        },
+    )
+
+--- bulk_save_built_in ---
+def bulk_save_built_in(request):
+    selected_ids = request.POST.getlist("selected_built_in_questions")
+
+    if not selected_ids:
+        messages.info(request, "Select at least one built-in question.")
+        return redirect("questions:list")
+
+    questions = list(
+        _accessible_questions(request.user).filter(
+            pk__in=selected_ids,
+            is_system=True,
+        )
+    )
+
+    saved_count = 0
+    with transaction.atomic():
+        for question in questions:
+            state, _ = UserQuestionState.objects.get_or_create(
+                user=request.user,
+                question=question,
+            )
+            if not state.bookmarked:
+                state.bookmarked = True
+                state.save(update_fields=["bookmarked", "updated_at"])
+                saved_count += 1
+
+    already_saved_count = len(questions) - saved_count
+    if saved_count:
+        messages.success(
+            request,
+            (
+                f"Saved {saved_count} built-in "
+                f"question{'s' if saved_count != 1 else ''} "
+                "to your library."
+            ),
+        )
+    if already_saved_count:
+        messages.info(
+            request,
+            (
+                f"{already_saved_count} selected "
+                f"question{'s were' if already_saved_count != 1 else ' was'} "
+                "already saved."
+            ),
+        )
+
+    return redirect("questions:list")
+
+--- question_detail ---
+def question_detail(request, pk):
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+    specific = question.specific
+    state = UserQuestionState.objects.filter(user=request.user, question=question).first()
+    note = UserQuestionNote.objects.filter(user=request.user, question=question).first()
+    template_by_type = {
+        Question.Type.TECHNICAL: "questions/technical_question_detail.html",
+        Question.Type.CONCEPT: "questions/concept_question_detail.html",
+        Question.Type.BEHAVIOURAL: "questions/behavioural_question_detail.html",
+        Question.Type.DEBUG: "questions/debug_question_detail.html",
+    }
+    template_name = template_by_type.get(question.question_type)
+    if not template_name or specific is question:
+        raise Http404("Question details are unavailable")
+
+    return render(
+        request,
+        template_name,
+        {
+            "question": question,
+            "specific": specific,
+            "readiness_errors": question.readiness_errors(),
+            "user_state": state,
+            "user_note": note,
+        },
+    )
+
+--- question_notes ---
+def question_notes(request, pk):
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+    note, _ = UserQuestionNote.objects.get_or_create(user=request.user, question=question)
+    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+
+    if request.method == "POST":
+        form = UserQuestionNoteForm(request.POST, instance=note)
+        if form.is_valid():
+            form.save()
+            state.mark_in_progress()
+            state.save()
+            messages.success(request, "Your notes were saved.")
+            return redirect("questions:detail", pk=question.pk)
+    else:
+        form = UserQuestionNoteForm(instance=note)
+
+    return render(
+        request,
+        "questions/question_notes_form.html",
+        {"question": question, "form": form},
+    )
+
+--- question_toggle_bookmark ---
+def question_toggle_bookmark(request, pk):
+    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
+    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
+    state.bookmarked = not state.bookmarked
+    state.save(update_fields=["bookmarked", "updated_at"])
+    messages.success(
+        request, "Saved to your library." if state.bookmarked else "Removed from saved questions."
+    )
+    return redirect("questions:detail", pk=question.pk)
+
+
+===== apps/core/views.py =====
+
+--- dashboard ---
+def dashboard(request):
+    questions = Question.objects.filter(owner=request.user)
+    return render(
+        request,
+        "core/dashboard.html",
+        {
+            "question_count": questions.count(),
+            "ready_question_count": questions.filter(
+                status=Question.Status.READY_FOR_REVIEW
+            ).count(),
+            "recent_questions": questions.select_related(
+                "technicalquestion",
+                "behaviouralquestion",
+                "debugquestion",
+            )[:5],
+        },
+    )
+
+
+===== relevant URLs =====
+9:     path("bulk/save-built-in/", views.bulk_save_built_in, name="bulk_save_built_in"),
+10:     path("bulk/mark-ready/", views.bulk_mark_ready, name="bulk_mark_ready"),
+34:     path("<int:pk>/bookmark/", views.question_toggle_bookmark, name="toggle_bookmark"),
+
+
+===== relevant template lines =====
+
+--- templates/questions/question_list.html ---
+27:             <select id="question-source" name="source">
+28:                 <option value="">All questions</option>
+29:                 <option value="built_in" {% if filters.source == "built_in" %}selected{% endif %}>Built-in</option>
+30:                 <option value="saved" {% if filters.source == "saved" %}selected{% endif %}>Saved built-in</option>
+31:                 <option value="mine" {% if filters.source == "mine" %}selected{% endif %}>My library</option>
+32:             </select>
+33:         </div>
+70:     <form method="post">
+71:         {% csrf_token %}
+72:         <div class="bulk-toolbar">
+73:             <span>Save built-in questions or move your completed questions into the future review queue.</span>
+74:             <div class="button-row">
+75:                 <button
+76:                     class="button button-small button-secondary"
+77:                     type="submit"
+78:                     formaction="{% url 'questions:bulk_save_built_in' %}"
+79:                 >Save selected built-in</button>
+80:                 <button
+81:                     class="button button-small"
+82:                     type="submit"
+83:                     formaction="{% url 'questions:bulk_mark_ready' %}"
+84:                 >Mark my selected ready</button>
+85:             </div>
+91:                     <label class="question-select">
+92:                         {% if question.is_system %}
+93:                             <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+94:                             <span>{% if question.is_bookmarked %}Saved{% else %}Select to save{% endif %}</span>
+95:                         {% else %}
+96:                             <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
+100:                     <div class="question-card-meta">
+101:                         <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+102:                         {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.is_bookmarked %}<span class="badge badge-neutral">Saved</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+103:                         {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+104:                     </div>
+
+--- templates/questions/behavioural_question_detail.html ---
+17:             <div class="rich-text">{{ specific.star_answer|linebreaks }}</div>
+18:         {% else %}
+19:             <p class="muted">No STAR answer saved yet.</p>
+20:         {% endif %}
+21:     </section>
+32:     <section class="content-card content-card-wide">
+33:         <p class="eyebrow">Likely follow-ups</p>
+34:         {% if specific.follow_ups %}<div class="rich-text">{{ specific.follow_ups|linebreaks }}</div>{% else %}<p class="muted">No follow-ups saved yet.</p>{% endif %}
+35:     </section>
+36: </div>
+
+--- templates/questions/import_batch.html ---
+102:             <div>
+103:                 <h2>Create the selected questions?</h2>
+104:                 <p>Your latest edits will be saved first. Questions will appear in the library as <strong>Needs notes</strong>, and the original source will be deleted.</p>
+105:             </div>
+106:             <button class="button" id="import-confirm-button" name="action" value="confirm" type="submit">Create questions</button>
+
+--- templates/questions/question_notes_form.html ---
+7:     <p class="eyebrow">Personal notes</p>
+8:     <h1>{{ question.title }}</h1>
+9:     <p class="lead">Your notes are private and stay separate from the built-in answer.</p>
+10: </section>
+11: <form method="post" class="form-card">
+
+--- templates/questions/_question_header.html ---
+3:         <div class="question-card-meta">
+4:             <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
+5:             {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+6:             {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
+7:         </div>
+15:     <div class="button-row detail-actions">
+16:         {% if question.is_system %}
+17:             <form method="post" action="{% url 'questions:toggle_bookmark' question.pk %}">
+18:                 {% csrf_token %}
+19:                 <button class="button button-secondary" type="submit">{% if user_state and user_state.bookmarked %}Remove saved{% else %}Save question{% endif %}</button>
+20:             </form>
+21:             <a class="button" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit my notes{% else %}Add my notes{% endif %}</a>
+
+--- templates/questions/technical_question_detail.html ---
+21: 
+22:     <div class="reveal-empty" data-reveal-empty>
+23:         <p>Your saved reasoning is hidden. Explain the problem aloud or sketch your approach before revealing a hint.</p>
+24:     </div>
+25: 
+
+--- templates/questions/debug_question_detail.html ---
+22:             {% if specific.likely_bug %}<h3>Likely bug</h3><div class="rich-text">{{ specific.likely_bug|linebreaks }}</div>{% endif %}
+23:             {% if specific.reasoning %}<h3>Reasoning</h3><div class="rich-text">{{ specific.reasoning|linebreaks }}</div>{% endif %}
+24:             {% if specific.fix %}<h3>Fix</h3><div class="rich-text">{{ specific.fix|linebreaks }}</div>{% else %}<p class="muted">No fix saved yet.</p>{% endif %}
+25:             {% if specific.common_mistake %}<h3>Common mistake</h3><div class="rich-text">{{ specific.common_mistake|linebreaks }}</div>{% endif %}
+26:         </div>
+
+--- templates/questions/import_start.html ---
+5: {% block content %}
+6: <section class="page-header compact-header">
+7:     <p class="eyebrow">Bulk question import</p>
+8:     <h1>Turn a list into questions</h1>
+9:     <p class="lead">Paste or upload a question list. You will review every extracted question before anything is created.</p>
+
+
+===== relevant seeded-library tests =====
+
+--- test_seed_command_creates_full_built_in_question_bank ---
+def test_seed_command_creates_full_built_in_question_bank():
+    call_command("seed_question_bank")
+
+    assert Question.objects.filter(is_system=True).count() == 100
+    assert TechnicalQuestion.objects.filter(is_system=True).count() == 30
+    assert ConceptQuestion.objects.filter(is_system=True).count() == 50
+    assert DebugQuestion.objects.filter(is_system=True).count() == 10
+    assert BehaviouralQuestion.objects.filter(is_system=True).count() == 10
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.JAVA,
+        ).count()
+        == 20
+    )
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.PYTHON,
+        ).count()
+        == 15
+    )
+    assert (
+        ConceptQuestion.objects.filter(
+            is_system=True,
+            category=ConceptQuestion.Category.BACKEND,
+        ).count()
+        == 15
+    )
+
+--- test_built_in_question_is_visible_but_not_editable ---
+def test_built_in_question_is_visible_but_not_editable(client, user):
+    call_command("seed_question_bank")
+    question = Question.objects.filter(is_system=True).first()
+    client.force_login(user)
+
+    list_response = client.get(reverse("questions:list"))
+    detail_response = client.get(reverse("questions:detail", args=[question.pk]))
+    edit_response = client.get(reverse("questions:edit", args=[question.pk]))
+
+    assert question.title in list_response.content.decode()
+    assert detail_response.status_code == 200
+    assert edit_response.status_code == 404
+
+--- test_user_can_save_private_notes_on_built_in_question ---
+def test_user_can_save_private_notes_on_built_in_question(client, user):
+    call_command("seed_question_bank")
+    question = Question.objects.get(system_key="technical-two-sum")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("questions:notes", args=[question.pk]),
+        {
+            "notes": "Look up the complement before inserting.",
+            "mistakes": "Do not use the same index twice.",
+            "code_notes": "Map<Integer, Integer>",
+            "behavioural_notes": "",
+        },
+    )
+
+    note = UserQuestionNote.objects.get(user=user, question=question)
+    state = UserQuestionState.objects.get(user=user, question=question)
+    assert response.status_code == 302
+    assert note.notes == "Look up the complement before inserting."
+    assert state.status == UserQuestionState.Status.IN_PROGRESS
+
+--- test_saved_built_in_question_appears_in_my_library ---
+def test_saved_built_in_question_appears_in_my_library(client, user):
+    call_command("seed_question_bank")
+    question = Question.objects.get(system_key="technical-two-sum")
+    client.force_login(user)
+
+    client.post(reverse("questions:toggle_bookmark", args=[question.pk]))
+
+    response = client.get(reverse("questions:list"), {"source": "mine"})
+
+    assert response.status_code == 200
+    assert question.title in response.content.decode()
+    state = UserQuestionState.objects.get(user=user, question=question)
+    assert state.bookmarked is True
+
+--- test_bulk_save_built_in_questions ---
+def test_bulk_save_built_in_questions(client, user):
+    call_command("seed_question_bank")
+    questions = list(Question.objects.filter(is_system=True).order_by("pk")[:2])
+    client.force_login(user)
+
+    response = client.post(
+        reverse("questions:bulk_save_built_in"),
+        {"selected_built_in_questions": [question.pk for question in questions]},
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert (
+        UserQuestionState.objects.filter(
+            user=user,
+            question__in=questions,
+            bookmarked=True,
+        ).count()
+        == 2
+    )
+    assert "Saved 2 built-in questions to your library." in response.content.decode()
+
+--- test_saved_filter_only_shows_bookmarked_built_in_questions ---
+def test_saved_filter_only_shows_bookmarked_built_in_questions(client, user):
+    call_command("seed_question_bank")
+    saved_question = Question.objects.get(system_key="technical-two-sum")
+    unsaved_question = Question.objects.get(system_key="technical-valid-palindrome")
+    UserQuestionState.objects.create(
+        user=user,
+        question=saved_question,
+        bookmarked=True,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("questions:list"), {"source": "saved"})
+    content = response.content.decode()
+
+    assert saved_question.title in content
+    assert unsaved_question.title not in content

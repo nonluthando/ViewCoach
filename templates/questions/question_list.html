@@ -70,13 +70,13 @@
     <form method="post">
         {% csrf_token %}
         <div class="bulk-toolbar">
-            <span>Save built-in questions or move your completed questions into the future review queue.</span>
+            <span>Add built-in questions to your library or move completed questions into the future review queue.</span>
             <div class="button-row">
                 <button
                     class="button button-small button-secondary"
                     type="submit"
                     formaction="{% url 'questions:bulk_save_built_in' %}"
-                >Save selected built-in</button>
+                >Add selected built-in</button>
                 <button
                     class="button button-small"
                     type="submit"
@@ -90,8 +90,12 @@
                 <article class="question-card question-card-selectable">
                     <label class="question-select">
                         {% if question.is_system %}
-                            <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
-                            <span>{% if question.is_bookmarked %}Saved{% else %}Select to save{% endif %}</span>
+                            {% if question.user_copy_id %}
+                                <span>In my library</span>
+                            {% else %}
+                                <input type="checkbox" name="selected_built_in_questions" value="{{ question.pk }}">
+                                <span>Select to add</span>
+                            {% endif %}
                         {% else %}
                             <input type="checkbox" name="selected_questions" value="{{ question.pk }}">
                             <span>Select</span>
@@ -99,7 +103,7 @@
                     </label>
                     <div class="question-card-meta">
                         <span class="badge badge-{{ question.question_type|lower }}">{{ question.get_question_type_display }}</span>
-                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.is_bookmarked %}<span class="badge badge-neutral">Saved</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
+                        {% if question.is_system %}<span class="badge badge-neutral">Built-in</span>{% if question.user_copy_id %}<span class="badge badge-neutral">In my library</span>{% endif %}{% else %}<span class="badge badge-neutral">{{ question.get_status_display }}</span>{% endif %}
                         {% if question.difficulty %}<span class="badge badge-neutral">{{ question.get_difficulty_display }}</span>{% endif %}
                     </div>
                     <h2><a href="{% url 'questions:detail' question.pk %}">{{ question.title }}</a></h2>

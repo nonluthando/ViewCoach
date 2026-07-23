@@ -23,6 +23,7 @@ def dashboard(request):
             ).count(),
             "recent_questions": questions.select_related(
                 "technicalquestion",
+                "conceptquestion",
                 "behaviouralquestion",
                 "debugquestion",
             )[:5],

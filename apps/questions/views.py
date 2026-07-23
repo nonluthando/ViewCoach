@@ -5,9 +5,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, OuterRef, Q, Subquery
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -24,6 +25,7 @@ from .importing import (
     refresh_batch_duplicates,
 )
 from .models import Question, QuestionImportBatch, UserQuestionNote, UserQuestionState
+from .services import copy_built_in_question_for_user
 
 TYPE_BY_SLUG = {
     "technical": Question.Type.TECHNICAL,
@@ -69,7 +71,14 @@ def question_list(request):
         question_id=OuterRef("pk"),
         bookmarked=True,
     )
-    questions = _accessible_questions(request.user).annotate(is_bookmarked=Exists(bookmarked_state))
+    user_copy = Question.objects.filter(
+        owner=request.user,
+        source_system_question_id=OuterRef("pk"),
+    ).values("pk")[:1]
+    questions = _accessible_questions(request.user).annotate(
+        is_bookmarked=Exists(bookmarked_state),
+        user_copy_id=Subquery(user_copy),
+    )
 
     search_term = request.GET.get("q", "").strip()
     question_type = request.GET.get("type", "").strip()
@@ -110,7 +119,7 @@ def question_list(request):
     elif source == "saved":
         questions = questions.filter(is_system=True, is_bookmarked=True)
     elif source == "mine":
-        questions = questions.filter(Q(owner=request.user) | Q(is_bookmarked=True))
+        questions = questions.filter(owner=request.user)
 
     paginator = Paginator(questions, 20)
     page = paginator.get_page(request.GET.get("page"))
@@ -144,25 +153,32 @@ def bulk_save_built_in(request):
         return redirect("questions:list")
 
     questions = list(
-        _accessible_questions(request.user).filter(
+        _question_queryset().filter(
             pk__in=selected_ids,
             is_system=True,
         )
     )
 
     saved_count = 0
-    with transaction.atomic():
-        for question in questions:
-            state, _ = UserQuestionState.objects.get_or_create(
-                user=request.user,
-                question=question,
-            )
-            if not state.bookmarked:
-                state.bookmarked = True
-                state.save(update_fields=["bookmarked", "updated_at"])
-                saved_count += 1
+    already_saved_count = 0
+    for question in questions:
+        _, created = copy_built_in_question_for_user(
+            question=question,
+            user=request.user,
+        )
+        state, _ = UserQuestionState.objects.get_or_create(
+            user=request.user,
+            question=question,
+        )
+        if not state.bookmarked:
+            state.bookmarked = True
+            state.save(update_fields=["bookmarked", "updated_at"])
 
-    already_saved_count = len(questions) - saved_count
+        if created:
+            saved_count += 1
+        else:
+            already_saved_count += 1
+
     if saved_count:
         messages.success(
             request,
@@ -182,7 +198,8 @@ def bulk_save_built_in(request):
             ),
         )
 
-    return redirect("questions:list")
+    library_url = reverse("questions:list")
+    return redirect(f"{library_url}?source=mine")
 
 
 @login_required
@@ -282,8 +299,21 @@ def question_create(request, question_type_slug):
 def question_detail(request, pk):
     question = get_object_or_404(_accessible_questions(request.user), pk=pk)
     specific = question.specific
-    state = UserQuestionState.objects.filter(user=request.user, question=question).first()
-    note = UserQuestionNote.objects.filter(user=request.user, question=question).first()
+    state = UserQuestionState.objects.filter(
+        user=request.user,
+        question=question,
+    ).first()
+    note = UserQuestionNote.objects.filter(
+        user=request.user,
+        question=question,
+    ).first()
+    user_copy = None
+    if question.is_system:
+        user_copy = Question.objects.filter(
+            owner=request.user,
+            source_system_question=question,
+        ).first()
+
     template_by_type = {
         Question.Type.TECHNICAL: "questions/technical_question_detail.html",
         Question.Type.CONCEPT: "questions/concept_question_detail.html",
@@ -303,6 +333,7 @@ def question_detail(request, pk):
             "readiness_errors": question.readiness_errors(),
             "user_state": state,
             "user_note": note,
+            "user_copy": user_copy,
         },
     )
 
@@ -393,14 +424,29 @@ def question_notes(request, pk):
 @login_required
 @require_POST
 def question_toggle_bookmark(request, pk):
-    question = get_object_or_404(_accessible_questions(request.user), pk=pk)
-    state, _ = UserQuestionState.objects.get_or_create(user=request.user, question=question)
-    state.bookmarked = not state.bookmarked
-    state.save(update_fields=["bookmarked", "updated_at"])
-    messages.success(
-        request, "Saved to your library." if state.bookmarked else "Removed from saved questions."
+    question = get_object_or_404(
+        _question_queryset(),
+        pk=pk,
+        is_system=True,
     )
-    return redirect("questions:detail", pk=question.pk)
+    copied_question, created = copy_built_in_question_for_user(
+        question=question,
+        user=request.user,
+    )
+    state, _ = UserQuestionState.objects.get_or_create(
+        user=request.user,
+        question=question,
+    )
+    if not state.bookmarked:
+        state.bookmarked = True
+        state.save(update_fields=["bookmarked", "updated_at"])
+
+    if created:
+        messages.success(request, "Saved to your library.")
+    else:
+        messages.info(request, "This question is already in your library.")
+
+    return redirect("questions:detail", pk=copied_question.pk)
 
 
 @login_required

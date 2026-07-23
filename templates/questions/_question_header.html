@@ -14,11 +14,15 @@
     </div>
     <div class="button-row detail-actions">
         {% if question.is_system %}
-            <form method="post" action="{% url 'questions:toggle_bookmark' question.pk %}">
-                {% csrf_token %}
-                <button class="button button-secondary" type="submit">{% if user_state and user_state.bookmarked %}Remove saved{% else %}Save question{% endif %}</button>
-            </form>
-            <a class="button" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit my notes{% else %}Add my notes{% endif %}</a>
+            {% if user_copy %}
+                <a class="button" href="{% url 'questions:detail' user_copy.pk %}">Open my copy</a>
+            {% else %}
+                <form method="post" action="{% url 'questions:toggle_bookmark' question.pk %}">
+                    {% csrf_token %}
+                    <button class="button" type="submit">Add to my library</button>
+                </form>
+            {% endif %}
+            <a class="button button-secondary" href="{% url 'questions:notes' question.pk %}">{% if user_note %}Edit my notes{% else %}Add my notes{% endif %}</a>
         {% else %}
             {% if question.status == "NEEDS_NOTES" %}
                 <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
