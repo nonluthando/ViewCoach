@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Create mock interview | ViewCoach{% endblock %}
+{% block body_class %}interview-create-page{% endblock %}
+
+{% block content %}
+<section class="interview-create-layout">
+    <div class="interview-create-intro">
+        <a class="interview-back-link" href="{% url 'interviews:list' %}">← Mock interviews</a>
+        <p class="eyebrow">New session</p>
+        <h1>Choose the pressure you want to practise.</h1>
+        <p>
+            ViewCoach builds the session from questions you can access. It favours
+            due reviews and questions that were recently rated Again or Hard.
+        </p>
+
+        <div class="interview-selection-note">
+            <strong>Mixed sessions balance four formats</strong>
+            <p>Technical, conceptual, behavioural and repository-debugging questions.</p>
+        </div>
+    </div>
+
+    <form class="interview-create-card" method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="form-errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="form-field">
+            <label for="{{ form.focus.id_for_label }}">{{ form.focus.label }}</label>
+            {{ form.focus }}
+            {% if form.focus.help_text %}<p class="help-text">{{ form.focus.help_text }}</p>{% endif %}
+            {{ form.focus.errors }}
+        </div>
+
+        <div class="form-field">
+            <label for="{{ form.duration_minutes.id_for_label }}">
+                {{ form.duration_minutes.label }}
+            </label>
+            {{ form.duration_minutes }}
+            {% if form.duration_minutes.help_text %}
+                <p class="help-text">{{ form.duration_minutes.help_text }}</p>
+            {% endif %}
+            {{ form.duration_minutes.errors }}
+        </div>
+
+        <div class="interview-create-actions">
+            <button class="button" type="submit">Build my session</button>
+            <a href="{% url 'interviews:list' %}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

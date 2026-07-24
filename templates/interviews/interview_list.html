@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Mock interviews | ViewCoach{% endblock %}
+{% block body_class %}interviews-page{% endblock %}
+
+{% block content %}
+<section class="interview-page-header">
+    <div>
+        <p class="eyebrow">Mock interviews</p>
+        <h1>Practise explaining under pressure.</h1>
+        <p>
+            Run a timed session from the question bank, assess each answer honestly,
+            and leave with a focused debrief.
+        </p>
+    </div>
+    <a class="button" href="{% url 'interviews:create' %}">Start a mock interview</a>
+</section>
+
+<section class="interview-overview-grid" aria-label="Mock interview overview">
+    <article class="interview-overview-card">
+        <span class="interview-overview-number">{{ completed_count }}</span>
+        <span>completed sessions</span>
+    </article>
+    <article class="interview-overview-card">
+        <span class="interview-overview-number">{{ active_interviews|length }}</span>
+        <span>ready or in progress</span>
+    </article>
+    <article class="interview-overview-card interview-overview-copy">
+        <strong>Deterministic question selection</strong>
+        <span>Due reviews and recent weak answers are prioritised first.</span>
+    </article>
+</section>
+
+{% if active_interviews %}
+<section class="interview-section" aria-labelledby="active-interviews-heading">
+    <div class="interview-section-heading">
+        <div>
+            <p class="eyebrow">Continue</p>
+            <h2 id="active-interviews-heading">Active sessions</h2>
+        </div>
+    </div>
+
+    <div class="interview-card-grid">
+        {% for interview in active_interviews %}
+            <article class="interview-card">
+                <div class="interview-card-meta">
+                    <span>{{ interview.get_focus_display }}</span>
+                    <span>{{ interview.duration_minutes }} min</span>
+                </div>
+                <h3>{{ interview.question_count }}-question session</h3>
+                <p>
+                    {{ interview.answered_count }} answered ·
+                    {{ interview.completion_percent }}% complete
+                </p>
+                <div class="interview-progress-track" aria-hidden="true">
+                    <span style="width: {{ interview.completion_percent }}%"></span>
+                </div>
+                <a class="button button-secondary" href="{% url 'interviews:session' interview.pk %}">
+                    {% if interview.status == "READY" %}Begin session{% else %}Resume session{% endif %}
+                </a>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="interview-section" aria-labelledby="recent-interviews-heading">
+    <div class="interview-section-heading">
+        <div>
+            <p class="eyebrow">History</p>
+            <h2 id="recent-interviews-heading">Recent sessions</h2>
+        </div>
+    </div>
+
+    {% if completed_interviews %}
+        <div class="interview-history-list">
+            {% for interview in completed_interviews %}
+                <a class="interview-history-row" href="{% url 'interviews:summary' interview.pk %}">
+                    <span>
+                        <strong>{{ interview.get_focus_display }}</strong>
+                        <small>{{ interview.created_at|date:"j M Y · H:i" }}</small>
+                    </span>
+                    <span>{{ interview.answered_count }}/{{ interview.question_count }} answered</span>
+                    <span class="interview-status interview-status-{{ interview.status|lower }}">
+                        {{ interview.get_status_display }}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="interview-empty-state">
+            <h3>No mock interviews yet</h3>
+            <p>Start with a 20-minute session. The aim is a useful baseline, not perfection.</p>
+            <a class="button" href="{% url 'interviews:create' %}">Create first session</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
