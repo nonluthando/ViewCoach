@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Milestones 1 and 1.1 establish the structured question library and reviewable bulk question import. Review scheduling, mastery, goals, daily planning and AI remain outside this boundary.
+Milestone 3.2 adds a deterministic daily planner on top of the structured question library, review engine and learning roadmaps. Goals, mastery analytics and AI enhancement remain outside this boundary.
 
 ## System shape
 
@@ -55,6 +55,35 @@ The base table stores fields shared by every question. Typed child tables store 
 
 The module does not own spaced repetition or mastery. A later review module will reference questions and store review events separately.
 
+### `apps.reviews`
+
+Owns deterministic spaced review:
+
+- per-user review state and due dates;
+- Again, Hard, Good and Easy scheduling;
+- immutable review-attempt history;
+- due and upcoming queues.
+
+### `apps.roadmaps`
+
+Owns structured learning paths:
+
+- built-in role, skill and practice roadmaps;
+- ordered sections and topics;
+- per-user roadmap and topic progress;
+- private topic notes and learning resources.
+
+### `apps.planner`
+
+Owns the daily focus workflow:
+
+- one study plan per user and local calendar day;
+- ordered, explainable recommendations;
+- available-time budgeting and regeneration;
+- recommendation completion and study-session tracking.
+
+The planner reads review, roadmap and question data through application services. It does not alter the scheduling rules or progress ownership of those modules. See [`adaptive-study-planner.md`](adaptive-study-planner.md).
+
 ### `apps.core`
 
 Owns application-level pages and technical endpoints that do not belong to a product domain:
@@ -90,9 +119,7 @@ SQLite is deliberately not configured as an application environment because futu
 
 Likely later modules include:
 
-- `reviews` for attempts, recall ratings and spaced repetition;
-- `study` for review sessions and interview modes;
-- `planning` for the Focus Engine;
+- `interviews` for mock-interview sessions and interview modes;
 - `goals` for lightweight interview context and deadlines;
 - `analytics` for pattern mastery and coverage;
 - `ai` for optional enhancement workflows.

@@ -1,8 +1,8 @@
 # Adaptive Interview Preparation Coach
 
-A Django application for creating structured interview material, practising it progressively and later receiving a focused study plan based on what matters now.
+A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
 
-The repository currently contains **Milestones 0, 1 and 1.1**.
+The repository currently contains **Milestones 0 through 3.2**.
 
 ## Implemented
 
@@ -38,7 +38,26 @@ The repository currently contains **Milestones 0, 1 and 1.1**.
 - imported questions marked **Needs notes**;
 - individual and bulk **Mark ready** validation.
 
-Spaced repetition, review scheduling, the Focus Engine, goals and AI are intentionally not part of these milestones.
+### Milestone 2 — Review engine
+
+- deterministic Again, Hard, Good and Easy scheduling;
+- due and upcoming review queues;
+- review history and dashboard summaries;
+- ownership validation around every review state.
+
+### Milestones 3 and 3.1 — Learning roadmaps
+
+- 12 built-in role, skill and practice roadmaps with 419 topics;
+- per-user roadmap and topic progress;
+- topic workspaces with private notes and saved learning resources.
+
+### Milestone 3.2 — Adaptive study planner
+
+- a persisted daily plan generated from available study time;
+- deterministic priority for due reviews, active roadmap work, recent weak areas and fresh practice;
+- transparent rationales and time estimates for every recommendation;
+- task completion, plan regeneration and study-session tracking;
+- dashboard integration that gives users a clear next action.
 
 ## Architecture decisions
 
@@ -49,7 +68,7 @@ Spaced repetition, review scheduling, the Focus Engine, goals and AI are intenti
 - Concrete base question plus typed child models.
 - Deterministic study logic remains separate from future AI behaviour.
 
-See [`docs/architecture/overview.md`](docs/architecture/overview.md) and [`docs/adr/`](docs/adr/).
+See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md) and [`docs/adr/`](docs/adr/).
 
 ## Local setup
 

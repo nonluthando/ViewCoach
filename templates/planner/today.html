@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Today’s Plan | ViewCoach{% endblock %}
+{% block body_class %}planner-page{% endblock %}
+
+{% block content %}
+<section class="planner-header">
+    <div>
+        <p class="eyebrow">Adaptive study planner</p>
+        <h1>Today’s plan</h1>
+        <p>A focused session assembled from what is due, what is in progress and what needs attention.</p>
+    </div>
+    <div class="planner-header-actions">
+        {% if active_session %}
+            <form method="post" action="{% url 'planner:finish_session' %}">
+                {% csrf_token %}
+                <button class="button button-secondary" type="submit">End session</button>
+            </form>
+        {% else %}
+            <form method="post" action="{% url 'planner:start_session' %}">
+                {% csrf_token %}
+                <button class="button" type="submit">Start study session</button>
+            </form>
+        {% endif %}
+    </div>
+</section>
+
+<div class="planner-layout">
+    <main class="planner-main">
+        <section class="planner-summary" aria-labelledby="planner-summary-heading">
+            <div>
+                <p class="planner-summary-number">{{ estimated_minutes }} <span>minutes</span></p>
+                <h2 id="planner-summary-heading">
+                    {% if is_complete %}Plan complete{% else %}{{ total_count }} focused task{{ total_count|pluralize }}{% endif %}
+                </h2>
+                <p>{{ completed_count }} of {{ total_count }} completed</p>
+            </div>
+            <div class="planner-progress" aria-label="{{ completed_count }} of {{ total_count }} tasks complete">
+                <span style="--planner-progress: {% widthratio completed_count total_count 100 %}%"></span>
+            </div>
+            {% if active_session %}
+                <p class="planner-session-note">
+                    Session started at <time datetime="{{ active_session.started_at|date:'c' }}">{{ active_session.started_at|date:"H:i" }}</time>.
+                </p>
+            {% endif %}
+        </section>
+
+        <ol class="planner-recommendations">
+            {% for recommendation in recommendations %}
+                <li class="planner-recommendation{% if recommendation.is_completed %} is-complete{% endif %}">
+                    <div class="planner-recommendation-marker" aria-hidden="true">{{ forloop.counter }}</div>
+                    <article>
+                        <div class="planner-recommendation-meta">
+                            <span class="planner-kind planner-kind-{{ recommendation.kind|lower }}">{{ recommendation.get_kind_display }}</span>
+                            <span>{{ recommendation.estimated_minutes }} min</span>
+                        </div>
+                        <h2>{{ recommendation.title }}</h2>
+                        <p>{{ recommendation.description }}</p>
+                        {% if recommendation.rationale %}
+                            <p class="planner-rationale"><strong>Why this:</strong> {{ recommendation.rationale }}</p>
+                        {% endif %}
+                        <div class="planner-recommendation-actions">
+                            <a class="button button-small{% if recommendation.is_completed %} button-secondary{% endif %}" href="{{ recommendation.action_url }}">
+                                {{ recommendation.action_label }}
+                            </a>
+                            <form method="post" action="{% url 'planner:toggle_recommendation' recommendation.pk %}">
+                                {% csrf_token %}
+                                <button class="planner-complete-button" type="submit">
+                                    {% if recommendation.is_completed %}Mark unfinished{% else %}Mark complete{% endif %}
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                </li>
+            {% empty %}
+                <li class="planner-empty-state">
+                    <h2>No tasks were generated</h2>
+                    <p>Rebuild the plan or add a question to your library.</p>
+                </li>
+            {% endfor %}
+        </ol>
+    </main>
+
+    <aside class="planner-sidebar">
+        <section class="planner-settings" aria-labelledby="planner-settings-heading">
+            <p class="eyebrow">Session settings</p>
+            <h2 id="planner-settings-heading">Available time</h2>
+            <form method="post" action="{% url 'planner:regenerate' %}">
+                {% csrf_token %}
+                <div class="form-field">
+                    {{ preferences_form.time_budget_minutes.label_tag }}
+                    {{ preferences_form.time_budget_minutes }}
+                </div>
+                <button class="button button-secondary button-full" type="submit">Rebuild today’s plan</button>
+            </form>
+            <p class="planner-settings-note">
+                Rebuilding uses deterministic priorities. Due reviews come first, followed by active roadmap work, weak areas and fresh practice when time allows.
+            </p>
+        </section>
+
+        <section class="planner-principles" aria-labelledby="planner-principles-heading">
+            <p class="eyebrow">How it decides</p>
+            <h2 id="planner-principles-heading">Priority order</h2>
+            <ol>
+                <li>Time-sensitive due reviews</li>
+                <li>The next unfinished roadmap topic</li>
+                <li>Recent Again or Hard reviews</li>
+                <li>A fresh practice question</li>
+            </ol>
+        </section>
+    </aside>
+</div>
+{% endblock %}
