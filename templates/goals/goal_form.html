@@ -17,10 +17,11 @@
 
     <form class="goal-form-card" method="post">
         {% csrf_token %}
+        {% if not is_editing %}<input type="hidden" name="submission_token" value="{{ submission_token }}">{% endif %}
         {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
 
         {% for field in form %}
-        <div class="form-field{% if field.name == 'is_primary' %} goal-checkbox-field{% endif %}">
+        <div class="form-field{% if field.name == 'is_primary' %} goal-checkbox-field{% elif field.name == 'roadmaps' %} goal-roadmap-field{% endif %}">
             {% if field.name == "is_primary" %}
                 <label>{{ field }} <span>{{ field.label }}</span></label>
             {% else %}

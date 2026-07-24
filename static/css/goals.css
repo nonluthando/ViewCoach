@@ -207,6 +207,25 @@
     width: auto;
 }
 
+.goal-roadmap-field > div {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.8rem;
+    border: 1px solid var(--vc-border-strong);
+    background: var(--vc-paper-strong);
+}
+
+.goal-roadmap-field > div > div label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+}
+
+.goal-roadmap-field input {
+    width: auto;
+}
+
 .goal-form-actions,
 .goal-header-actions,
 .goal-stage-actions {

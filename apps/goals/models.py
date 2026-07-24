@@ -26,11 +26,9 @@ class InterviewGoal(models.Model):
     goal_type = models.CharField(max_length=24, choices=GoalType.choices)
     role_title = models.CharField(max_length=140)
     company = models.CharField(max_length=140, blank=True)
-    roadmap = models.ForeignKey(
+    roadmaps = models.ManyToManyField(
         Roadmap,
-        on_delete=models.SET_NULL,
         related_name="interview_goals",
-        null=True,
         blank=True,
     )
     weekly_minutes = models.PositiveSmallIntegerField(default=300)
@@ -40,6 +38,7 @@ class InterviewGoal(models.Model):
         default=Status.ACTIVE,
     )
     is_primary = models.BooleanField(default=False)
+    creation_token = models.UUIDField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -50,7 +49,12 @@ class InterviewGoal(models.Model):
                 fields=["user"],
                 condition=models.Q(is_primary=True, status="ACTIVE"),
                 name="one_active_primary_interview_goal",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["user", "creation_token"],
+                condition=models.Q(creation_token__isnull=False),
+                name="unique_user_interview_goal_creation_token",
+            ),
         ]
         indexes = [
             models.Index(

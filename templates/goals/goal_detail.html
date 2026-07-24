@@ -147,7 +147,18 @@
         <section class="goal-sidebar-panel">
             <p class="eyebrow">Context</p>
             <dl class="goal-facts">
-                <div><dt>Roadmap</dt><dd>{% if goal.roadmap %}<a href="{% url 'roadmaps:detail' goal.roadmap.slug %}">{{ goal.roadmap.title }}</a>{% else %}Not linked{% endif %}</dd></div>
+                <div>
+                    <dt>Roadmaps</dt>
+                    <dd>
+                        {% if goal.roadmaps.all %}
+                            {% for roadmap in goal.roadmaps.all %}
+                                <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>{% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Not linked
+                        {% endif %}
+                    </dd>
+                </div>
                 <div><dt>Next stage</dt><dd>{% if goal.current_stage %}{{ goal.current_stage.display_name }}{% else %}Not set{% endif %}</dd></div>
                 <div><dt>Weekly time</dt><dd>{{ goal.weekly_minutes }} minutes</dd></div>
             </dl>

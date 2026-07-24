@@ -27,8 +27,7 @@ def _primary_goal(*, user):
             status=InterviewGoal.Status.ACTIVE,
             is_primary=True,
         )
-        .select_related("roadmap")
-        .prefetch_related("stages")
+        .prefetch_related("roadmaps", "stages")
         .first()
     )
 
@@ -39,10 +38,56 @@ def _active_roadmap_enrolment(*, user, goal=None):
         status=UserRoadmap.Status.IN_PROGRESS,
         roadmap__is_published=True,
     ).select_related("roadmap")
-    if goal is not None and goal.roadmap_id is not None:
-        preferred = enrolment_query.filter(roadmap_id=goal.roadmap_id).first()
-        if preferred is not None:
-            return preferred
+    if goal is not None:
+        linked_roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))
+        if linked_roadmap_ids:
+            linked_enrolments = list(
+                enrolment_query.filter(roadmap_id__in=linked_roadmap_ids)
+            )
+            if linked_enrolments:
+                in_progress_roadmap_ids = set(
+                    UserTopicProgress.objects.filter(
+                        user=user,
+                        status=UserTopicProgress.Status.IN_PROGRESS,
+                        topic__section__roadmap_id__in=linked_roadmap_ids,
+                    ).values_list("topic__section__roadmap_id", flat=True)
+                )
+                completed_counts = {
+                    roadmap_id: UserTopicProgress.objects.filter(
+                        user=user,
+                        status=UserTopicProgress.Status.COMPLETED,
+                        topic__section__roadmap_id=roadmap_id,
+                    ).count()
+                    for roadmap_id in linked_roadmap_ids
+                }
+                topic_counts = {
+                    roadmap_id: RoadmapTopic.objects.filter(
+                        section__roadmap_id=roadmap_id,
+                    ).count()
+                    for roadmap_id in linked_roadmap_ids
+                }
+                incomplete_enrolments = [
+                    enrolment
+                    for enrolment in linked_enrolments
+                    if completed_counts.get(enrolment.roadmap_id, 0)
+                    < topic_counts.get(enrolment.roadmap_id, 0)
+                ]
+                if not incomplete_enrolments:
+                    return None
+                linked_enrolments = incomplete_enrolments
+
+                far_future = date.max
+                linked_enrolments.sort(
+                    key=lambda enrolment: (
+                        0 if enrolment.roadmap_id in in_progress_roadmap_ids else 1,
+                        completed_counts.get(enrolment.roadmap_id, 0)
+                        / max(topic_counts.get(enrolment.roadmap_id, 0), 1),
+                        enrolment.target_date or far_future,
+                        enrolment.started_at or timezone.now(),
+                        enrolment.pk,
+                    )
+                )
+                return linked_enrolments[0]
 
     enrolments = list(enrolment_query)
     if not enrolments:

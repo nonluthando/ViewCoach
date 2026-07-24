@@ -6,7 +6,13 @@ from apps.interviews.models import MockInterview
 from apps.interviews.services import create_mock_interview
 from apps.planner.services import _active_roadmap_enrolment
 from apps.questions.models import Question, TechnicalQuestion
-from apps.roadmaps.models import Roadmap, UserRoadmap
+from apps.roadmaps.models import (
+    Roadmap,
+    RoadmapSection,
+    RoadmapTopic,
+    UserRoadmap,
+    UserTopicProgress,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -82,10 +88,58 @@ def test_planner_prefers_primary_goals_linked_roadmap(user, roadmap):
         title="Backend goal",
         goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
         role_title="Backend Developer",
-        roadmap=roadmap,
         is_primary=True,
     )
+    goal.roadmaps.add(roadmap)
 
     enrolment = _active_roadmap_enrolment(user=user, goal=goal)
 
     assert enrolment == preferred
+
+
+def test_planner_uses_least_covered_linked_roadmap(user, roadmap):
+    second = Roadmap.objects.create(
+        title="Python",
+        slug="python-goal-planner-test",
+        kind=Roadmap.Kind.SKILL,
+        is_system=True,
+        is_published=True,
+    )
+    section = RoadmapSection.objects.create(
+        roadmap=second,
+        title="Python Core",
+        slug="python-core",
+    )
+    RoadmapTopic.objects.create(
+        section=section,
+        title="Functions",
+        slug="functions",
+    )
+    UserRoadmap.objects.create(
+        user=user,
+        roadmap=roadmap,
+        status=UserRoadmap.Status.IN_PROGRESS,
+    )
+    second_enrolment = UserRoadmap.objects.create(
+        user=user,
+        roadmap=second,
+        status=UserRoadmap.Status.IN_PROGRESS,
+    )
+    for topic in roadmap.sections.first().topics.all()[:2]:
+        UserTopicProgress.objects.create(
+            user=user,
+            topic=topic,
+            status=UserTopicProgress.Status.COMPLETED,
+        )
+    goal = InterviewGoal.objects.create(
+        user=user,
+        title="Full-stack goal",
+        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
+        role_title="Full-Stack Developer",
+        is_primary=True,
+    )
+    goal.roadmaps.add(roadmap, second)
+
+    enrolment = _active_roadmap_enrolment(user=user, goal=goal)
+
+    assert enrolment == second_enrolment

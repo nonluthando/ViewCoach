@@ -29,6 +29,7 @@
                 </div>
                 <h3><a href="{% url 'goals:detail' goal.pk %}">{{ goal.title }}</a></h3>
                 <p>{{ goal.role_title }}{% if goal.company %} · {{ goal.company }}{% endif %}</p>
+                {% if goal.roadmaps.all %}<p>{{ goal.roadmaps.count }} roadmap{{ goal.roadmaps.count|pluralize }} linked</p>{% endif %}
             </div>
             <div class="goal-list-meta">
                 {% if goal.current_stage %}
@@ -69,6 +70,7 @@
                 <div class="goal-list-kicker"><span>{{ goal.get_status_display }}</span></div>
                 <h3><a href="{% url 'goals:detail' goal.pk %}">{{ goal.title }}</a></h3>
                 <p>{{ goal.role_title }}{% if goal.company %} · {{ goal.company }}{% endif %}</p>
+                {% if goal.roadmaps.all %}<p>{{ goal.roadmaps.count }} roadmap{{ goal.roadmaps.count|pluralize }} linked</p>{% endif %}
             </div>
             <a href="{% url 'goals:detail' goal.pk %}">View →</a>
         </article>

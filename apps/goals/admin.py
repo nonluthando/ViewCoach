@@ -20,6 +20,7 @@ class InterviewGoalAdmin(admin.ModelAdmin):
     )
     list_filter = ("goal_type", "status", "is_primary")
     search_fields = ("title", "role_title", "company", "user__email")
+    filter_horizontal = ("roadmaps",)
     inlines = [InterviewStageInline]
 
 

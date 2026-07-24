@@ -10,25 +10,33 @@ from apps.goals.services import (
     set_current_stage,
     set_goal_status,
     set_primary_goal,
-    sync_goal_roadmap,
+    sync_goal_roadmaps,
 )
 from apps.interviews.models import MockInterview, MockInterviewItem
 from apps.questions.models import Question, TechnicalQuestion
 from apps.reviews.models import ReviewState
-from apps.roadmaps.models import UserRoadmap, UserTopicProgress
+from apps.roadmaps.models import (
+    Roadmap,
+    RoadmapSection,
+    RoadmapTopic,
+    UserRoadmap,
+    UserTopicProgress,
+)
 
 pytestmark = pytest.mark.django_db
 
 
 def _goal(user, *, title="Backend goal", roadmap=None, primary=False):
-    return InterviewGoal.objects.create(
+    goal = InterviewGoal.objects.create(
         user=user,
         title=title,
         goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
         role_title="Backend Developer",
-        roadmap=roadmap,
         is_primary=primary,
     )
+    if roadmap is not None:
+        goal.roadmaps.add(roadmap)
+    return goal
 
 
 def test_setting_primary_goal_clears_previous_primary(user):
@@ -109,18 +117,72 @@ def test_sync_goal_roadmap_starts_enrolment_and_copies_deadline(user, roadmap):
         is_current=True,
     )
 
-    enrolment = sync_goal_roadmap(goal=goal)
+    enrolments = sync_goal_roadmaps(goal=goal)
 
-    assert enrolment.status == UserRoadmap.Status.IN_PROGRESS
-    assert enrolment.target_date == deadline
+    assert len(enrolments) == 1
+    assert enrolments[0].status == UserRoadmap.Status.IN_PROGRESS
+    assert enrolments[0].target_date == deadline
 
 
-def test_readiness_report_explains_roadmap_coverage(user, roadmap):
+def test_sync_goal_roadmaps_starts_every_linked_roadmap(user, roadmap):
+    second = Roadmap.objects.create(
+        title="Python",
+        slug="python-goal-service-test",
+        kind=Roadmap.Kind.SKILL,
+        is_system=True,
+        is_published=True,
+    )
+    section = RoadmapSection.objects.create(
+        roadmap=second,
+        title="Core Python",
+        slug="core-python",
+    )
+    RoadmapTopic.objects.create(
+        section=section,
+        title="Functions",
+        slug="functions",
+    )
     goal = _goal(user, roadmap=roadmap)
-    topics = list(roadmap.sections.first().topics.all())
+    goal.roadmaps.add(second)
+
+    enrolments = sync_goal_roadmaps(goal=goal)
+
+    assert {enrolment.roadmap_id for enrolment in enrolments} == {
+        roadmap.pk,
+        second.pk,
+    }
+    assert UserRoadmap.objects.filter(user=user).count() == 2
+
+
+def test_readiness_report_aggregates_linked_roadmaps(user, roadmap):
+    second = Roadmap.objects.create(
+        title="Java",
+        slug="java-goal-readiness-test",
+        kind=Roadmap.Kind.SKILL,
+        is_system=True,
+        is_published=True,
+    )
+    section = RoadmapSection.objects.create(
+        roadmap=second,
+        title="Java Core",
+        slug="java-core",
+    )
+    java_topic = RoadmapTopic.objects.create(
+        section=section,
+        title="Collections",
+        slug="collections",
+    )
+    goal = _goal(user, roadmap=roadmap)
+    goal.roadmaps.add(second)
+    backend_topics = list(roadmap.sections.first().topics.all())
     UserTopicProgress.objects.create(
         user=user,
-        topic=topics[0],
+        topic=backend_topics[0],
+        status=UserTopicProgress.Status.COMPLETED,
+    )
+    UserTopicProgress.objects.create(
+        user=user,
+        topic=java_topic,
         status=UserTopicProgress.Status.COMPLETED,
     )
     deadline = timezone.localdate() + timedelta(days=14)
@@ -133,7 +195,8 @@ def test_readiness_report_explains_roadmap_coverage(user, roadmap):
 
     report = readiness_report(goal=goal)
 
-    assert report["components"]["roadmap"]["score"] == 33
+    assert report["components"]["roadmap"]["score"] == 50
+    assert report["components"]["roadmap"]["roadmap_count"] == 2
     assert report["topics_remaining"] == 2
     assert report["topics_per_week"] == 1
     assert report["days_remaining"] == 14

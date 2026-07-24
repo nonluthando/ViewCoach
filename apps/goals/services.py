@@ -10,7 +10,7 @@ from apps.interviews.models import MockInterview, MockInterviewItem
 from apps.planner.models import StudySession
 from apps.questions.models import Question
 from apps.reviews.models import ReviewState
-from apps.roadmaps.models import RoadmapTopic, UserRoadmap, UserTopicProgress
+from apps.roadmaps.models import Roadmap, RoadmapTopic, UserRoadmap, UserTopicProgress
 
 from .models import InterviewGoal, InterviewStage
 
@@ -32,8 +32,7 @@ def primary_goal_for_user(*, user):
             status=InterviewGoal.Status.ACTIVE,
             is_primary=True,
         )
-        .select_related("roadmap")
-        .prefetch_related("stages")
+        .prefetch_related("roadmaps", "stages")
         .first()
     )
 
@@ -42,7 +41,7 @@ def active_goals_for_user(*, user):
     return InterviewGoal.objects.filter(
         user=user,
         status=InterviewGoal.Status.ACTIVE,
-    ).select_related("roadmap")
+    ).prefetch_related("roadmaps")
 
 
 @transaction.atomic
@@ -95,6 +94,7 @@ def set_goal_status(*, goal, status):
         )
         if replacement is not None:
             set_primary_goal(goal=replacement)
+    sync_goal_roadmaps(goal=goal)
     return goal
 
 
@@ -109,7 +109,7 @@ def set_current_stage(*, stage):
     if not stage.is_current:
         stage.is_current = True
         stage.save(update_fields=["is_current", "updated_at"])
-    sync_goal_roadmap(goal=stage.goal)
+    sync_goal_roadmaps(goal=stage.goal)
     return stage
 
 
@@ -127,16 +127,14 @@ def complete_stage(*, stage, now=None):
     ).first()
     if next_stage is not None:
         set_current_stage(stage=next_stage)
-    sync_goal_roadmap(goal=stage.goal)
+    sync_goal_roadmaps(goal=stage.goal)
     return stage
 
 
-def sync_goal_roadmap(*, goal):
-    if goal.roadmap_id is None:
-        return None
+def _sync_enrolment_for_roadmap(*, user, roadmap):
     enrolment, _ = UserRoadmap.objects.get_or_create(
-        user=goal.user,
-        roadmap=goal.roadmap,
+        user=user,
+        roadmap=roadmap,
         defaults={
             "status": UserRoadmap.Status.IN_PROGRESS,
             "started_at": timezone.now(),
@@ -147,7 +145,20 @@ def sync_goal_roadmap(*, goal):
         enrolment.status = UserRoadmap.Status.IN_PROGRESS
         enrolment.started_at = enrolment.started_at or timezone.now()
         update_fields.extend(["status", "started_at"])
-    deadline = goal.next_deadline
+
+    linked_goals = list(
+        InterviewGoal.objects.filter(
+            user=user,
+            status=InterviewGoal.Status.ACTIVE,
+            roadmaps=roadmap,
+        ).prefetch_related("stages")
+    )
+    deadlines = [
+        linked_goal.next_deadline
+        for linked_goal in linked_goals
+        if linked_goal.next_deadline is not None
+    ]
+    deadline = min(deadlines) if deadlines else None
     if enrolment.target_date != deadline:
         enrolment.target_date = deadline
         update_fields.append("target_date")
@@ -155,6 +166,27 @@ def sync_goal_roadmap(*, goal):
         update_fields.append("updated_at")
         enrolment.save(update_fields=update_fields)
     return enrolment
+
+
+def sync_user_roadmaps(*, user, roadmap_ids):
+    return [
+        _sync_enrolment_for_roadmap(user=user, roadmap=roadmap)
+        for roadmap in Roadmap.objects.filter(
+            pk__in=roadmap_ids,
+            is_published=True,
+        )
+    ]
+
+
+def sync_goal_roadmaps(*, goal):
+    roadmap_ids = goal.roadmaps.values_list("pk", flat=True)
+    return sync_user_roadmaps(user=goal.user, roadmap_ids=roadmap_ids)
+
+
+def sync_goal_roadmap(*, goal):
+    """Backward-compatible wrapper for callers written before multi-roadmap goals."""
+    enrolments = sync_goal_roadmaps(goal=goal)
+    return enrolments[0] if enrolments else None
 
 
 def recommended_mock_focus(*, goal):
@@ -170,27 +202,37 @@ def recommended_mock_focus(*, goal):
 
 
 def _roadmap_component(*, goal):
-    if goal.roadmap_id is None:
+    roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))
+    roadmap_count = len(roadmap_ids)
+    if not roadmap_ids:
         return {
             "score": 0,
             "label": "Roadmap coverage",
-            "summary": "Link a roadmap to measure curriculum coverage.",
+            "summary": "Link one or more roadmaps to measure curriculum coverage.",
             "complete": 0,
             "total": 0,
+            "roadmap_count": 0,
         }
-    total = RoadmapTopic.objects.filter(section__roadmap=goal.roadmap).count()
+    total = RoadmapTopic.objects.filter(
+        section__roadmap_id__in=roadmap_ids,
+    ).count()
     complete = UserTopicProgress.objects.filter(
         user=goal.user,
-        topic__section__roadmap=goal.roadmap,
+        topic__section__roadmap_id__in=roadmap_ids,
         status=UserTopicProgress.Status.COMPLETED,
     ).count()
     score = round((complete / total) * 100) if total else 0
+    roadmap_label = "roadmap" if roadmap_count == 1 else "roadmaps"
     return {
         "score": score,
         "label": "Roadmap coverage",
-        "summary": f"{complete} of {total} linked-roadmap topics are complete.",
+        "summary": (
+            f"{complete} of {total} topics across {roadmap_count} linked "
+            f"{roadmap_label} are complete."
+        ),
         "complete": complete,
         "total": total,
+        "roadmap_count": roadmap_count,
     }
 
 
