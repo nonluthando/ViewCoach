@@ -1,0 +1,302 @@
+.planner-page .app-main {
+    max-width: 92rem;
+}
+
+.planner-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--vc-border);
+}
+
+.planner-header h1 {
+    margin: 0.25rem 0 0.5rem;
+    font-size: clamp(2.6rem, 5vw, 4.6rem);
+    line-height: 0.98;
+}
+
+.planner-header p:last-child {
+    max-width: 48rem;
+    margin-bottom: 0;
+    color: var(--vc-muted);
+    font-size: 1.05rem;
+}
+
+.planner-header-actions form {
+    margin: 0;
+}
+
+.planner-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: 3rem;
+    padding-top: 2.5rem;
+}
+
+.planner-main {
+    min-width: 0;
+}
+
+.planner-summary {
+    padding: 2rem;
+    background: var(--vc-paper-strong);
+    border: 1px solid var(--vc-border);
+}
+
+.planner-summary-number {
+    margin: 0;
+    color: var(--vc-burgundy);
+    font-family: var(--vc-font-serif);
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    line-height: 1;
+}
+
+.planner-summary-number span {
+    color: var(--vc-muted);
+    font-family: var(--vc-font-sans);
+    font-size: 1rem;
+}
+
+.planner-summary h2 {
+    margin: 0.65rem 0 0.25rem;
+    font-size: 1.5rem;
+}
+
+.planner-summary p:not(.planner-summary-number) {
+    margin: 0;
+    color: var(--vc-muted);
+}
+
+.planner-progress {
+    height: 0.5rem;
+    margin-top: 1.4rem;
+    overflow: hidden;
+    background: #ece6dd;
+    border-radius: 999px;
+}
+
+.planner-progress span {
+    display: block;
+    width: var(--planner-progress);
+    height: 100%;
+    background: var(--vc-burgundy);
+    transition: width 180ms ease;
+}
+
+.planner-session-note {
+    margin-top: 1rem !important;
+    padding-top: 1rem;
+    border-top: 1px solid var(--vc-border);
+}
+
+.planner-recommendations {
+    display: grid;
+    gap: 0;
+    margin: 2rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.planner-recommendation {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--vc-border);
+}
+
+.planner-recommendation:first-child {
+    border-top: 1px solid var(--vc-border);
+}
+
+.planner-recommendation-marker {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--vc-burgundy);
+    background: var(--vc-burgundy-soft);
+    border-radius: 50%;
+    font-weight: 700;
+}
+
+.planner-recommendation.is-complete {
+    opacity: 0.65;
+}
+
+.planner-recommendation.is-complete .planner-recommendation-marker {
+    color: var(--vc-success);
+    background: var(--vc-success-soft);
+}
+
+.planner-recommendation.is-complete h2 {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+}
+
+.planner-recommendation-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--vc-muted);
+    font-size: 0.85rem;
+}
+
+.planner-kind {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.planner-kind-review,
+.planner-kind-weak_area {
+    color: var(--vc-burgundy);
+}
+
+.planner-kind-roadmap {
+    color: var(--vc-success);
+}
+
+.planner-recommendation h2 {
+    margin: 0.55rem 0 0.6rem;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.planner-recommendation p {
+    max-width: 50rem;
+    margin: 0;
+    color: var(--vc-muted);
+}
+
+.planner-rationale {
+    margin-top: 0.85rem !important;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--vc-border-strong);
+    font-size: 0.92rem;
+}
+
+.planner-recommendation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.planner-recommendation-actions form {
+    margin: 0;
+}
+
+.planner-complete-button {
+    padding: 0;
+    color: var(--vc-burgundy);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.2rem;
+}
+
+.planner-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 1.5rem;
+}
+
+.planner-settings,
+.planner-principles {
+    padding: 1.5rem;
+    background: var(--vc-paper);
+    border: 1px solid var(--vc-border);
+}
+
+.planner-settings h2,
+.planner-principles h2 {
+    margin: 0.25rem 0 1.25rem;
+    font-size: 1.35rem;
+}
+
+.planner-settings form {
+    display: grid;
+    gap: 1rem;
+}
+
+.planner-settings select {
+    width: 100%;
+}
+
+.button-full {
+    width: 100%;
+}
+
+.planner-settings-note {
+    margin: 1.25rem 0 0;
+    padding-top: 1.25rem;
+    color: var(--vc-muted);
+    border-top: 1px solid var(--vc-border);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.planner-principles ol {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--vc-muted);
+}
+
+.planner-empty-state {
+    padding: 2rem;
+    background: var(--vc-paper);
+    border: 1px solid var(--vc-border);
+}
+
+@media (max-width: 900px) {
+    .planner-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .planner-sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .planner-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .planner-header-actions .button,
+    .planner-header-actions form {
+        width: 100%;
+    }
+
+    .planner-layout {
+        gap: 2rem;
+        padding-top: 1.5rem;
+    }
+
+    .planner-summary {
+        padding: 1.35rem;
+    }
+
+    .planner-recommendation {
+        grid-template-columns: 2rem minmax(0, 1fr);
+        gap: 0.85rem;
+    }
+
+    .planner-recommendation-marker {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .planner-sidebar {
+        grid-template-columns: 1fr;
+    }
+}

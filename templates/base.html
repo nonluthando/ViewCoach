@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
     <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
     <link rel="stylesheet" href="{% static 'css/roadmaps.css' %}">
+    <link rel="stylesheet" href="{% static 'css/planner.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
@@ -23,6 +24,13 @@
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
                     </span>
                     <span>Dashboard</span>
+                </a>
+                <a class="app-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
+                   href="{% url 'planner:today' %}">
+                    <span class="app-nav-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+                    </span>
+                    <span>Today’s plan</span>
                 </a>
                 <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
                    href="{% url 'reviews:queue' %}">
@@ -120,10 +128,10 @@
                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
                 <span>Bank</span>
             </a>
-            <a class="mobile-nav-link {% if request.resolver_match.url_name == 'import_history' %}is-active{% endif %}"
-               href="{% url 'questions:import_history' %}">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 19h16"></path></svg>
-                <span>Imports</span>
+            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
+               href="{% url 'planner:today' %}">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+                <span>Plan</span>
             </a>
         </nav>
     </div>

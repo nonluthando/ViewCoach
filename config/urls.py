@@ -8,4 +8,5 @@ urlpatterns = [
     path("questions/", include("apps.questions.urls")),
     path("reviews/", include("apps.reviews.urls")),
     path("roadmaps/", include("apps.roadmaps.urls")),
+    path("plan/", include("apps.planner.urls")),
 ]

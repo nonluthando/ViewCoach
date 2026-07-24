@@ -3,6 +3,7 @@ from django.db import OperationalError, connection
 from django.http import JsonResponse
 from django.shortcuts import render
 
+from apps.planner.services import generate_daily_plan, plan_summary
 from apps.questions.models import Question
 from apps.reviews.services import review_dashboard_summary
 
@@ -16,6 +17,8 @@ def dashboard(request):
     questions = Question.objects.filter(owner=request.user)
     review_summary = review_dashboard_summary(user=request.user)
 
+    today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
+
     return render(
         request,
         "core/dashboard.html",
@@ -27,6 +30,7 @@ def dashboard(request):
             "due_review_count": review_summary["due_count"],
             "reviewed_today_count": review_summary["reviewed_today_count"],
             "next_review_state": review_summary["next_state"],
+            "today_plan": today_plan,
             "recent_questions": questions.select_related(
                 "technicalquestion",
                 "conceptquestion",

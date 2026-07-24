@@ -17,33 +17,23 @@
     <div class="dashboard-primary-column">
         <section class="dashboard-priority" aria-labelledby="today-work-heading">
             <div class="dashboard-section-label">
-                <span class="dashboard-status-dot{% if not due_review_count %} is-clear{% endif %}" aria-hidden="true"></span>
-                <span>Today’s work</span>
+                <span class="dashboard-status-dot{% if today_plan.is_complete %} is-clear{% endif %}" aria-hidden="true"></span>
+                <span>Today’s plan</span>
             </div>
 
-            {% if due_review_count and next_review_state %}
-                <p class="dashboard-priority-number">{{ due_review_count }} <span>review{{ due_review_count|pluralize }} due</span></p>
-                <h2 id="today-work-heading">Begin with {{ next_review_state.question.title }}</h2>
-                <p class="dashboard-priority-copy">{{ next_review_state.question.prompt|truncatewords:30 }}</p>
-                <div class="dashboard-priority-actions">
-                    <a class="button" href="{% url 'reviews:review' next_review_state.question_id %}">Start review session</a>
-                    <a class="dashboard-text-link" href="{% url 'reviews:queue' %}">Open full queue</a>
-                </div>
-            {% elif ready_question_count %}
-                <p class="dashboard-priority-number">0 <span>reviews due</span></p>
-                <h2 id="today-work-heading">Your queue is clear</h2>
-                <p class="dashboard-priority-copy">Your ready questions are scheduled. View the queue to see what is coming next.</p>
-                <div class="dashboard-priority-actions">
-                    <a class="button button-secondary" href="{% url 'reviews:queue' %}">View review schedule</a>
-                </div>
+            {% if today_plan.is_complete %}
+                <p class="dashboard-priority-number">{{ today_plan.completed_count }} <span>tasks complete</span></p>
+                <h2 id="today-work-heading">You finished today’s plan</h2>
+                <p class="dashboard-priority-copy">The plan will reset tomorrow, or you can rebuild it around a different time budget.</p>
             {% else %}
-                <p class="dashboard-priority-number">0 <span>questions ready</span></p>
-                <h2 id="today-work-heading">Prepare your first review</h2>
-                <p class="dashboard-priority-copy">Complete the notes on one of your questions, then mark it ready to begin spaced review.</p>
-                <div class="dashboard-priority-actions">
-                    <a class="button button-secondary" href="{% url 'questions:list' %}?source=mine">Open my library</a>
-                </div>
+                <p class="dashboard-priority-number">{{ today_plan.estimated_minutes }} <span>minutes planned</span></p>
+                <h2 id="today-work-heading">{{ today_plan.recommendations.0.title }}</h2>
+                <p class="dashboard-priority-copy">{{ today_plan.recommendations.0.description }}</p>
             {% endif %}
+            <div class="dashboard-priority-actions">
+                <a class="button" href="{% url 'planner:today' %}">{% if today_plan.is_complete %}Review today’s plan{% else %}Open today’s plan{% endif %}</a>
+                {% if due_review_count %}<a class="dashboard-text-link" href="{% url 'reviews:queue' %}">{{ due_review_count }} review{{ due_review_count|pluralize }} due</a>{% endif %}
+            </div>
         </section>
 
         <section class="dashboard-recent" aria-labelledby="recent-questions-heading">
@@ -92,16 +82,16 @@
 
         <dl class="dashboard-facts">
             <div>
+                <dt>Planned tasks</dt>
+                <dd>{{ today_plan.total_count }}</dd>
+            </div>
+            <div>
+                <dt>Completed</dt>
+                <dd>{{ today_plan.completed_count }}</dd>
+            </div>
+            <div>
                 <dt>Due now</dt>
                 <dd>{{ due_review_count }}</dd>
-            </div>
-            <div>
-                <dt>Reviewed today</dt>
-                <dd>{{ reviewed_today_count }}</dd>
-            </div>
-            <div>
-                <dt>Ready for review</dt>
-                <dd>{{ ready_question_count }}</dd>
             </div>
             <div>
                 <dt>In my library</dt>
@@ -110,6 +100,7 @@
         </dl>
 
         <div class="dashboard-brief-links">
+            <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
             <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
             <a href="{% url 'questions:import_start' %}">Import questions <span aria-hidden="true">→</span></a>
