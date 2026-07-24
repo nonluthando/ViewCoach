@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "apps.roadmaps.apps.RoadmapsConfig",
     "apps.planner.apps.PlannerConfig",
     "apps.interviews.apps.InterviewsConfig",
+    "apps.goals.apps.GoalsConfig",
 ]
 
 MIDDLEWARE = [

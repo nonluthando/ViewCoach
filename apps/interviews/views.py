@@ -18,7 +18,7 @@ from .services import (
 
 
 def _owned_interviews(user):
-    return MockInterview.objects.filter(user=user)
+    return MockInterview.objects.filter(user=user).select_related("goal")
 
 
 def _owned_interview(user, interview_id):
@@ -60,13 +60,14 @@ def interview_list(request):
 @login_required
 def interview_create(request):
     if request.method == "POST":
-        form = MockInterviewCreateForm(request.POST)
+        form = MockInterviewCreateForm(request.POST, user=request.user)
         if form.is_valid():
             try:
                 interview = create_mock_interview(
                     user=request.user,
                     focus=form.cleaned_data["focus"],
                     duration_minutes=form.cleaned_data["duration_minutes"],
+                    goal=form.cleaned_data["goal"],
                 )
             except NoInterviewQuestionsError as exc:
                 form.add_error(None, str(exc))
@@ -80,7 +81,7 @@ def interview_create(request):
                 )
                 return redirect("interviews:session", interview_id=interview.pk)
     else:
-        form = MockInterviewCreateForm()
+        form = MockInterviewCreateForm(user=request.user)
 
     return render(
         request,

@@ -3,6 +3,7 @@ from django.db import OperationalError, connection
 from django.http import JsonResponse
 from django.shortcuts import render
 
+from apps.goals.services import primary_goal_for_user, readiness_report
 from apps.planner.services import generate_daily_plan, plan_summary
 from apps.questions.models import Question
 from apps.reviews.services import review_dashboard_summary
@@ -18,6 +19,8 @@ def dashboard(request):
     review_summary = review_dashboard_summary(user=request.user)
 
     today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
+    primary_goal = primary_goal_for_user(user=request.user)
+    readiness = readiness_report(goal=primary_goal) if primary_goal else None
 
     return render(
         request,
@@ -31,6 +34,8 @@ def dashboard(request):
             "reviewed_today_count": review_summary["reviewed_today_count"],
             "next_review_state": review_summary["next_state"],
             "today_plan": today_plan,
+            "primary_goal": primary_goal,
+            "readiness": readiness,
             "recent_questions": questions.select_related(
                 "technicalquestion",
                 "conceptquestion",

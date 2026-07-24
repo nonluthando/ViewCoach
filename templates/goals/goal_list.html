@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Interview goals | ViewCoach{% endblock %}
+{% block body_class %}goals-page{% endblock %}
+
+{% block content %}
+<section class="goals-header">
+    <div>
+        <p class="eyebrow">Interview goals</p>
+        <h1>Give preparation a clear target.</h1>
+        <p>Keep several goals, choose one primary focus and let the planner use that context.</p>
+    </div>
+    <a class="button" href="{% url 'goals:create' %}">Create goal</a>
+</section>
+
+{% if active_goals %}
+<section class="goals-section" aria-labelledby="active-goals-heading">
+    <div class="goals-section-heading">
+        <h2 id="active-goals-heading">Active</h2>
+        <span>{{ active_goals|length }} goal{{ active_goals|length|pluralize }}</span>
+    </div>
+    <div class="goal-list">
+        {% for goal in active_goals %}
+        <article class="goal-list-item{% if goal.is_primary %} is-primary{% endif %}">
+            <div>
+                <div class="goal-list-kicker">
+                    {% if goal.is_primary %}<span>Primary</span>{% endif %}
+                    <span>{{ goal.get_goal_type_display }}</span>
+                </div>
+                <h3><a href="{% url 'goals:detail' goal.pk %}">{{ goal.title }}</a></h3>
+                <p>{{ goal.role_title }}{% if goal.company %} · {{ goal.company }}{% endif %}</p>
+                {% if goal.roadmaps.all %}<p>{{ goal.roadmaps.count }} roadmap{{ goal.roadmaps.count|pluralize }} linked</p>{% endif %}
+            </div>
+            <div class="goal-list-meta">
+                {% if goal.current_stage %}
+                    <strong>{{ goal.current_stage.display_name }}</strong>
+                    {% if goal.current_stage.scheduled_for %}
+                        <span>{{ goal.current_stage.scheduled_for|date:"j M Y" }}</span>
+                    {% else %}
+                        <span>Date not set</span>
+                    {% endif %}
+                {% else %}
+                    <strong>No stage yet</strong>
+                    <span>Add the next OA or interview</span>
+                {% endif %}
+                <a href="{% url 'goals:detail' goal.pk %}">Open goal →</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% else %}
+<section class="goal-empty-state">
+    <p class="eyebrow">No active goal</p>
+    <h2>Start with the role you are preparing for.</h2>
+    <p>A goal adds context to readiness, the daily plan and mock-interview selection.</p>
+    <a class="button" href="{% url 'goals:create' %}">Create your first goal</a>
+</section>
+{% endif %}
+
+{% if inactive_goals %}
+<section class="goals-section goals-section-muted" aria-labelledby="inactive-goals-heading">
+    <div class="goals-section-heading">
+        <h2 id="inactive-goals-heading">Past and paused</h2>
+    </div>
+    <div class="goal-list">
+        {% for goal in inactive_goals %}
+        <article class="goal-list-item">
+            <div>
+                <div class="goal-list-kicker"><span>{{ goal.get_status_display }}</span></div>
+                <h3><a href="{% url 'goals:detail' goal.pk %}">{{ goal.title }}</a></h3>
+                <p>{{ goal.role_title }}{% if goal.company %} · {{ goal.company }}{% endif %}</p>
+                {% if goal.roadmaps.all %}<p>{{ goal.roadmaps.count }} roadmap{{ goal.roadmaps.count|pluralize }} linked</p>{% endif %}
+            </div>
+            <a href="{% url 'goals:detail' goal.pk %}">View →</a>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

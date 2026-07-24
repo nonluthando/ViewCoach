@@ -25,6 +25,13 @@ class MockInterview(models.Model):
         on_delete=models.CASCADE,
         related_name="mock_interviews",
     )
+    goal = models.ForeignKey(
+        "goals.InterviewGoal",
+        on_delete=models.SET_NULL,
+        related_name="mock_interviews",
+        null=True,
+        blank=True,
+    )
     focus = models.CharField(
         max_length=20,
         choices=Focus.choices,
