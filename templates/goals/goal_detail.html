@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}{{ goal.title }} | ViewCoach{% endblock %}
+{% block body_class %}goal-detail-page{% endblock %}
+
+{% block content %}
+<nav class="goal-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'goals:list' %}">Interview goals</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ goal.title }}</span>
+</nav>
+
+<section class="goal-detail-header">
+    <div>
+        <div class="goal-detail-kicker">
+            {% if goal.is_primary %}<span class="goal-primary-badge">Primary goal</span>{% endif %}
+            <span>{{ goal.get_status_display }}</span>
+            <span>{{ goal.get_goal_type_display }}</span>
+        </div>
+        <h1>{{ goal.title }}</h1>
+        <p>{{ goal.role_title }}{% if goal.company %} at {{ goal.company }}{% endif %}</p>
+    </div>
+    <div class="goal-header-actions">
+        <a class="button button-secondary" href="{% url 'goals:edit' goal.pk %}">Edit goal</a>
+        {% if not goal.is_primary and goal.status == 'ACTIVE' %}
+        <form method="post" action="{% url 'goals:set_primary' goal.pk %}">
+            {% csrf_token %}
+            <button class="button" type="submit">Make primary</button>
+        </form>
+        {% endif %}
+    </div>
+</section>
+
+<div class="goal-detail-layout">
+    <main class="goal-detail-main">
+        <section class="readiness-hero" aria-labelledby="readiness-heading">
+            <div class="readiness-score-block">
+                <span class="readiness-score">{{ report.score }}%</span>
+                <div>
+                    <p class="eyebrow">Readiness</p>
+                    <h2 id="readiness-heading">{{ report.label }}</h2>
+                </div>
+            </div>
+            {% if report.days_remaining is not None %}
+            <div class="readiness-countdown">
+                <strong>{{ report.days_remaining }}</strong>
+                <span>day{{ report.days_remaining|pluralize }} to {{ goal.current_stage.display_name }}</span>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="readiness-components" aria-labelledby="components-heading">
+            <div class="goal-section-heading">
+                <div>
+                    <p class="eyebrow">Explainable score</p>
+                    <h2 id="components-heading">What is shaping readiness</h2>
+                </div>
+            </div>
+            {% for key, component in report.components.items %}
+            <article class="readiness-component">
+                <div class="readiness-component-heading">
+                    <h3>{{ component.label }}</h3>
+                    <strong>{{ component.score }}%</strong>
+                </div>
+                <div class="readiness-track" aria-hidden="true"><span style="width: {{ component.score }}%"></span></div>
+                <p>{{ component.summary }}</p>
+            </article>
+            {% endfor %}
+        </section>
+
+        <section class="goal-stages" aria-labelledby="stages-heading">
+            <div class="goal-section-heading">
+                <div>
+                    <p class="eyebrow">Opportunity timeline</p>
+                    <h2 id="stages-heading">OA and interview stages</h2>
+                </div>
+            </div>
+
+            {% if goal.stages.all %}
+            <ol class="goal-stage-list">
+                {% for stage in goal.stages.all %}
+                <li class="goal-stage-item{% if stage.is_current %} is-current{% endif %}{% if stage.completed_at %} is-complete{% endif %}">
+                    <div class="goal-stage-marker" aria-hidden="true"></div>
+                    <div class="goal-stage-copy">
+                        <div>
+                            <strong>{{ stage.display_name }}</strong>
+                            {% if stage.is_current %}<span>Next</span>{% endif %}
+                            {% if stage.completed_at %}<span>Completed</span>{% endif %}
+                        </div>
+                        <p>{% if stage.scheduled_for %}{{ stage.scheduled_for|date:"l, j F Y" }}{% else %}Date not set{% endif %}</p>
+                    </div>
+                    {% if not stage.completed_at %}
+                    <div class="goal-stage-actions">
+                        {% if not stage.is_current %}
+                        <form method="post" action="{% url 'goals:stage_set_current' goal.pk stage.pk %}">
+                            {% csrf_token %}<button type="submit">Make next</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{% url 'goals:stage_complete' goal.pk stage.pk %}">
+                            {% csrf_token %}<button type="submit">Mark complete</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <div class="goal-inline-empty">
+                <strong>No stages yet</strong>
+                <p>Add the next OA or interview date. ViewCoach does not track applications.</p>
+            </div>
+            {% endif %}
+
+            <details class="goal-stage-form-panel">
+                <summary>Add interview stage</summary>
+                <form method="post" action="{% url 'goals:stage_add' goal.pk %}">
+                    {% csrf_token %}
+                    {% for field in stage_form %}
+                    <div class="form-field{% if field.name == 'is_current' %} goal-checkbox-field{% endif %}">
+                        {% if field.name == "is_current" %}
+                            <label>{{ field }} <span>{{ field.label }}</span></label>
+                        {% else %}
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+                        {% endif %}
+                        {{ field.errors }}
+                    </div>
+                    {% endfor %}
+                    <button class="button" type="submit">Add stage</button>
+                </form>
+            </details>
+        </section>
+    </main>
+
+    <aside class="goal-detail-sidebar">
+        <section class="goal-sidebar-panel">
+            <p class="eyebrow">Preparation pace</p>
+            <h2>{{ goal.weekly_hours }} hours per week</h2>
+            {% if report.topics_per_week %}
+                <p>Complete about <strong>{{ report.topics_per_week }} roadmap topics each week</strong> to cover the remaining {{ report.topics_remaining }} before the next stage.</p>
+            {% elif report.topics_remaining %}
+                <p>{{ report.topics_remaining }} linked-roadmap topics remain. Add a stage date to calculate a weekly pace.</p>
+            {% else %}
+                <p>The linked roadmap is complete, or no roadmap has been selected.</p>
+            {% endif %}
+        </section>
+
+        <section class="goal-sidebar-panel">
+            <p class="eyebrow">Context</p>
+            <dl class="goal-facts">
+                <div><dt>Roadmap</dt><dd>{% if goal.roadmap %}<a href="{% url 'roadmaps:detail' goal.roadmap.slug %}">{{ goal.roadmap.title }}</a>{% else %}Not linked{% endif %}</dd></div>
+                <div><dt>Next stage</dt><dd>{% if goal.current_stage %}{{ goal.current_stage.display_name }}{% else %}Not set{% endif %}</dd></div>
+                <div><dt>Weekly time</dt><dd>{{ goal.weekly_minutes }} minutes</dd></div>
+            </dl>
+            <a class="button button-secondary" href="{% url 'interviews:create' %}">Start goal-aware mock</a>
+        </section>
+
+        <section class="goal-sidebar-panel goal-status-panel">
+            <p class="eyebrow">Goal status</p>
+            <form method="post" action="{% url 'goals:update_status' goal.pk %}">
+                {% csrf_token %}
+                <select name="status" aria-label="Goal status">
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if goal.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Update status</button>
+            </form>
+        </section>
+    </aside>
+</div>
+{% endblock %}

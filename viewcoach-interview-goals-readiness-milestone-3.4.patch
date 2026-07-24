@@ -2652,8 +2652,8 @@ index a18fc5d..ab9de04 100644
          <div class="dashboard-brief-links">
              <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
 +            <a href="{% url 'goals:list' %}">Interview goals <span aria-hidden="true">→</span></a>
-             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
              <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
+             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
              <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
 diff --git a/templates/goals/goal_detail.html b/templates/goals/goal_detail.html
 new file mode 100644

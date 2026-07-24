@@ -77,7 +77,7 @@ def _accessible_questions(*, user, focus):
     return list(questions.order_by("pk"))
 
 
-def _question_priority_scores(*, user, questions, now):
+def _question_priority_scores(*, user, questions, now, goal=None):
     question_ids = [question.pk for question in questions]
     scores = {question_id: 10 for question_id in question_ids}
 
@@ -125,6 +125,17 @@ def _question_priority_scores(*, user, questions, now):
     for question in questions:
         if question.pk not in latest_rating_by_question:
             scores[question.pk] += 8
+
+    if goal is not None:
+        keywords = {
+            word.lower()
+            for word in goal.role_title.replace("/", " ").replace("-", " ").split()
+            if len(word) >= 4
+        }
+        for question in questions:
+            searchable = f"{question.title} {question.prompt}".lower()
+            if any(keyword in searchable for keyword in keywords):
+                scores[question.pk] += 12
 
     return scores
 
@@ -265,10 +276,13 @@ def _guidance_snapshot(question):
     )
 
 
-def create_mock_interview(*, user, focus, duration_minutes, now=None):
+def create_mock_interview(*, user, focus, duration_minutes, goal=None, now=None):
     valid_focuses = {value for value, _ in MockInterview.Focus.choices}
     if focus not in valid_focuses:
         raise ValueError("Choose a valid interview focus.")
+
+    if goal is not None and (goal.user_id != user.pk or goal.status != goal.Status.ACTIVE):
+        raise ValueError("Choose one of your active interview goals.")
 
     target_count = question_count_for_duration(duration_minutes)
     current_time = now or timezone.now()
@@ -282,6 +296,7 @@ def create_mock_interview(*, user, focus, duration_minutes, now=None):
         user=user,
         questions=candidates,
         now=current_time,
+        goal=goal,
     )
 
     if focus == MockInterview.Focus.MIXED:
@@ -302,6 +317,7 @@ def create_mock_interview(*, user, focus, duration_minutes, now=None):
             focus=focus,
             duration_minutes=duration_minutes,
             question_count=len(selected),
+            goal=goal,
         )
         MockInterviewItem.objects.bulk_create(
             [

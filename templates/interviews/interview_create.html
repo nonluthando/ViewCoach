@@ -28,6 +28,13 @@
         {% endif %}
 
         <div class="form-field">
+            <label for="{{ form.goal.id_for_label }}">{{ form.goal.label }}</label>
+            {{ form.goal }}
+            {% if form.goal.help_text %}<p class="help-text">{{ form.goal.help_text }}</p>{% endif %}
+            {{ form.goal.errors }}
+        </div>
+
+        <div class="form-field">
             <label for="{{ form.focus.id_for_label }}">{{ form.focus.label }}</label>
             {{ form.focus }}
             {% if form.focus.help_text %}<p class="help-text">{{ form.focus.help_text }}</p>{% endif %}

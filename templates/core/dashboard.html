@@ -36,6 +36,35 @@
             </div>
         </section>
 
+        <section class="goal-dashboard-card" aria-labelledby="goal-dashboard-heading">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="eyebrow">Primary goal</p>
+                    {% if primary_goal %}
+                        <h2 id="goal-dashboard-heading">{{ primary_goal.title }}</h2>
+                    {% else %}
+                        <h2 id="goal-dashboard-heading">Give the plan a target</h2>
+                    {% endif %}
+                </div>
+                <a href="{% url 'goals:list' %}">{% if primary_goal %}All goals{% else %}Create goal{% endif %}</a>
+            </div>
+            {% if primary_goal %}
+                <div class="goal-dashboard-score">
+                    <strong>{{ readiness.score }}%</strong>
+                    <span>{{ readiness.label }}</span>
+                </div>
+                <p>{{ readiness.needs_attention.0.summary|default:"Keep working through today’s focused plan." }}</p>
+                <div class="goal-dashboard-meta">
+                    <span>{{ primary_goal.role_title }}</span>
+                    {% if readiness.days_remaining is not None %}<span>{{ readiness.days_remaining }} days remaining</span>{% endif %}
+                    <a href="{% url 'goals:detail' primary_goal.pk %}">Open readiness breakdown →</a>
+                </div>
+            {% else %}
+                <p>Set a role, roadmap and interview stage so ViewCoach can explain what matters next.</p>
+                <a class="button button-secondary" href="{% url 'goals:create' %}">Create interview goal</a>
+            {% endif %}
+        </section>
+
         <section class="dashboard-recent" aria-labelledby="recent-questions-heading">
             <div class="dashboard-section-heading">
                 <div>
@@ -101,6 +130,7 @@
 
         <div class="dashboard-brief-links">
             <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
+            <a href="{% url 'goals:list' %}">Interview goals <span aria-hidden="true">→</span></a>
             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
             <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>

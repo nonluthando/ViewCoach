@@ -45,6 +45,7 @@
             <article class="interview-card">
                 <div class="interview-card-meta">
                     <span>{{ interview.get_focus_display }}</span>
+                    {% if interview.goal %}<span>{{ interview.goal.title }}</span>{% endif %}
                     <span>{{ interview.duration_minutes }} min</span>
                 </div>
                 <h3>{{ interview.question_count }}-question session</h3>
@@ -78,7 +79,7 @@
                 <a class="interview-history-row" href="{% url 'interviews:summary' interview.pk %}">
                     <span>
                         <strong>{{ interview.get_focus_display }}</strong>
-                        <small>{{ interview.created_at|date:"j M Y · H:i" }}</small>
+                        <small>{% if interview.goal %}{{ interview.goal.title }} · {% endif %}{{ interview.created_at|date:"j M Y · H:i" }}</small>
                     </span>
                     <span>{{ interview.answered_count }}/{{ interview.question_count }} answered</span>
                     <span class="interview-status interview-status-{{ interview.status|lower }}">

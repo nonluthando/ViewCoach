@@ -22,6 +22,7 @@ class MockInterviewItemInline(admin.TabularInline):
 class MockInterviewAdmin(admin.ModelAdmin):
     list_display = (
         "user",
+        "goal",
         "focus",
         "status",
         "question_count",

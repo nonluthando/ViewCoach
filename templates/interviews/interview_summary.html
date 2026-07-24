@@ -15,6 +15,7 @@
             {% endif %}
         </h1>
         <p>
+            {% if interview.goal %}{{ interview.goal.title }} · {% endif %}
             {{ interview.get_focus_display }} · {{ interview.duration_minutes }}-minute plan ·
             {{ interview.elapsed_minutes }} minute{{ interview.elapsed_minutes|pluralize }} elapsed
         </p>

@@ -1,5 +1,8 @@
 from django import forms
 
+from apps.goals.models import InterviewGoal
+from apps.goals.services import primary_goal_for_user, recommended_mock_focus
+
 from .models import MockInterview, MockInterviewItem
 
 DURATION_CHOICES = (
@@ -11,6 +14,12 @@ DURATION_CHOICES = (
 
 
 class MockInterviewCreateForm(forms.Form):
+    goal = forms.ModelChoiceField(
+        queryset=InterviewGoal.objects.none(),
+        required=False,
+        empty_label="No goal — general practice",
+        help_text="Optional. This helps ViewCoach prioritise relevant questions.",
+    )
     focus = forms.ChoiceField(
         choices=MockInterview.Focus.choices,
         initial=MockInterview.Focus.MIXED,
@@ -22,6 +31,18 @@ class MockInterviewCreateForm(forms.Form):
         initial=30,
         help_text="The question count scales with the time available.",
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["goal"].queryset = InterviewGoal.objects.filter(
+            user=user,
+            status=InterviewGoal.Status.ACTIVE,
+        )
+        if not self.is_bound and user is not None:
+            primary_goal = primary_goal_for_user(user=user)
+            if primary_goal is not None:
+                self.initial["goal"] = primary_goal
+                self.initial["focus"] = recommended_mock_focus(goal=primary_goal)
 
 
 class MockInterviewResponseForm(forms.Form):

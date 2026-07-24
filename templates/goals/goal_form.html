@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_editing %}Edit goal{% else %}Create goal{% endif %} | ViewCoach{% endblock %}
+{% block body_class %}goal-form-page{% endblock %}
+
+{% block content %}
+<section class="goal-form-layout">
+    <div class="goal-form-intro">
+        <a class="goal-back-link" href="{% if goal %}{% url 'goals:detail' goal.pk %}{% else %}{% url 'goals:list' %}{% endif %}">← Interview goals</a>
+        <p class="eyebrow">{% if is_editing %}Edit goal{% else %}New goal{% endif %}</p>
+        <h1>{% if is_editing %}Adjust the target.{% else %}What are you preparing for?{% endif %}</h1>
+        <p>
+            The primary goal guides roadmap priority, practice recommendations and the readiness
+            breakdown. Other active goals stay available without competing for the dashboard.
+        </p>
+    </div>
+
+    <form class="goal-form-card" method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+        {% for field in form %}
+        <div class="form-field{% if field.name == 'is_primary' %} goal-checkbox-field{% endif %}">
+            {% if field.name == "is_primary" %}
+                <label>{{ field }} <span>{{ field.label }}</span></label>
+            {% else %}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+            {% endif %}
+            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+
+        <div class="goal-form-actions">
+            <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create goal{% endif %}</button>
+            <a href="{% if goal %}{% url 'goals:detail' goal.pk %}{% else %}{% url 'goals:list' %}{% endif %}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
