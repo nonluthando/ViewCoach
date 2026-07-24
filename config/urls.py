@@ -9,4 +9,5 @@ urlpatterns = [
     path("reviews/", include("apps.reviews.urls")),
     path("roadmaps/", include("apps.roadmaps.urls")),
     path("plan/", include("apps.planner.urls")),
+    path("interviews/", include("apps.interviews.urls")),
 ]

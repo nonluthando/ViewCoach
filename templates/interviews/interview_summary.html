@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Mock interview debrief | ViewCoach{% endblock %}
+{% block body_class %}interview-summary-page{% endblock %}
+
+{% block content %}
+<section class="interview-summary-header">
+    <div>
+        <p class="eyebrow">Session debrief</p>
+        <h1>
+            {% if interview.status == "COMPLETED" %}
+                Mock interview complete.
+            {% else %}
+                Session saved.
+            {% endif %}
+        </h1>
+        <p>
+            {{ interview.get_focus_display }} · {{ interview.duration_minutes }}-minute plan ·
+            {{ interview.elapsed_minutes }} minute{{ interview.elapsed_minutes|pluralize }} elapsed
+        </p>
+    </div>
+    <div class="interview-summary-actions">
+        <a class="button" href="{% url 'interviews:create' %}">Start another</a>
+        <a href="{% url 'interviews:list' %}">All sessions</a>
+    </div>
+</section>
+
+<section class="interview-score-grid" aria-label="Answer assessment totals">
+    <article>
+        <strong>{{ confident_count }}</strong>
+        <span>Confident</span>
+    </article>
+    <article>
+        <strong>{{ partial_count }}</strong>
+        <span>Partly confident</span>
+    </article>
+    <article>
+        <strong>{{ struggled_count }}</strong>
+        <span>Struggled</span>
+    </article>
+    <article>
+        <strong>{{ skipped_count }}</strong>
+        <span>Skipped</span>
+    </article>
+</section>
+
+{% if weak_items %}
+<section class="interview-debrief-section interview-focus-section">
+    <div class="interview-section-heading">
+        <div>
+            <p class="eyebrow">Next focus</p>
+            <h2>Return to these questions</h2>
+        </div>
+    </div>
+    <div class="interview-focus-list">
+        {% for item in weak_items %}
+            <article>
+                <div>
+                    <span class="badge badge-{{ item.question_type|lower }}">
+                        {{ item.get_question_type_display }}
+                    </span>
+                    <h3>{{ item.question_title }}</h3>
+                    <p>{{ item.get_assessment_display }}</p>
+                </div>
+                {% if item.question_id %}
+                    <a href="{{ item.question_url }}">Open question</a>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="interview-debrief-section" aria-labelledby="answer-review-heading">
+    <div class="interview-section-heading">
+        <div>
+            <p class="eyebrow">Answer review</p>
+            <h2 id="answer-review-heading">Session transcript</h2>
+        </div>
+    </div>
+
+    <ol class="interview-transcript">
+        {% for item in items %}
+            <li>
+                <div class="interview-transcript-heading">
+                    <div>
+                        <span class="interview-transcript-number">{{ item.position }}</span>
+                        <h3>{{ item.question_title }}</h3>
+                    </div>
+                    {% if item.assessment %}
+                        <span class="interview-assessment-result interview-result-{{ item.assessment|lower }}">
+                            {{ item.get_assessment_display }}
+                        </span>
+                    {% else %}
+                        <span class="interview-assessment-result">Not answered</span>
+                    {% endif %}
+                </div>
+
+                <p>{{ item.prompt_snapshot|truncatewords:35 }}</p>
+
+                {% if item.response_notes %}
+                    <div class="interview-response-notes">
+                        <strong>Your notes</strong>
+                        {{ item.response_notes|linebreaks }}
+                    </div>
+                {% endif %}
+
+                <div class="interview-transcript-links">
+                    {% if item.answer_snapshot %}
+                        <details>
+                            <summary>Reference answer</summary>
+                            <div>{{ item.answer_snapshot|linebreaks }}</div>
+                        </details>
+                    {% endif %}
+                    {% if item.question_id %}
+                        <a href="{{ item.question_url }}">Open in question bank</a>
+                    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+    </ol>
+</section>
+{% endblock %}

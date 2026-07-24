@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mock interview | ViewCoach{% endblock %}
+{% block body_class %}interview-session-page{% endblock %}
+
+{% block content %}
+<section
+    class="interview-session-shell"
+    data-interview-timer
+    data-started-at="{{ interview.started_at|date:'c' }}"
+    data-duration-minutes="{{ interview.duration_minutes }}"
+>
+    <header class="interview-session-header">
+        <div>
+            <p class="eyebrow">{{ interview.get_focus_display }}</p>
+            <h1>Question {{ item.position }} of {{ interview.question_count }}</h1>
+        </div>
+        <div class="interview-timer" aria-live="polite">
+            <span>Time remaining</span>
+            <strong data-timer-display>{{ interview.duration_minutes }}:00</strong>
+        </div>
+    </header>
+
+    <div class="interview-progress">
+        <div class="interview-progress-copy">
+            <span>{{ answered_count }} answered</span>
+            <span>{{ interview.completion_percent }}%</span>
+        </div>
+        <div class="interview-progress-track" aria-hidden="true">
+            <span style="width: {{ interview.completion_percent }}%"></span>
+        </div>
+    </div>
+
+    <article class="interview-question-panel">
+        <div class="interview-question-meta">
+            <span class="badge badge-{{ item.question_type|lower }}">
+                {{ item.get_question_type_display }}
+            </span>
+            {% if item.difficulty %}
+                <span>{{ item.get_difficulty_display }}</span>
+            {% endif %}
+        </div>
+        <h2>{{ item.question_title }}</h2>
+        <div class="interview-prompt">{{ item.prompt_snapshot|linebreaks }}</div>
+    </article>
+
+    {% if item.guidance_snapshot %}
+        <details class="interview-reveal">
+            <summary>Use a prompt</summary>
+            <div>{{ item.guidance_snapshot|linebreaks }}</div>
+        </details>
+    {% endif %}
+
+    {% if item.answer_snapshot %}
+        <details class="interview-reveal interview-answer-reveal">
+            <summary>Reveal reference answer</summary>
+            <div>{{ item.answer_snapshot|linebreaks }}</div>
+        </details>
+    {% endif %}
+
+    <form
+        class="interview-response-card"
+        method="post"
+        action="{% url 'interviews:submit' interview.pk item.pk %}"
+    >
+        {% csrf_token %}
+        <div class="form-field">
+            <label for="{{ form.response_notes.id_for_label }}">
+                {{ form.response_notes.label }}
+            </label>
+            {{ form.response_notes }}
+            <p class="help-text">
+                These notes stay with the session debrief. They do not change the question bank.
+            </p>
+        </div>
+
+        <fieldset class="interview-assessment-fieldset">
+            <legend>{{ form.assessment.label }}</legend>
+            <div class="interview-assessment-options">
+                {% for choice in form.assessment %}
+                    <label class="interview-assessment-option">
+                        {{ choice.tag }}
+                        <span>{{ choice.choice_label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            {{ form.assessment.errors }}
+        </fieldset>
+
+        <div class="interview-session-actions">
+            <button class="button" type="submit">
+                {% if item.position == interview.question_count %}
+                    Finish and view debrief
+                {% else %}
+                    Save and continue
+                {% endif %}
+            </button>
+        </div>
+    </form>
+
+    <form
+        class="interview-end-form"
+        method="post"
+        action="{% url 'interviews:abandon' interview.pk %}"
+    >
+        {% csrf_token %}
+        <button class="link-button danger-link" type="submit">End session early</button>
+    </form>
+</section>
+
+<script src="{% static 'js/interviews.js' %}" defer></script>
+{% endblock %}
