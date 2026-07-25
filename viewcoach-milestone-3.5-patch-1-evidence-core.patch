@@ -1,0 +1,1933 @@
+diff --git a/apps/evidence/__init__.py b/apps/evidence/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/evidence/admin.py b/apps/evidence/admin.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f14d7ed00564659e5e65a8e68fc6e79da9525b3
+--- /dev/null
++++ b/apps/evidence/admin.py
+@@ -0,0 +1,53 @@
++from django.contrib import admin
++
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++
++class DecisionRecordInline(admin.StackedInline):
++    model = DecisionRecord
++    extra = 0
++
++
++class BehaviouralStoryInline(admin.StackedInline):
++    model = BehaviouralStory
++    extra = 0
++
++
++@admin.register(EvidenceItem)
++class EvidenceItemAdmin(admin.ModelAdmin):
++    list_display = ("title", "owner", "source_type", "organisation", "updated_at")
++    list_filter = ("source_type",)
++    search_fields = ("title", "owner__email", "organisation", "technologies")
++    inlines = [DecisionRecordInline, BehaviouralStoryInline]
++
++
++@admin.register(TopicEvidenceProfile)
++class TopicEvidenceProfileAdmin(admin.ModelAdmin):
++    list_display = ("topic", "user", "readiness", "updated_at")
++    list_filter = ("readiness",)
++    search_fields = ("topic__title", "user__email")
++
++
++@admin.register(TopicEvidenceLink)
++class TopicEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("profile", "evidence", "created_at")
++
++
++@admin.register(QuestionEvidenceLink)
++class QuestionEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("question", "evidence", "user", "created_at")
++    search_fields = ("question__title", "evidence__title", "user__email")
++
++
++@admin.register(GoalEvidenceLink)
++class GoalEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("goal", "evidence", "user", "relevance", "created_at")
++    list_filter = ("relevance",)
+diff --git a/apps/evidence/apps.py b/apps/evidence/apps.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..56dd8ccdb118c40e742a52c0cd02914bc8632911
+--- /dev/null
++++ b/apps/evidence/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class EvidenceConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.evidence"
+diff --git a/apps/evidence/forms.py b/apps/evidence/forms.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..75c65b98a8f3ae9e9e1ffa39d01c738a1d9658ce
+--- /dev/null
++++ b/apps/evidence/forms.py
+@@ -0,0 +1,164 @@
++from django import forms
++
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++
++class EvidenceItemForm(forms.ModelForm):
++    class Meta:
++        model = EvidenceItem
++        fields = [
++            "source_type",
++            "title",
++            "organisation",
++            "role_or_context",
++            "start_date",
++            "end_date",
++            "summary",
++            "problem",
++            "personal_contribution",
++            "technologies",
++            "outcomes",
++            "lessons",
++            "evidence_url",
++        ]
++        labels = {
++            "role_or_context": "Role or context",
++            "personal_contribution": "What I personally did",
++            "technologies": "Technologies and skills",
++            "outcomes": "Outcome or impact",
++            "lessons": "What I learned",
++            "evidence_url": "Supporting link",
++        }
++        help_texts = {
++            "technologies": "Separate technologies or skills with commas.",
++            "evidence_url": "Optional GitHub, live demo, document or portfolio link.",
++        }
++        widgets = {
++            "start_date": forms.DateInput(attrs={"type": "date"}),
++            "end_date": forms.DateInput(attrs={"type": "date"}),
++            "summary": forms.Textarea(attrs={"rows": 4}),
++            "problem": forms.Textarea(attrs={"rows": 4}),
++            "personal_contribution": forms.Textarea(attrs={"rows": 5}),
++            "technologies": forms.Textarea(attrs={"rows": 2}),
++            "outcomes": forms.Textarea(attrs={"rows": 4}),
++            "lessons": forms.Textarea(attrs={"rows": 4}),
++        }
++
++
++class DecisionRecordForm(forms.ModelForm):
++    class Meta:
++        model = DecisionRecord
++        fields = [
++            "title",
++            "context",
++            "alternatives",
++            "decision",
++            "rationale",
++            "tradeoffs",
++            "outcome",
++            "would_choose_again",
++            "reflection",
++        ]
++        widgets = {
++            "context": forms.Textarea(attrs={"rows": 3}),
++            "alternatives": forms.Textarea(attrs={"rows": 3}),
++            "decision": forms.Textarea(attrs={"rows": 3}),
++            "rationale": forms.Textarea(attrs={"rows": 3}),
++            "tradeoffs": forms.Textarea(attrs={"rows": 3}),
++            "outcome": forms.Textarea(attrs={"rows": 3}),
++            "reflection": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class BehaviouralStoryForm(forms.ModelForm):
++    class Meta:
++        model = BehaviouralStory
++        fields = [
++            "title",
++            "situation",
++            "task",
++            "actions",
++            "result",
++            "reflection",
++            "competencies",
++            "follow_up_questions",
++        ]
++        labels = {
++            "actions": "Actions",
++            "competencies": "Competencies demonstrated",
++            "follow_up_questions": "Likely follow-up questions",
++        }
++        help_texts = {
++            "competencies": "Separate competencies with commas.",
++        }
++        widgets = {
++            "situation": forms.Textarea(attrs={"rows": 3}),
++            "task": forms.Textarea(attrs={"rows": 3}),
++            "actions": forms.Textarea(attrs={"rows": 4}),
++            "result": forms.Textarea(attrs={"rows": 3}),
++            "reflection": forms.Textarea(attrs={"rows": 3}),
++            "competencies": forms.Textarea(attrs={"rows": 2}),
++            "follow_up_questions": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class TopicEvidenceProfileForm(forms.ModelForm):
++    class Meta:
++        model = TopicEvidenceProfile
++        fields = [
++            "readiness",
++            "personal_angle",
++            "interview_angle",
++            "evidence_gap",
++            "follow_up_questions",
++        ]
++        labels = {
++            "personal_angle": "Where I have used this",
++            "interview_angle": "How I would explain it",
++            "evidence_gap": "Current evidence gap",
++            "follow_up_questions": "Likely follow-up questions",
++        }
++        widgets = {
++            "personal_angle": forms.Textarea(attrs={"rows": 4}),
++            "interview_angle": forms.Textarea(attrs={"rows": 4}),
++            "evidence_gap": forms.Textarea(attrs={"rows": 3}),
++            "follow_up_questions": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class UserEvidenceChoiceForm(forms.ModelForm):
++    def __init__(self, *args, user=None, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.fields["evidence"].queryset = EvidenceItem.objects.filter(owner=user)
++
++
++class TopicEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = TopicEvidenceLink
++        fields = ["evidence", "connection_note"]
++        labels = {"connection_note": "Why this evidence is relevant"}
++        widgets = {"connection_note": forms.Textarea(attrs={"rows": 2})}
++
++
++class QuestionEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = QuestionEvidenceLink
++        fields = ["evidence", "answer_angle"]
++        labels = {"answer_angle": "How this evidence supports my answer"}
++        widgets = {"answer_angle": forms.Textarea(attrs={"rows": 2})}
++
++
++class GoalEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = GoalEvidenceLink
++        fields = ["evidence", "relevance", "framing_notes"]
++        labels = {"framing_notes": "How to frame this for the goal"}
++        widgets = {"framing_notes": forms.Textarea(attrs={"rows": 2})}
+diff --git a/apps/evidence/migrations/0001_initial.py b/apps/evidence/migrations/0001_initial.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a1124a195394be55e4563be07e2b1beb0fb4f13
+--- /dev/null
++++ b/apps/evidence/migrations/0001_initial.py
+@@ -0,0 +1,369 @@
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++        ("goals", "0001_initial"),
++        ("questions", "0004_seeded_library_models"),
++        ("roadmaps", "0002_usertopicresource"),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="EvidenceItem",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "source_type",
++                    models.CharField(
++                        choices=[
++                            ("PROJECT", "Project"),
++                            ("WORK", "Work experience"),
++                            ("COURSEWORK", "Coursework"),
++                            ("LEADERSHIP", "Leadership or teamwork"),
++                            ("INCIDENT", "Technical incident"),
++                        ],
++                        max_length=16,
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("organisation", models.CharField(blank=True, max_length=140)),
++                ("role_or_context", models.CharField(blank=True, max_length=180)),
++                ("start_date", models.DateField(blank=True, null=True)),
++                ("end_date", models.DateField(blank=True, null=True)),
++                ("summary", models.TextField(blank=True)),
++                ("problem", models.TextField(blank=True)),
++                ("personal_contribution", models.TextField(blank=True)),
++                ("technologies", models.TextField(blank=True)),
++                ("outcomes", models.TextField(blank=True)),
++                ("lessons", models.TextField(blank=True)),
++                ("evidence_url", models.URLField(blank=True, max_length=500)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "owner",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_items",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["-updated_at", "-created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="BehaviouralStory",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("situation", models.TextField()),
++                ("task", models.TextField(blank=True)),
++                ("actions", models.TextField()),
++                ("result", models.TextField(blank=True)),
++                ("reflection", models.TextField(blank=True)),
++                ("competencies", models.TextField(blank=True)),
++                ("follow_up_questions", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="behavioural_stories",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="DecisionRecord",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("context", models.TextField(blank=True)),
++                ("alternatives", models.TextField(blank=True)),
++                ("decision", models.TextField()),
++                ("rationale", models.TextField(blank=True)),
++                ("tradeoffs", models.TextField(blank=True)),
++                ("outcome", models.TextField(blank=True)),
++                (
++                    "would_choose_again",
++                    models.CharField(
++                        choices=[("YES", "Yes"), ("NO", "No"), ("UNSURE", "Unsure")],
++                        default="UNSURE",
++                        max_length=8,
++                    ),
++                ),
++                ("reflection", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="decisions",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="TopicEvidenceProfile",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "readiness",
++                    models.CharField(
++                        choices=[
++                            ("KNOWLEDGE_ONLY", "Knowledge only"),
++                            ("PROJECT_EVIDENCE", "Project evidence"),
++                            ("WORK_EVIDENCE", "Work evidence"),
++                            ("INTERVIEW_READY", "Interview ready"),
++                        ],
++                        default="KNOWLEDGE_ONLY",
++                        max_length=20,
++                    ),
++                ),
++                ("personal_angle", models.TextField(blank=True)),
++                ("interview_angle", models.TextField(blank=True)),
++                ("evidence_gap", models.TextField(blank=True)),
++                ("follow_up_questions", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "topic",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_profiles",
++                        to="roadmaps.roadmaptopic",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_evidence_profiles",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++        ),
++        migrations.CreateModel(
++            name="TopicEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("connection_note", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "profile",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="evidence.topicevidenceprofile",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="QuestionEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("answer_angle", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="question_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "question",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="questions.question",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="question_evidence_links",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="GoalEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "relevance",
++                    models.CharField(
++                        choices=[("CORE", "Core evidence"), ("SUPPORTING", "Supporting evidence")],
++                        default="SUPPORTING",
++                        max_length=12,
++                    ),
++                ),
++                ("framing_notes", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="goal_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "goal",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="goals.interviewgoal",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="goal_evidence_links",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["relevance", "created_at", "pk"]},
++        ),
++        migrations.AddIndex(
++            model_name="evidenceitem",
++            index=models.Index(
++                fields=["owner", "source_type", "-updated_at"],
++                name="evidence_owner_type_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="topicevidenceprofile",
++            constraint=models.UniqueConstraint(
++                fields=("user", "topic"),
++                name="unique_user_topic_evidence",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="topicevidenceprofile",
++            index=models.Index(
++                fields=["user", "readiness", "-updated_at"],
++                name="topic_evid_user_ready_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="topicevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("profile", "evidence"),
++                name="unique_topic_evidence_link",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="questionevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("user", "question", "evidence"),
++                name="unique_question_evidence_link",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="questionevidencelink",
++            index=models.Index(
++                fields=["user", "question"],
++                name="quest_evid_user_question_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="goalevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("user", "goal", "evidence"),
++                name="unique_goal_evidence_link",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="goalevidencelink",
++            index=models.Index(
++                fields=["user", "goal", "relevance"],
++                name="goal_evid_user_goal_idx",
++            ),
++        ),
++    ]
+diff --git a/apps/evidence/migrations/__init__.py b/apps/evidence/migrations/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/evidence/models.py b/apps/evidence/models.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3a5b90e7818be5a3e86ccfb6d015156185b91d3b
+--- /dev/null
++++ b/apps/evidence/models.py
+@@ -0,0 +1,305 @@
++from django.conf import settings
++from django.core.exceptions import ValidationError
++from django.db import models
++from django.urls import reverse
++
++from apps.goals.models import InterviewGoal
++from apps.questions.models import Question
++from apps.roadmaps.models import RoadmapTopic
++
++
++class EvidenceItem(models.Model):
++    class SourceType(models.TextChoices):
++        PROJECT = "PROJECT", "Project"
++        WORK = "WORK", "Work experience"
++        COURSEWORK = "COURSEWORK", "Coursework"
++        LEADERSHIP = "LEADERSHIP", "Leadership or teamwork"
++        INCIDENT = "INCIDENT", "Technical incident"
++
++    owner = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="evidence_items",
++    )
++    source_type = models.CharField(max_length=16, choices=SourceType.choices)
++    title = models.CharField(max_length=180)
++    organisation = models.CharField(max_length=140, blank=True)
++    role_or_context = models.CharField(max_length=180, blank=True)
++    start_date = models.DateField(null=True, blank=True)
++    end_date = models.DateField(null=True, blank=True)
++    summary = models.TextField(blank=True)
++    problem = models.TextField(blank=True)
++    personal_contribution = models.TextField(blank=True)
++    technologies = models.TextField(blank=True)
++    outcomes = models.TextField(blank=True)
++    lessons = models.TextField(blank=True)
++    evidence_url = models.URLField(max_length=500, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["-updated_at", "-created_at", "pk"]
++        indexes = [
++            models.Index(
++                fields=["owner", "source_type", "-updated_at"],
++                name="evidence_owner_type_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.start_date and self.end_date and self.end_date < self.start_date:
++            raise ValidationError({"end_date": "End date cannot be before the start date."})
++
++    @property
++    def technology_list(self):
++        return [item.strip() for item in self.technologies.split(",") if item.strip()]
++
++    def get_absolute_url(self):
++        return reverse("evidence:detail", args=[self.pk])
++
++    def __str__(self):
++        return self.title
++
++
++class DecisionRecord(models.Model):
++    class RepeatChoice(models.TextChoices):
++        YES = "YES", "Yes"
++        NO = "NO", "No"
++        UNSURE = "UNSURE", "Unsure"
++
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="decisions",
++    )
++    title = models.CharField(max_length=180)
++    context = models.TextField(blank=True)
++    alternatives = models.TextField(blank=True)
++    decision = models.TextField()
++    rationale = models.TextField(blank=True)
++    tradeoffs = models.TextField(blank=True)
++    outcome = models.TextField(blank=True)
++    would_choose_again = models.CharField(
++        max_length=8,
++        choices=RepeatChoice.choices,
++        default=RepeatChoice.UNSURE,
++    )
++    reflection = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++
++    def __str__(self):
++        return self.title
++
++
++class BehaviouralStory(models.Model):
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="behavioural_stories",
++    )
++    title = models.CharField(max_length=180)
++    situation = models.TextField()
++    task = models.TextField(blank=True)
++    actions = models.TextField()
++    result = models.TextField(blank=True)
++    reflection = models.TextField(blank=True)
++    competencies = models.TextField(blank=True)
++    follow_up_questions = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++
++    @property
++    def competency_list(self):
++        return [item.strip() for item in self.competencies.split(",") if item.strip()]
++
++    def __str__(self):
++        return self.title
++
++
++class TopicEvidenceProfile(models.Model):
++    class Readiness(models.TextChoices):
++        KNOWLEDGE_ONLY = "KNOWLEDGE_ONLY", "Knowledge only"
++        PROJECT_EVIDENCE = "PROJECT_EVIDENCE", "Project evidence"
++        WORK_EVIDENCE = "WORK_EVIDENCE", "Work evidence"
++        INTERVIEW_READY = "INTERVIEW_READY", "Interview ready"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="topic_evidence_profiles",
++    )
++    topic = models.ForeignKey(
++        RoadmapTopic,
++        on_delete=models.CASCADE,
++        related_name="evidence_profiles",
++    )
++    readiness = models.CharField(
++        max_length=20,
++        choices=Readiness.choices,
++        default=Readiness.KNOWLEDGE_ONLY,
++    )
++    personal_angle = models.TextField(blank=True)
++    interview_angle = models.TextField(blank=True)
++    evidence_gap = models.TextField(blank=True)
++    follow_up_questions = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "topic"],
++                name="unique_user_topic_evidence",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "readiness", "-updated_at"],
++                name="topic_evid_user_ready_idx",
++            )
++        ]
++
++    def __str__(self):
++        return f"{self.user}: {self.topic}"
++
++
++class TopicEvidenceLink(models.Model):
++    profile = models.ForeignKey(
++        TopicEvidenceProfile,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="topic_links",
++    )
++    connection_note = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["profile", "evidence"],
++                name="unique_topic_evidence_link",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.profile_id and self.evidence_id:
++            if self.profile.user_id != self.evidence.owner_id:
++                raise ValidationError("Evidence and topic profile must belong to the same user.")
++
++    def __str__(self):
++        return f"{self.profile.topic}: {self.evidence}"
++
++
++class QuestionEvidenceLink(models.Model):
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="question_evidence_links",
++    )
++    question = models.ForeignKey(
++        Question,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="question_links",
++    )
++    answer_angle = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "question", "evidence"],
++                name="unique_question_evidence_link",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "question"],
++                name="quest_evid_user_question_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.user_id and self.evidence_id and self.user_id != self.evidence.owner_id:
++            raise ValidationError("Evidence must belong to the linked user.")
++        if self.user_id and self.question_id:
++            has_access = self.question.is_system or self.question.owner_id == self.user_id
++            if not has_access:
++                raise ValidationError("The user cannot access this question.")
++
++    def __str__(self):
++        return f"{self.question}: {self.evidence}"
++
++
++class GoalEvidenceLink(models.Model):
++    class Relevance(models.TextChoices):
++        CORE = "CORE", "Core evidence"
++        SUPPORTING = "SUPPORTING", "Supporting evidence"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="goal_evidence_links",
++    )
++    goal = models.ForeignKey(
++        InterviewGoal,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="goal_links",
++    )
++    relevance = models.CharField(
++        max_length=12,
++        choices=Relevance.choices,
++        default=Relevance.SUPPORTING,
++    )
++    framing_notes = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["relevance", "created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "goal", "evidence"],
++                name="unique_goal_evidence_link",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "goal", "relevance"],
++                name="goal_evid_user_goal_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.user_id and self.goal_id and self.user_id != self.goal.user_id:
++            raise ValidationError("Goal must belong to the linked user.")
++        if self.user_id and self.evidence_id and self.user_id != self.evidence.owner_id:
++            raise ValidationError("Evidence must belong to the linked user.")
++
++    def __str__(self):
++        return f"{self.goal}: {self.evidence}"
+diff --git a/apps/evidence/services.py b/apps/evidence/services.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..9a292fe1e571f84e5b0ae98bbc0021f714dbac40
+--- /dev/null
++++ b/apps/evidence/services.py
+@@ -0,0 +1,45 @@
++from django.db.models import Count, Q
++
++from .models import EvidenceItem, TopicEvidenceProfile
++
++
++def evidence_library_queryset(*, user):
++    return EvidenceItem.objects.filter(owner=user).annotate(
++        decision_count=Count("decisions", distinct=True),
++        story_count=Count("behavioural_stories", distinct=True),
++        topic_count=Count("topic_links", distinct=True),
++        question_count=Count("question_links", distinct=True),
++        goal_count=Count("goal_links", distinct=True),
++    )
++
++
++def filter_evidence_library(*, user, search_term="", source_type=""):
++    evidence = evidence_library_queryset(user=user)
++    if search_term:
++        evidence = evidence.filter(
++            Q(title__icontains=search_term)
++            | Q(organisation__icontains=search_term)
++            | Q(role_or_context__icontains=search_term)
++            | Q(summary__icontains=search_term)
++            | Q(problem__icontains=search_term)
++            | Q(personal_contribution__icontains=search_term)
++            | Q(technologies__icontains=search_term)
++            | Q(outcomes__icontains=search_term)
++        )
++    valid_types = {value for value, _ in EvidenceItem.SourceType.choices}
++    if source_type in valid_types:
++        evidence = evidence.filter(source_type=source_type)
++    return evidence
++
++
++def evidence_dashboard_summary(*, user):
++    items = EvidenceItem.objects.filter(owner=user)
++    topic_profiles = TopicEvidenceProfile.objects.filter(user=user)
++    return {
++        "total_count": items.count(),
++        "project_count": items.filter(source_type=EvidenceItem.SourceType.PROJECT).count(),
++        "work_count": items.filter(source_type=EvidenceItem.SourceType.WORK).count(),
++        "interview_ready_topic_count": topic_profiles.filter(
++            readiness=TopicEvidenceProfile.Readiness.INTERVIEW_READY
++        ).count(),
++    }
+diff --git a/apps/evidence/tests/__init__.py b/apps/evidence/tests/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/apps/evidence/tests/conftest.py b/apps/evidence/tests/conftest.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..021327c6317356937df8c78c2ec73c859b81594c
+--- /dev/null
++++ b/apps/evidence/tests/conftest.py
+@@ -0,0 +1,97 @@
++import pytest
++
++from apps.accounts.models import User
++from apps.goals.models import InterviewGoal
++from apps.questions.models import TechnicalQuestion
++from apps.roadmaps.models import Roadmap, RoadmapSection, RoadmapTopic
++
++from apps.evidence.models import EvidenceItem
++
++
++@pytest.fixture
++def user(db):
++    return User.objects.create_user(
++        email="tee@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def other_user(db):
++    return User.objects.create_user(
++        email="other@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def evidence_item(user):
++    return EvidenceItem.objects.create(
++        owner=user,
++        source_type=EvidenceItem.SourceType.PROJECT,
++        title="ViewCoach",
++        organisation="Personal project",
++        summary="An interview preparation platform.",
++        personal_contribution="Designed the Django architecture and review engine.",
++        technologies="Python, Django, PostgreSQL",
++    )
++
++
++@pytest.fixture
++def other_evidence(other_user):
++    return EvidenceItem.objects.create(
++        owner=other_user,
++        source_type=EvidenceItem.SourceType.WORK,
++        title="Private employer project",
++    )
++
++
++@pytest.fixture
++def roadmap(db):
++    return Roadmap.objects.create(
++        title="Backend Developer",
++        slug="backend-developer",
++        description="Backend roadmap.",
++        kind=Roadmap.Kind.ROLE,
++        is_system=True,
++        is_published=True,
++    )
++
++
++@pytest.fixture
++def topic(roadmap):
++    section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Databases",
++        slug="databases",
++        position=1,
++    )
++    return RoadmapTopic.objects.create(
++        section=section,
++        title="Database constraints",
++        slug="database-constraints",
++        position=1,
++    )
++
++
++@pytest.fixture
++def technical_question(user):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title="Explain a database constraint decision",
++        prompt="Why use database constraints as well as form validation?",
++        topic="Databases",
++        intuition="Constraints protect invariants at the persistence boundary.",
++    )
++
++
++@pytest.fixture
++def goal(user, roadmap):
++    return InterviewGoal.objects.create(
++        user=user,
++        title="Backend interview",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Backend Developer",
++        roadmap=roadmap,
++        is_primary=True,
++    )
+diff --git a/apps/evidence/tests/test_forms.py b/apps/evidence/tests/test_forms.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..648aa4b1a89efb061613896ef4953be6fe3811df
+--- /dev/null
++++ b/apps/evidence/tests/test_forms.py
+@@ -0,0 +1,66 @@
++import pytest
++
++from apps.evidence.forms import (
++    BehaviouralStoryForm,
++    EvidenceItemForm,
++    GoalEvidenceLinkForm,
++    TopicEvidenceProfileForm,
++)
++from apps.evidence.models import EvidenceItem, TopicEvidenceProfile
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_item_form_accepts_a_project_case_study():
++    form = EvidenceItemForm(
++        data={
++            "source_type": EvidenceItem.SourceType.PROJECT,
++            "title": "ViewCoach",
++            "organisation": "",
++            "role_or_context": "Full-stack portfolio project",
++            "start_date": "2026-07-01",
++            "end_date": "",
++            "summary": "Interview preparation platform.",
++            "problem": "Preparation is fragmented.",
++            "personal_contribution": "Designed and built the application.",
++            "technologies": "Python, Django",
++            "outcomes": "Delivered a deployed application.",
++            "lessons": "Deterministic planning is explainable.",
++            "evidence_url": "https://example.com/viewcoach",
++        }
++    )
++
++    assert form.is_valid(), form.errors
++
++
++def test_goal_link_form_only_lists_current_users_evidence(
++    user,
++    evidence_item,
++    other_evidence,
++):
++    form = GoalEvidenceLinkForm(user=user)
++
++    assert list(form.fields["evidence"].queryset) == [evidence_item]
++    assert other_evidence not in form.fields["evidence"].queryset
++
++
++def test_topic_profile_form_accepts_interview_framing():
++    form = TopicEvidenceProfileForm(
++        data={
++            "readiness": TopicEvidenceProfile.Readiness.INTERVIEW_READY,
++            "personal_angle": "Used constraints in ViewCoach.",
++            "interview_angle": "Explain persistence-layer invariants.",
++            "evidence_gap": "Limited scale testing.",
++            "follow_up_questions": "How would this change at higher scale?",
++        }
++    )
++
++    assert form.is_valid(), form.errors
++
++
++def test_behavioural_story_requires_situation_and_actions():
++    form = BehaviouralStoryForm(data={"title": "Debugged a failed patch"})
++
++    assert not form.is_valid()
++    assert "situation" in form.errors
++    assert "actions" in form.errors
+diff --git a/apps/evidence/tests/test_models.py b/apps/evidence/tests/test_models.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..98f535f5592c63c9e99fbeb947e7fdcd850f156b
+--- /dev/null
++++ b/apps/evidence/tests/test_models.py
+@@ -0,0 +1,113 @@
++from datetime import date
++
++import pytest
++from django.core.exceptions import ValidationError
++from django.db import IntegrityError
++
++from apps.evidence.models import (
++    DecisionRecord,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++from apps.goals.models import InterviewGoal
++from apps.questions.models import TechnicalQuestion
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_item_exposes_clean_technology_list(evidence_item):
++    evidence_item.technologies = "Python, Django,  PostgreSQL, "
++
++    assert evidence_item.technology_list == ["Python", "Django", "PostgreSQL"]
++
++
++def test_evidence_item_rejects_end_date_before_start(evidence_item):
++    evidence_item.start_date = date(2026, 7, 10)
++    evidence_item.end_date = date(2026, 7, 1)
++
++    with pytest.raises(ValidationError):
++        evidence_item.full_clean()
++
++
++def test_deleting_evidence_deletes_its_decisions(evidence_item):
++    DecisionRecord.objects.create(
++        evidence=evidence_item,
++        title="Use deterministic planning",
++        decision="Use scoring rules instead of an LLM.",
++    )
++
++    evidence_item.delete()
++
++    assert DecisionRecord.objects.count() == 0
++
++
++def test_only_one_topic_profile_exists_per_user_and_topic(user, topic):
++    TopicEvidenceProfile.objects.create(user=user, topic=topic)
++
++    with pytest.raises(IntegrityError):
++        TopicEvidenceProfile.objects.create(user=user, topic=topic)
++
++
++def test_topic_link_rejects_evidence_from_another_user(user, topic, other_evidence):
++    profile = TopicEvidenceProfile.objects.create(user=user, topic=topic)
++    link = TopicEvidenceLink(profile=profile, evidence=other_evidence)
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
++
++
++def test_question_link_accepts_a_question_owned_by_the_user(
++    user,
++    technical_question,
++    evidence_item,
++):
++    link = QuestionEvidenceLink(
++        user=user,
++        question=technical_question,
++        evidence=evidence_item,
++    )
++
++    link.full_clean()
++
++
++def test_question_link_rejects_another_users_private_question(
++    user,
++    other_user,
++    evidence_item,
++):
++    private_question = TechnicalQuestion.objects.create(
++        owner=other_user,
++        title="Private question",
++        prompt="Private prompt",
++    )
++    link = QuestionEvidenceLink(
++        user=user,
++        question=private_question,
++        evidence=evidence_item,
++    )
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
++
++
++def test_goal_link_rejects_goal_owned_by_another_user(
++    user,
++    other_user,
++    evidence_item,
++):
++    other_goal = InterviewGoal.objects.create(
++        user=other_user,
++        title="Other goal",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Software Engineer",
++    )
++    link = GoalEvidenceLink(
++        user=user,
++        goal=other_goal,
++        evidence=evidence_item,
++    )
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
+diff --git a/apps/evidence/tests/test_views.py b/apps/evidence/tests/test_views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb66cb7eb2722b895223eec3dc23f77bef2a3e77
+--- /dev/null
++++ b/apps/evidence/tests/test_views.py
+@@ -0,0 +1,199 @@
++import pytest
++from django.urls import reverse
++
++from apps.evidence.models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_list_requires_authentication(client):
++    response = client.get(reverse("evidence:list"))
++
++    assert response.status_code == 302
++    assert response.url.startswith(reverse("login"))
++
++
++def test_user_can_create_an_evidence_record(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:create"),
++        {
++            "source_type": EvidenceItem.SourceType.PROJECT,
++            "title": "ScoreRent",
++            "organisation": "",
++            "role_or_context": "Portfolio project",
++            "start_date": "",
++            "end_date": "",
++            "summary": "Explainable rental decision support.",
++            "problem": "Rental evaluation lacks transparency.",
++            "personal_contribution": "Designed the scoring rules and API.",
++            "technologies": "Python, FastAPI, PostgreSQL",
++            "outcomes": "Deployed the project.",
++            "lessons": "Rules should remain explainable.",
++            "evidence_url": "",
++        },
++    )
++
++    item = EvidenceItem.objects.get(owner=user)
++    assert response.status_code == 302
++    assert response.url == reverse("evidence:detail", args=[item.pk])
++
++
++def test_user_cannot_open_someone_elses_evidence(client, user, other_evidence):
++    client.force_login(user)
++
++    response = client.get(reverse("evidence:detail", args=[other_evidence.pk]))
++
++    assert response.status_code == 404
++
++
++def test_user_can_add_a_decision_record(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:decision_add", args=[evidence_item.pk]),
++        {
++            "title": "Keep the planner deterministic",
++            "context": "Recommendations need to be explainable.",
++            "alternatives": "Generate the plan with an LLM.",
++            "decision": "Use deterministic scoring rules.",
++            "rationale": "The same inputs should produce the same plan.",
++            "tradeoffs": "Rules need manual maintenance.",
++            "outcome": "Every recommendation has a clear rationale.",
++            "would_choose_again": "YES",
++            "reflection": "AI can be added later without owning prioritisation.",
++        },
++    )
++
++    assert response.status_code == 302
++    assert DecisionRecord.objects.filter(evidence=evidence_item).count() == 1
++
++
++def test_user_can_add_a_behavioural_story(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:story_add", args=[evidence_item.pk]),
++        {
++            "title": "Recovered from a failed integration patch",
++            "situation": "A patch did not apply after the dashboard changed.",
++            "task": "Integrate the milestone without losing recent work.",
++            "actions": "Inspected the exact context and repaired the patch.",
++            "result": "The patch applied and all tests passed.",
++            "reflection": "Validate generated changes against the current branch.",
++            "competencies": "Ownership, Debugging",
++            "follow_up_questions": "How did you isolate the mismatch?",
++        },
++    )
++
++    assert response.status_code == 302
++    assert BehaviouralStory.objects.filter(evidence=evidence_item).count() == 1
++
++
++def test_user_can_save_their_topic_interview_angle(client, user, topic):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_profile_save", args=[topic.pk]),
++        {
++            "readiness": TopicEvidenceProfile.Readiness.PROJECT_EVIDENCE,
++            "personal_angle": "Used database constraints in ViewCoach.",
++            "interview_angle": "Explain defence in depth.",
++            "evidence_gap": "No high-volume benchmark yet.",
++            "follow_up_questions": "Why not rely on form validation?",
++        },
++    )
++
++    profile = TopicEvidenceProfile.objects.get(user=user, topic=topic)
++    assert response.status_code == 302
++    assert profile.readiness == TopicEvidenceProfile.Readiness.PROJECT_EVIDENCE
++
++
++def test_user_can_link_owned_evidence_to_a_topic(
++    client,
++    user,
++    topic,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_link", args=[topic.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "connection_note": "The project uses database constraints.",
++        },
++    )
++
++    link = TopicEvidenceLink.objects.get(profile__user=user, profile__topic=topic)
++    assert response.status_code == 302
++    assert link.evidence == evidence_item
++
++
++def test_user_cannot_link_another_users_evidence_to_a_topic(
++    client,
++    user,
++    topic,
++    other_evidence,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_link", args=[topic.pk]),
++        {"evidence": other_evidence.pk, "connection_note": "Private"},
++    )
++
++    assert response.status_code == 302
++    assert TopicEvidenceLink.objects.count() == 0
++
++
++def test_user_can_link_evidence_to_a_question(
++    client,
++    user,
++    technical_question,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:question_link", args=[technical_question.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "answer_angle": "Use the ViewCoach ownership constraint example.",
++        },
++    )
++
++    link = QuestionEvidenceLink.objects.get(user=user, question=technical_question)
++    assert response.status_code == 302
++    assert link.evidence == evidence_item
++
++
++def test_user_can_link_evidence_to_an_interview_goal(
++    client,
++    user,
++    goal,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:goal_link", args=[goal.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "relevance": GoalEvidenceLink.Relevance.CORE,
++            "framing_notes": "Lead with backend architecture and testing.",
++        },
++    )
++
++    link = GoalEvidenceLink.objects.get(user=user, goal=goal)
++    assert response.status_code == 302
++    assert link.relevance == GoalEvidenceLink.Relevance.CORE
+diff --git a/apps/evidence/urls.py b/apps/evidence/urls.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd59259dbb718c8d88523b02b88135ef500d2549
+--- /dev/null
++++ b/apps/evidence/urls.py
+@@ -0,0 +1,68 @@
++from django.urls import path
++
++from . import views
++
++app_name = "evidence"
++
++urlpatterns = [
++    path("", views.evidence_list, name="list"),
++    path("new/", views.evidence_create, name="create"),
++    path("<int:evidence_id>/", views.evidence_detail, name="detail"),
++    path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
++    path("<int:evidence_id>/delete/", views.evidence_delete, name="delete"),
++    path(
++        "<int:evidence_id>/decisions/",
++        views.decision_add,
++        name="decision_add",
++    ),
++    path(
++        "<int:evidence_id>/decisions/<int:decision_id>/delete/",
++        views.decision_delete,
++        name="decision_delete",
++    ),
++    path(
++        "<int:evidence_id>/stories/",
++        views.story_add,
++        name="story_add",
++    ),
++    path(
++        "<int:evidence_id>/stories/<int:story_id>/delete/",
++        views.story_delete,
++        name="story_delete",
++    ),
++    path(
++        "topics/<int:topic_id>/profile/",
++        views.topic_profile_save,
++        name="topic_profile_save",
++    ),
++    path(
++        "topics/<int:topic_id>/links/",
++        views.topic_evidence_link,
++        name="topic_link",
++    ),
++    path(
++        "topics/<int:topic_id>/links/<int:link_id>/delete/",
++        views.topic_evidence_unlink,
++        name="topic_unlink",
++    ),
++    path(
++        "questions/<int:question_id>/links/",
++        views.question_evidence_link,
++        name="question_link",
++    ),
++    path(
++        "questions/<int:question_id>/links/<int:link_id>/delete/",
++        views.question_evidence_unlink,
++        name="question_unlink",
++    ),
++    path(
++        "goals/<int:goal_id>/links/",
++        views.goal_evidence_link,
++        name="goal_link",
++    ),
++    path(
++        "goals/<int:goal_id>/links/<int:link_id>/delete/",
++        views.goal_evidence_unlink,
++        name="goal_unlink",
++    ),
++]
+diff --git a/apps/evidence/views.py b/apps/evidence/views.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd727d82d9af896684f0b26d9afe94bf79745a9b
+--- /dev/null
++++ b/apps/evidence/views.py
+@@ -0,0 +1,345 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.core.paginator import Paginator
++from django.db import IntegrityError
++from django.db.models import Q
++from django.shortcuts import get_object_or_404, redirect, render
++from django.views.decorators.http import require_POST
++
++from apps.goals.models import InterviewGoal
++from apps.questions.models import Question
++from apps.roadmaps.models import RoadmapTopic
++
++from .forms import (
++    BehaviouralStoryForm,
++    DecisionRecordForm,
++    EvidenceItemForm,
++    GoalEvidenceLinkForm,
++    QuestionEvidenceLinkForm,
++    TopicEvidenceLinkForm,
++    TopicEvidenceProfileForm,
++)
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++from .services import filter_evidence_library
++
++
++def _owned_evidence(user):
++    return EvidenceItem.objects.filter(owner=user)
++
++
++def _owned_item(user, evidence_id):
++    return get_object_or_404(_owned_evidence(user), pk=evidence_id)
++
++
++def _accessible_topic(user, topic_id):
++    return get_object_or_404(
++        RoadmapTopic.objects.select_related("section", "section__roadmap").filter(
++            Q(section__roadmap__is_system=True)
++            | Q(section__roadmap__created_by=user)
++        ),
++        pk=topic_id,
++        section__roadmap__is_published=True,
++    )
++
++
++def _accessible_question(user, question_id):
++    return get_object_or_404(
++        Question.objects.filter(Q(is_system=True) | Q(owner=user)),
++        pk=question_id,
++    )
++
++
++def _owned_goal(user, goal_id):
++    return get_object_or_404(InterviewGoal, user=user, pk=goal_id)
++
++
++@login_required
++def evidence_list(request):
++    search_term = request.GET.get("q", "").strip()
++    source_type = request.GET.get("type", "").strip()
++    evidence = filter_evidence_library(
++        user=request.user,
++        search_term=search_term,
++        source_type=source_type,
++    )
++    page = Paginator(evidence, 16).get_page(request.GET.get("page"))
++    return render(
++        request,
++        "evidence/evidence_list.html",
++        {
++            "page": page,
++            "source_types": EvidenceItem.SourceType.choices,
++            "filters": {"q": search_term, "type": source_type},
++        },
++    )
++
++
++@login_required
++def evidence_create(request):
++    if request.method == "POST":
++        form = EvidenceItemForm(request.POST)
++        if form.is_valid():
++            item = form.save(commit=False)
++            item.owner = request.user
++            item.save()
++            messages.success(request, "Evidence record created.")
++            return redirect(item)
++    else:
++        form = EvidenceItemForm()
++    return render(
++        request,
++        "evidence/evidence_form.html",
++        {"form": form, "is_editing": False},
++    )
++
++
++@login_required
++def evidence_edit(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    if request.method == "POST":
++        form = EvidenceItemForm(request.POST, instance=item)
++        if form.is_valid():
++            item = form.save()
++            messages.success(request, "Evidence record updated.")
++            return redirect(item)
++    else:
++        form = EvidenceItemForm(instance=item)
++    return render(
++        request,
++        "evidence/evidence_form.html",
++        {"form": form, "item": item, "is_editing": True},
++    )
++
++
++@login_required
++def evidence_detail(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    return render(
++        request,
++        "evidence/evidence_detail.html",
++        {
++            "item": item,
++            "decisions": item.decisions.all(),
++            "stories": item.behavioural_stories.all(),
++            "topic_links": item.topic_links.select_related(
++                "profile__topic__section__roadmap"
++            ),
++            "question_links": item.question_links.select_related("question"),
++            "goal_links": item.goal_links.select_related("goal"),
++            "decision_form": DecisionRecordForm(),
++            "story_form": BehaviouralStoryForm(),
++        },
++    )
++
++
++@login_required
++def evidence_delete(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    if request.method == "POST":
++        title = item.title
++        item.delete()
++        messages.success(request, f"Deleted evidence record: {title}.")
++        return redirect("evidence:list")
++    return render(request, "evidence/evidence_confirm_delete.html", {"item": item})
++
++
++@login_required
++@require_POST
++def decision_add(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    form = DecisionRecordForm(request.POST)
++    if form.is_valid():
++        decision = form.save(commit=False)
++        decision.evidence = item
++        decision.save()
++        messages.success(request, "Decision record added.")
++    else:
++        messages.error(request, "Check the decision details and try again.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def decision_delete(request, evidence_id, decision_id):
++    item = _owned_item(request.user, evidence_id)
++    decision = get_object_or_404(DecisionRecord, evidence=item, pk=decision_id)
++    decision.delete()
++    messages.success(request, "Decision record removed.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def story_add(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    form = BehaviouralStoryForm(request.POST)
++    if form.is_valid():
++        story = form.save(commit=False)
++        story.evidence = item
++        story.save()
++        messages.success(request, "Behavioural story added.")
++    else:
++        messages.error(request, "Check the story details and try again.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def story_delete(request, evidence_id, story_id):
++    item = _owned_item(request.user, evidence_id)
++    story = get_object_or_404(BehaviouralStory, evidence=item, pk=story_id)
++    story.delete()
++    messages.success(request, "Behavioural story removed.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def topic_profile_save(request, topic_id):
++    topic = _accessible_topic(request.user, topic_id)
++    profile, _ = TopicEvidenceProfile.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    form = TopicEvidenceProfileForm(request.POST, instance=profile)
++    if form.is_valid():
++        form.save()
++        messages.success(request, "Personal interview angle saved.")
++    else:
++        messages.error(request, "Check the personal evidence fields and try again.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def topic_evidence_link(request, topic_id):
++    topic = _accessible_topic(request.user, topic_id)
++    profile, _ = TopicEvidenceProfile.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    form = TopicEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            TopicEvidenceLink.objects.create(
++                profile=profile,
++                evidence=form.cleaned_data["evidence"],
++                connection_note=form.cleaned_data["connection_note"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this topic.")
++        else:
++            messages.success(request, "Evidence linked to this roadmap topic.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def topic_evidence_unlink(request, topic_id, link_id):
++    topic = _accessible_topic(request.user, topic_id)
++    link = get_object_or_404(
++        TopicEvidenceLink,
++        profile__user=request.user,
++        profile__topic=topic,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this topic.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def question_evidence_link(request, question_id):
++    question = _accessible_question(request.user, question_id)
++    form = QuestionEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            QuestionEvidenceLink.objects.create(
++                user=request.user,
++                question=question,
++                evidence=form.cleaned_data["evidence"],
++                answer_angle=form.cleaned_data["answer_angle"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this question.")
++        else:
++            messages.success(request, "Evidence linked to this question.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect("questions:detail", pk=question.pk)
++
++
++@login_required
++@require_POST
++def question_evidence_unlink(request, question_id, link_id):
++    question = _accessible_question(request.user, question_id)
++    link = get_object_or_404(
++        QuestionEvidenceLink,
++        user=request.user,
++        question=question,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this question.")
++    return redirect("questions:detail", pk=question.pk)
++
++
++@login_required
++@require_POST
++def goal_evidence_link(request, goal_id):
++    goal = _owned_goal(request.user, goal_id)
++    form = GoalEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            GoalEvidenceLink.objects.create(
++                user=request.user,
++                goal=goal,
++                evidence=form.cleaned_data["evidence"],
++                relevance=form.cleaned_data["relevance"],
++                framing_notes=form.cleaned_data["framing_notes"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this goal.")
++        else:
++            messages.success(request, "Evidence linked to this interview goal.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect(goal)
++
++
++@login_required
++@require_POST
++def goal_evidence_unlink(request, goal_id, link_id):
++    goal = _owned_goal(request.user, goal_id)
++    link = get_object_or_404(
++        GoalEvidenceLink,
++        user=request.user,
++        goal=goal,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this goal.")
++    return redirect(goal)
+diff --git a/config/settings/base.py b/config/settings/base.py
+index cb39046aa0c7a853a490f352dae20101d2451502..87cc2ecdc35b64d8ccdaf1d503a6b8b8ad489123 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -22,6 +22,7 @@ INSTALLED_APPS = [
+     "apps.planner.apps.PlannerConfig",
+     "apps.interviews.apps.InterviewsConfig",
+     "apps.goals.apps.GoalsConfig",
++    "apps.evidence.apps.EvidenceConfig",
+ ]
+ 
+ MIDDLEWARE = [
+diff --git a/config/urls.py b/config/urls.py
+index e5f4fcd714630de2bf86dcc8e137b21cc583df97..fb89a2dd18d005c025846c98da7a751ce5d95eaa 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -11,4 +11,5 @@ urlpatterns = [
+     path("plan/", include("apps.planner.urls")),
+     path("interviews/", include("apps.interviews.urls")),
+     path("goals/", include("apps.goals.urls")),
++    path("evidence/", include("apps.evidence.urls")),
+ ]
