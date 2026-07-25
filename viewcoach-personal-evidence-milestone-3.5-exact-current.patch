@@ -1,0 +1,4253 @@
+diff --git a/README.md b/README.md
+index 33f93fb..2e40add 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,7 @@
+ 
+ A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
+ 
+-The repository currently contains **Milestones 0 through 3.2**.
++The repository currently contains **Milestones 0 through 3.5**.
+ 
+ ## Implemented
+ 
+@@ -53,11 +53,32 @@ The repository currently contains **Milestones 0 through 3.2**.
+ 
+ ### Milestone 3.2 — Adaptive study planner
+ 
+-- a persisted daily plan generated from available study time;
++- a persisted daily plan generated from a user-controlled 15-minute to 16-hour study budget;
+ - deterministic priority for due reviews, active roadmap work, recent weak areas and fresh practice;
+ - transparent rationales and time estimates for every recommendation;
+ - task completion, plan regeneration and study-session tracking;
+-- dashboard integration that gives users a clear next action.
++- dashboard integration that gives users a clear next action;
++- compact four-item mobile navigation with an overflow menu and visible logout.
++
++### Milestone 3.3 — Guided mock interviews
++
++- timed technical, conceptual, behavioural, debugging and mixed sessions;
++- deterministic selection that favours due and recently difficult questions;
++- saved response notes, confidence assessments, resumable sessions and debriefs.
++
++### Milestone 3.4 — Interview goals and readiness
++
++- multiple interview goals with one primary goal;
++- OA and interview stages, deadlines and roadmap-aware planning;
++- explainable readiness across roadmap coverage, reviews, questions, mocks and consistency.
++
++### Milestone 3.5 — Personal evidence layer
++
++- private project, work, coursework, leadership and technical-incident records;
++- reusable decision logs and behavioural stories;
++- personal evidence overlays for roadmap topics;
++- evidence links for questions and goal-specific interview framing;
++- explicit evidence readiness from knowledge-only through interview-ready.
+ 
+ ## Architecture decisions
+ 
+@@ -68,7 +89,7 @@ The repository currently contains **Milestones 0 through 3.2**.
+ - Concrete base question plus typed child models.
+ - Deterministic study logic remains separate from future AI behaviour.
+ 
+-See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md) and [`docs/adr/`](docs/adr/).
++See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md), [`docs/architecture/personal-evidence-layer.md`](docs/architecture/personal-evidence-layer.md) and [`docs/adr/`](docs/adr/).
+ 
+ ## Local setup
+ 
+diff --git a/apps/core/tests/test_dashboard.py b/apps/core/tests/test_dashboard.py
+index 4b8dd4b..78e4c45 100644
+--- a/apps/core/tests/test_dashboard.py
++++ b/apps/core/tests/test_dashboard.py
+@@ -22,3 +22,15 @@ def test_dashboard_shows_question_counts_and_recent_questions(client):
+     assert response.context["question_count"] == 1
+     assert response.context["ready_question_count"] == 0
+     assert question.title in response.content.decode()
++
++
++def test_mobile_navigation_is_compact_and_logout_is_visible(client, user):
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++    html = response.content.decode()
++
++    assert html.count("mobile-nav-link") == 4
++    assert "mobile-more-panel" in html
++    assert "mobile-logout-button" in html
++    assert "Log out" in html
+diff --git a/apps/core/views.py b/apps/core/views.py
+index b4cb856..09040a3 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -3,6 +3,7 @@ from django.db import OperationalError, connection
+ from django.http import JsonResponse
+ from django.shortcuts import render
+ 
++from apps.evidence.services import evidence_dashboard_summary
+ from apps.goals.services import primary_goal_for_user, readiness_report
+ from apps.planner.services import generate_daily_plan, plan_summary
+ from apps.questions.models import Question
+@@ -21,6 +22,7 @@ def dashboard(request):
+     today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
+     primary_goal = primary_goal_for_user(user=request.user)
+     readiness = readiness_report(goal=primary_goal) if primary_goal else None
++    evidence_summary = evidence_dashboard_summary(user=request.user)
+ 
+     return render(
+         request,
+@@ -36,6 +38,7 @@ def dashboard(request):
+             "today_plan": today_plan,
+             "primary_goal": primary_goal,
+             "readiness": readiness,
++            "evidence_summary": evidence_summary,
+             "recent_questions": questions.select_related(
+                 "technicalquestion",
+                 "conceptquestion",
+diff --git a/apps/evidence/__init__.py b/apps/evidence/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/evidence/admin.py b/apps/evidence/admin.py
+new file mode 100644
+index 0000000..6f14d7e
+--- /dev/null
++++ b/apps/evidence/admin.py
+@@ -0,0 +1,53 @@
++from django.contrib import admin
++
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++
++class DecisionRecordInline(admin.StackedInline):
++    model = DecisionRecord
++    extra = 0
++
++
++class BehaviouralStoryInline(admin.StackedInline):
++    model = BehaviouralStory
++    extra = 0
++
++
++@admin.register(EvidenceItem)
++class EvidenceItemAdmin(admin.ModelAdmin):
++    list_display = ("title", "owner", "source_type", "organisation", "updated_at")
++    list_filter = ("source_type",)
++    search_fields = ("title", "owner__email", "organisation", "technologies")
++    inlines = [DecisionRecordInline, BehaviouralStoryInline]
++
++
++@admin.register(TopicEvidenceProfile)
++class TopicEvidenceProfileAdmin(admin.ModelAdmin):
++    list_display = ("topic", "user", "readiness", "updated_at")
++    list_filter = ("readiness",)
++    search_fields = ("topic__title", "user__email")
++
++
++@admin.register(TopicEvidenceLink)
++class TopicEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("profile", "evidence", "created_at")
++
++
++@admin.register(QuestionEvidenceLink)
++class QuestionEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("question", "evidence", "user", "created_at")
++    search_fields = ("question__title", "evidence__title", "user__email")
++
++
++@admin.register(GoalEvidenceLink)
++class GoalEvidenceLinkAdmin(admin.ModelAdmin):
++    list_display = ("goal", "evidence", "user", "relevance", "created_at")
++    list_filter = ("relevance",)
+diff --git a/apps/evidence/apps.py b/apps/evidence/apps.py
+new file mode 100644
+index 0000000..56dd8cc
+--- /dev/null
++++ b/apps/evidence/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class EvidenceConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
++    name = "apps.evidence"
+diff --git a/apps/evidence/forms.py b/apps/evidence/forms.py
+new file mode 100644
+index 0000000..75c65b9
+--- /dev/null
++++ b/apps/evidence/forms.py
+@@ -0,0 +1,164 @@
++from django import forms
++
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++
++class EvidenceItemForm(forms.ModelForm):
++    class Meta:
++        model = EvidenceItem
++        fields = [
++            "source_type",
++            "title",
++            "organisation",
++            "role_or_context",
++            "start_date",
++            "end_date",
++            "summary",
++            "problem",
++            "personal_contribution",
++            "technologies",
++            "outcomes",
++            "lessons",
++            "evidence_url",
++        ]
++        labels = {
++            "role_or_context": "Role or context",
++            "personal_contribution": "What I personally did",
++            "technologies": "Technologies and skills",
++            "outcomes": "Outcome or impact",
++            "lessons": "What I learned",
++            "evidence_url": "Supporting link",
++        }
++        help_texts = {
++            "technologies": "Separate technologies or skills with commas.",
++            "evidence_url": "Optional GitHub, live demo, document or portfolio link.",
++        }
++        widgets = {
++            "start_date": forms.DateInput(attrs={"type": "date"}),
++            "end_date": forms.DateInput(attrs={"type": "date"}),
++            "summary": forms.Textarea(attrs={"rows": 4}),
++            "problem": forms.Textarea(attrs={"rows": 4}),
++            "personal_contribution": forms.Textarea(attrs={"rows": 5}),
++            "technologies": forms.Textarea(attrs={"rows": 2}),
++            "outcomes": forms.Textarea(attrs={"rows": 4}),
++            "lessons": forms.Textarea(attrs={"rows": 4}),
++        }
++
++
++class DecisionRecordForm(forms.ModelForm):
++    class Meta:
++        model = DecisionRecord
++        fields = [
++            "title",
++            "context",
++            "alternatives",
++            "decision",
++            "rationale",
++            "tradeoffs",
++            "outcome",
++            "would_choose_again",
++            "reflection",
++        ]
++        widgets = {
++            "context": forms.Textarea(attrs={"rows": 3}),
++            "alternatives": forms.Textarea(attrs={"rows": 3}),
++            "decision": forms.Textarea(attrs={"rows": 3}),
++            "rationale": forms.Textarea(attrs={"rows": 3}),
++            "tradeoffs": forms.Textarea(attrs={"rows": 3}),
++            "outcome": forms.Textarea(attrs={"rows": 3}),
++            "reflection": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class BehaviouralStoryForm(forms.ModelForm):
++    class Meta:
++        model = BehaviouralStory
++        fields = [
++            "title",
++            "situation",
++            "task",
++            "actions",
++            "result",
++            "reflection",
++            "competencies",
++            "follow_up_questions",
++        ]
++        labels = {
++            "actions": "Actions",
++            "competencies": "Competencies demonstrated",
++            "follow_up_questions": "Likely follow-up questions",
++        }
++        help_texts = {
++            "competencies": "Separate competencies with commas.",
++        }
++        widgets = {
++            "situation": forms.Textarea(attrs={"rows": 3}),
++            "task": forms.Textarea(attrs={"rows": 3}),
++            "actions": forms.Textarea(attrs={"rows": 4}),
++            "result": forms.Textarea(attrs={"rows": 3}),
++            "reflection": forms.Textarea(attrs={"rows": 3}),
++            "competencies": forms.Textarea(attrs={"rows": 2}),
++            "follow_up_questions": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class TopicEvidenceProfileForm(forms.ModelForm):
++    class Meta:
++        model = TopicEvidenceProfile
++        fields = [
++            "readiness",
++            "personal_angle",
++            "interview_angle",
++            "evidence_gap",
++            "follow_up_questions",
++        ]
++        labels = {
++            "personal_angle": "Where I have used this",
++            "interview_angle": "How I would explain it",
++            "evidence_gap": "Current evidence gap",
++            "follow_up_questions": "Likely follow-up questions",
++        }
++        widgets = {
++            "personal_angle": forms.Textarea(attrs={"rows": 4}),
++            "interview_angle": forms.Textarea(attrs={"rows": 4}),
++            "evidence_gap": forms.Textarea(attrs={"rows": 3}),
++            "follow_up_questions": forms.Textarea(attrs={"rows": 3}),
++        }
++
++
++class UserEvidenceChoiceForm(forms.ModelForm):
++    def __init__(self, *args, user=None, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.fields["evidence"].queryset = EvidenceItem.objects.filter(owner=user)
++
++
++class TopicEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = TopicEvidenceLink
++        fields = ["evidence", "connection_note"]
++        labels = {"connection_note": "Why this evidence is relevant"}
++        widgets = {"connection_note": forms.Textarea(attrs={"rows": 2})}
++
++
++class QuestionEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = QuestionEvidenceLink
++        fields = ["evidence", "answer_angle"]
++        labels = {"answer_angle": "How this evidence supports my answer"}
++        widgets = {"answer_angle": forms.Textarea(attrs={"rows": 2})}
++
++
++class GoalEvidenceLinkForm(UserEvidenceChoiceForm):
++    class Meta:
++        model = GoalEvidenceLink
++        fields = ["evidence", "relevance", "framing_notes"]
++        labels = {"framing_notes": "How to frame this for the goal"}
++        widgets = {"framing_notes": forms.Textarea(attrs={"rows": 2})}
+diff --git a/apps/evidence/migrations/0001_initial.py b/apps/evidence/migrations/0001_initial.py
+new file mode 100644
+index 0000000..6a1124a
+--- /dev/null
++++ b/apps/evidence/migrations/0001_initial.py
+@@ -0,0 +1,369 @@
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++        ("goals", "0001_initial"),
++        ("questions", "0004_seeded_library_models"),
++        ("roadmaps", "0002_usertopicresource"),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="EvidenceItem",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "source_type",
++                    models.CharField(
++                        choices=[
++                            ("PROJECT", "Project"),
++                            ("WORK", "Work experience"),
++                            ("COURSEWORK", "Coursework"),
++                            ("LEADERSHIP", "Leadership or teamwork"),
++                            ("INCIDENT", "Technical incident"),
++                        ],
++                        max_length=16,
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("organisation", models.CharField(blank=True, max_length=140)),
++                ("role_or_context", models.CharField(blank=True, max_length=180)),
++                ("start_date", models.DateField(blank=True, null=True)),
++                ("end_date", models.DateField(blank=True, null=True)),
++                ("summary", models.TextField(blank=True)),
++                ("problem", models.TextField(blank=True)),
++                ("personal_contribution", models.TextField(blank=True)),
++                ("technologies", models.TextField(blank=True)),
++                ("outcomes", models.TextField(blank=True)),
++                ("lessons", models.TextField(blank=True)),
++                ("evidence_url", models.URLField(blank=True, max_length=500)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "owner",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_items",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["-updated_at", "-created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="BehaviouralStory",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("situation", models.TextField()),
++                ("task", models.TextField(blank=True)),
++                ("actions", models.TextField()),
++                ("result", models.TextField(blank=True)),
++                ("reflection", models.TextField(blank=True)),
++                ("competencies", models.TextField(blank=True)),
++                ("follow_up_questions", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="behavioural_stories",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="DecisionRecord",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                ("context", models.TextField(blank=True)),
++                ("alternatives", models.TextField(blank=True)),
++                ("decision", models.TextField()),
++                ("rationale", models.TextField(blank=True)),
++                ("tradeoffs", models.TextField(blank=True)),
++                ("outcome", models.TextField(blank=True)),
++                (
++                    "would_choose_again",
++                    models.CharField(
++                        choices=[("YES", "Yes"), ("NO", "No"), ("UNSURE", "Unsure")],
++                        default="UNSURE",
++                        max_length=8,
++                    ),
++                ),
++                ("reflection", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="decisions",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="TopicEvidenceProfile",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "readiness",
++                    models.CharField(
++                        choices=[
++                            ("KNOWLEDGE_ONLY", "Knowledge only"),
++                            ("PROJECT_EVIDENCE", "Project evidence"),
++                            ("WORK_EVIDENCE", "Work evidence"),
++                            ("INTERVIEW_READY", "Interview ready"),
++                        ],
++                        default="KNOWLEDGE_ONLY",
++                        max_length=20,
++                    ),
++                ),
++                ("personal_angle", models.TextField(blank=True)),
++                ("interview_angle", models.TextField(blank=True)),
++                ("evidence_gap", models.TextField(blank=True)),
++                ("follow_up_questions", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "topic",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_profiles",
++                        to="roadmaps.roadmaptopic",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_evidence_profiles",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++        ),
++        migrations.CreateModel(
++            name="TopicEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("connection_note", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="topic_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "profile",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="evidence.topicevidenceprofile",
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="QuestionEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("answer_angle", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="question_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "question",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="questions.question",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="question_evidence_links",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["created_at", "pk"]},
++        ),
++        migrations.CreateModel(
++            name="GoalEvidenceLink",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                (
++                    "relevance",
++                    models.CharField(
++                        choices=[("CORE", "Core evidence"), ("SUPPORTING", "Supporting evidence")],
++                        default="SUPPORTING",
++                        max_length=12,
++                    ),
++                ),
++                ("framing_notes", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                (
++                    "evidence",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="goal_links",
++                        to="evidence.evidenceitem",
++                    ),
++                ),
++                (
++                    "goal",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="evidence_links",
++                        to="goals.interviewgoal",
++                    ),
++                ),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="goal_evidence_links",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={"ordering": ["relevance", "created_at", "pk"]},
++        ),
++        migrations.AddIndex(
++            model_name="evidenceitem",
++            index=models.Index(
++                fields=["owner", "source_type", "-updated_at"],
++                name="evidence_owner_type_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="topicevidenceprofile",
++            constraint=models.UniqueConstraint(
++                fields=("user", "topic"),
++                name="unique_user_topic_evidence",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="topicevidenceprofile",
++            index=models.Index(
++                fields=["user", "readiness", "-updated_at"],
++                name="topic_evid_user_ready_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="topicevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("profile", "evidence"),
++                name="unique_topic_evidence_link",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="questionevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("user", "question", "evidence"),
++                name="unique_question_evidence_link",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="questionevidencelink",
++            index=models.Index(
++                fields=["user", "question"],
++                name="quest_evid_user_question_idx",
++            ),
++        ),
++        migrations.AddConstraint(
++            model_name="goalevidencelink",
++            constraint=models.UniqueConstraint(
++                fields=("user", "goal", "evidence"),
++                name="unique_goal_evidence_link",
++            ),
++        ),
++        migrations.AddIndex(
++            model_name="goalevidencelink",
++            index=models.Index(
++                fields=["user", "goal", "relevance"],
++                name="goal_evid_user_goal_idx",
++            ),
++        ),
++    ]
+diff --git a/apps/evidence/migrations/__init__.py b/apps/evidence/migrations/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/evidence/models.py b/apps/evidence/models.py
+new file mode 100644
+index 0000000..3a5b90e
+--- /dev/null
++++ b/apps/evidence/models.py
+@@ -0,0 +1,305 @@
++from django.conf import settings
++from django.core.exceptions import ValidationError
++from django.db import models
++from django.urls import reverse
++
++from apps.goals.models import InterviewGoal
++from apps.questions.models import Question
++from apps.roadmaps.models import RoadmapTopic
++
++
++class EvidenceItem(models.Model):
++    class SourceType(models.TextChoices):
++        PROJECT = "PROJECT", "Project"
++        WORK = "WORK", "Work experience"
++        COURSEWORK = "COURSEWORK", "Coursework"
++        LEADERSHIP = "LEADERSHIP", "Leadership or teamwork"
++        INCIDENT = "INCIDENT", "Technical incident"
++
++    owner = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="evidence_items",
++    )
++    source_type = models.CharField(max_length=16, choices=SourceType.choices)
++    title = models.CharField(max_length=180)
++    organisation = models.CharField(max_length=140, blank=True)
++    role_or_context = models.CharField(max_length=180, blank=True)
++    start_date = models.DateField(null=True, blank=True)
++    end_date = models.DateField(null=True, blank=True)
++    summary = models.TextField(blank=True)
++    problem = models.TextField(blank=True)
++    personal_contribution = models.TextField(blank=True)
++    technologies = models.TextField(blank=True)
++    outcomes = models.TextField(blank=True)
++    lessons = models.TextField(blank=True)
++    evidence_url = models.URLField(max_length=500, blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["-updated_at", "-created_at", "pk"]
++        indexes = [
++            models.Index(
++                fields=["owner", "source_type", "-updated_at"],
++                name="evidence_owner_type_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.start_date and self.end_date and self.end_date < self.start_date:
++            raise ValidationError({"end_date": "End date cannot be before the start date."})
++
++    @property
++    def technology_list(self):
++        return [item.strip() for item in self.technologies.split(",") if item.strip()]
++
++    def get_absolute_url(self):
++        return reverse("evidence:detail", args=[self.pk])
++
++    def __str__(self):
++        return self.title
++
++
++class DecisionRecord(models.Model):
++    class RepeatChoice(models.TextChoices):
++        YES = "YES", "Yes"
++        NO = "NO", "No"
++        UNSURE = "UNSURE", "Unsure"
++
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="decisions",
++    )
++    title = models.CharField(max_length=180)
++    context = models.TextField(blank=True)
++    alternatives = models.TextField(blank=True)
++    decision = models.TextField()
++    rationale = models.TextField(blank=True)
++    tradeoffs = models.TextField(blank=True)
++    outcome = models.TextField(blank=True)
++    would_choose_again = models.CharField(
++        max_length=8,
++        choices=RepeatChoice.choices,
++        default=RepeatChoice.UNSURE,
++    )
++    reflection = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++
++    def __str__(self):
++        return self.title
++
++
++class BehaviouralStory(models.Model):
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="behavioural_stories",
++    )
++    title = models.CharField(max_length=180)
++    situation = models.TextField()
++    task = models.TextField(blank=True)
++    actions = models.TextField()
++    result = models.TextField(blank=True)
++    reflection = models.TextField(blank=True)
++    competencies = models.TextField(blank=True)
++    follow_up_questions = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++
++    @property
++    def competency_list(self):
++        return [item.strip() for item in self.competencies.split(",") if item.strip()]
++
++    def __str__(self):
++        return self.title
++
++
++class TopicEvidenceProfile(models.Model):
++    class Readiness(models.TextChoices):
++        KNOWLEDGE_ONLY = "KNOWLEDGE_ONLY", "Knowledge only"
++        PROJECT_EVIDENCE = "PROJECT_EVIDENCE", "Project evidence"
++        WORK_EVIDENCE = "WORK_EVIDENCE", "Work evidence"
++        INTERVIEW_READY = "INTERVIEW_READY", "Interview ready"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="topic_evidence_profiles",
++    )
++    topic = models.ForeignKey(
++        RoadmapTopic,
++        on_delete=models.CASCADE,
++        related_name="evidence_profiles",
++    )
++    readiness = models.CharField(
++        max_length=20,
++        choices=Readiness.choices,
++        default=Readiness.KNOWLEDGE_ONLY,
++    )
++    personal_angle = models.TextField(blank=True)
++    interview_angle = models.TextField(blank=True)
++    evidence_gap = models.TextField(blank=True)
++    follow_up_questions = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "topic"],
++                name="unique_user_topic_evidence",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "readiness", "-updated_at"],
++                name="topic_evid_user_ready_idx",
++            )
++        ]
++
++    def __str__(self):
++        return f"{self.user}: {self.topic}"
++
++
++class TopicEvidenceLink(models.Model):
++    profile = models.ForeignKey(
++        TopicEvidenceProfile,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="topic_links",
++    )
++    connection_note = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["profile", "evidence"],
++                name="unique_topic_evidence_link",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.profile_id and self.evidence_id:
++            if self.profile.user_id != self.evidence.owner_id:
++                raise ValidationError("Evidence and topic profile must belong to the same user.")
++
++    def __str__(self):
++        return f"{self.profile.topic}: {self.evidence}"
++
++
++class QuestionEvidenceLink(models.Model):
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="question_evidence_links",
++    )
++    question = models.ForeignKey(
++        Question,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="question_links",
++    )
++    answer_angle = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "question", "evidence"],
++                name="unique_question_evidence_link",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "question"],
++                name="quest_evid_user_question_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.user_id and self.evidence_id and self.user_id != self.evidence.owner_id:
++            raise ValidationError("Evidence must belong to the linked user.")
++        if self.user_id and self.question_id:
++            has_access = self.question.is_system or self.question.owner_id == self.user_id
++            if not has_access:
++                raise ValidationError("The user cannot access this question.")
++
++    def __str__(self):
++        return f"{self.question}: {self.evidence}"
++
++
++class GoalEvidenceLink(models.Model):
++    class Relevance(models.TextChoices):
++        CORE = "CORE", "Core evidence"
++        SUPPORTING = "SUPPORTING", "Supporting evidence"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="goal_evidence_links",
++    )
++    goal = models.ForeignKey(
++        InterviewGoal,
++        on_delete=models.CASCADE,
++        related_name="evidence_links",
++    )
++    evidence = models.ForeignKey(
++        EvidenceItem,
++        on_delete=models.CASCADE,
++        related_name="goal_links",
++    )
++    relevance = models.CharField(
++        max_length=12,
++        choices=Relevance.choices,
++        default=Relevance.SUPPORTING,
++    )
++    framing_notes = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ["relevance", "created_at", "pk"]
++        constraints = [
++            models.UniqueConstraint(
++                fields=["user", "goal", "evidence"],
++                name="unique_goal_evidence_link",
++            )
++        ]
++        indexes = [
++            models.Index(
++                fields=["user", "goal", "relevance"],
++                name="goal_evid_user_goal_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if self.user_id and self.goal_id and self.user_id != self.goal.user_id:
++            raise ValidationError("Goal must belong to the linked user.")
++        if self.user_id and self.evidence_id and self.user_id != self.evidence.owner_id:
++            raise ValidationError("Evidence must belong to the linked user.")
++
++    def __str__(self):
++        return f"{self.goal}: {self.evidence}"
+diff --git a/apps/evidence/services.py b/apps/evidence/services.py
+new file mode 100644
+index 0000000..9a292fe
+--- /dev/null
++++ b/apps/evidence/services.py
+@@ -0,0 +1,45 @@
++from django.db.models import Count, Q
++
++from .models import EvidenceItem, TopicEvidenceProfile
++
++
++def evidence_library_queryset(*, user):
++    return EvidenceItem.objects.filter(owner=user).annotate(
++        decision_count=Count("decisions", distinct=True),
++        story_count=Count("behavioural_stories", distinct=True),
++        topic_count=Count("topic_links", distinct=True),
++        question_count=Count("question_links", distinct=True),
++        goal_count=Count("goal_links", distinct=True),
++    )
++
++
++def filter_evidence_library(*, user, search_term="", source_type=""):
++    evidence = evidence_library_queryset(user=user)
++    if search_term:
++        evidence = evidence.filter(
++            Q(title__icontains=search_term)
++            | Q(organisation__icontains=search_term)
++            | Q(role_or_context__icontains=search_term)
++            | Q(summary__icontains=search_term)
++            | Q(problem__icontains=search_term)
++            | Q(personal_contribution__icontains=search_term)
++            | Q(technologies__icontains=search_term)
++            | Q(outcomes__icontains=search_term)
++        )
++    valid_types = {value for value, _ in EvidenceItem.SourceType.choices}
++    if source_type in valid_types:
++        evidence = evidence.filter(source_type=source_type)
++    return evidence
++
++
++def evidence_dashboard_summary(*, user):
++    items = EvidenceItem.objects.filter(owner=user)
++    topic_profiles = TopicEvidenceProfile.objects.filter(user=user)
++    return {
++        "total_count": items.count(),
++        "project_count": items.filter(source_type=EvidenceItem.SourceType.PROJECT).count(),
++        "work_count": items.filter(source_type=EvidenceItem.SourceType.WORK).count(),
++        "interview_ready_topic_count": topic_profiles.filter(
++            readiness=TopicEvidenceProfile.Readiness.INTERVIEW_READY
++        ).count(),
++    }
+diff --git a/apps/evidence/tests/__init__.py b/apps/evidence/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/evidence/tests/conftest.py b/apps/evidence/tests/conftest.py
+new file mode 100644
+index 0000000..021327c
+--- /dev/null
++++ b/apps/evidence/tests/conftest.py
+@@ -0,0 +1,97 @@
++import pytest
++
++from apps.accounts.models import User
++from apps.goals.models import InterviewGoal
++from apps.questions.models import TechnicalQuestion
++from apps.roadmaps.models import Roadmap, RoadmapSection, RoadmapTopic
++
++from apps.evidence.models import EvidenceItem
++
++
++@pytest.fixture
++def user(db):
++    return User.objects.create_user(
++        email="tee@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def other_user(db):
++    return User.objects.create_user(
++        email="other@example.com",
++        password="safe-test-password",
++    )
++
++
++@pytest.fixture
++def evidence_item(user):
++    return EvidenceItem.objects.create(
++        owner=user,
++        source_type=EvidenceItem.SourceType.PROJECT,
++        title="ViewCoach",
++        organisation="Personal project",
++        summary="An interview preparation platform.",
++        personal_contribution="Designed the Django architecture and review engine.",
++        technologies="Python, Django, PostgreSQL",
++    )
++
++
++@pytest.fixture
++def other_evidence(other_user):
++    return EvidenceItem.objects.create(
++        owner=other_user,
++        source_type=EvidenceItem.SourceType.WORK,
++        title="Private employer project",
++    )
++
++
++@pytest.fixture
++def roadmap(db):
++    return Roadmap.objects.create(
++        title="Backend Developer",
++        slug="backend-developer",
++        description="Backend roadmap.",
++        kind=Roadmap.Kind.ROLE,
++        is_system=True,
++        is_published=True,
++    )
++
++
++@pytest.fixture
++def topic(roadmap):
++    section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Databases",
++        slug="databases",
++        position=1,
++    )
++    return RoadmapTopic.objects.create(
++        section=section,
++        title="Database constraints",
++        slug="database-constraints",
++        position=1,
++    )
++
++
++@pytest.fixture
++def technical_question(user):
++    return TechnicalQuestion.objects.create(
++        owner=user,
++        title="Explain a database constraint decision",
++        prompt="Why use database constraints as well as form validation?",
++        topic="Databases",
++        intuition="Constraints protect invariants at the persistence boundary.",
++    )
++
++
++@pytest.fixture
++def goal(user, roadmap):
++    return InterviewGoal.objects.create(
++        user=user,
++        title="Backend interview",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Backend Developer",
++        roadmap=roadmap,
++        is_primary=True,
++    )
+diff --git a/apps/evidence/tests/test_forms.py b/apps/evidence/tests/test_forms.py
+new file mode 100644
+index 0000000..648aa4b
+--- /dev/null
++++ b/apps/evidence/tests/test_forms.py
+@@ -0,0 +1,66 @@
++import pytest
++
++from apps.evidence.forms import (
++    BehaviouralStoryForm,
++    EvidenceItemForm,
++    GoalEvidenceLinkForm,
++    TopicEvidenceProfileForm,
++)
++from apps.evidence.models import EvidenceItem, TopicEvidenceProfile
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_item_form_accepts_a_project_case_study():
++    form = EvidenceItemForm(
++        data={
++            "source_type": EvidenceItem.SourceType.PROJECT,
++            "title": "ViewCoach",
++            "organisation": "",
++            "role_or_context": "Full-stack portfolio project",
++            "start_date": "2026-07-01",
++            "end_date": "",
++            "summary": "Interview preparation platform.",
++            "problem": "Preparation is fragmented.",
++            "personal_contribution": "Designed and built the application.",
++            "technologies": "Python, Django",
++            "outcomes": "Delivered a deployed application.",
++            "lessons": "Deterministic planning is explainable.",
++            "evidence_url": "https://example.com/viewcoach",
++        }
++    )
++
++    assert form.is_valid(), form.errors
++
++
++def test_goal_link_form_only_lists_current_users_evidence(
++    user,
++    evidence_item,
++    other_evidence,
++):
++    form = GoalEvidenceLinkForm(user=user)
++
++    assert list(form.fields["evidence"].queryset) == [evidence_item]
++    assert other_evidence not in form.fields["evidence"].queryset
++
++
++def test_topic_profile_form_accepts_interview_framing():
++    form = TopicEvidenceProfileForm(
++        data={
++            "readiness": TopicEvidenceProfile.Readiness.INTERVIEW_READY,
++            "personal_angle": "Used constraints in ViewCoach.",
++            "interview_angle": "Explain persistence-layer invariants.",
++            "evidence_gap": "Limited scale testing.",
++            "follow_up_questions": "How would this change at higher scale?",
++        }
++    )
++
++    assert form.is_valid(), form.errors
++
++
++def test_behavioural_story_requires_situation_and_actions():
++    form = BehaviouralStoryForm(data={"title": "Debugged a failed patch"})
++
++    assert not form.is_valid()
++    assert "situation" in form.errors
++    assert "actions" in form.errors
+diff --git a/apps/evidence/tests/test_integration.py b/apps/evidence/tests/test_integration.py
+new file mode 100644
+index 0000000..52287aa
+--- /dev/null
++++ b/apps/evidence/tests/test_integration.py
+@@ -0,0 +1,53 @@
++import pytest
++from django.urls import reverse
++
++pytestmark = pytest.mark.django_db
++
++
++def test_topic_workspace_surfaces_personal_evidence_section(client, user, topic):
++    client.force_login(user)
++
++    response = client.get(
++        reverse(
++            "roadmaps:topic_detail",
++            kwargs={
++                "slug": topic.section.roadmap.slug,
++                "topic_id": topic.pk,
++            },
++        )
++    )
++
++    assert response.status_code == 200
++    assert "Personal evidence and interview framing" in response.content.decode()
++
++
++def test_question_detail_surfaces_real_example_section(
++    client,
++    user,
++    technical_question,
++):
++    client.force_login(user)
++
++    response = client.get(reverse("questions:detail", args=[technical_question.pk]))
++
++    assert response.status_code == 200
++    assert "Real examples for this answer" in response.content.decode()
++
++
++def test_goal_detail_surfaces_goal_specific_evidence(client, user, goal):
++    client.force_login(user)
++
++    response = client.get(reverse("goals:detail", args=[goal.pk]))
++
++    assert response.status_code == 200
++    assert "Evidence for this goal" in response.content.decode()
++
++
++def test_dashboard_counts_private_evidence(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.status_code == 200
++    assert response.context["evidence_summary"]["total_count"] == 1
++    assert reverse("evidence:list") in response.content.decode()
+diff --git a/apps/evidence/tests/test_models.py b/apps/evidence/tests/test_models.py
+new file mode 100644
+index 0000000..98f535f
+--- /dev/null
++++ b/apps/evidence/tests/test_models.py
+@@ -0,0 +1,113 @@
++from datetime import date
++
++import pytest
++from django.core.exceptions import ValidationError
++from django.db import IntegrityError
++
++from apps.evidence.models import (
++    DecisionRecord,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++from apps.goals.models import InterviewGoal
++from apps.questions.models import TechnicalQuestion
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_item_exposes_clean_technology_list(evidence_item):
++    evidence_item.technologies = "Python, Django,  PostgreSQL, "
++
++    assert evidence_item.technology_list == ["Python", "Django", "PostgreSQL"]
++
++
++def test_evidence_item_rejects_end_date_before_start(evidence_item):
++    evidence_item.start_date = date(2026, 7, 10)
++    evidence_item.end_date = date(2026, 7, 1)
++
++    with pytest.raises(ValidationError):
++        evidence_item.full_clean()
++
++
++def test_deleting_evidence_deletes_its_decisions(evidence_item):
++    DecisionRecord.objects.create(
++        evidence=evidence_item,
++        title="Use deterministic planning",
++        decision="Use scoring rules instead of an LLM.",
++    )
++
++    evidence_item.delete()
++
++    assert DecisionRecord.objects.count() == 0
++
++
++def test_only_one_topic_profile_exists_per_user_and_topic(user, topic):
++    TopicEvidenceProfile.objects.create(user=user, topic=topic)
++
++    with pytest.raises(IntegrityError):
++        TopicEvidenceProfile.objects.create(user=user, topic=topic)
++
++
++def test_topic_link_rejects_evidence_from_another_user(user, topic, other_evidence):
++    profile = TopicEvidenceProfile.objects.create(user=user, topic=topic)
++    link = TopicEvidenceLink(profile=profile, evidence=other_evidence)
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
++
++
++def test_question_link_accepts_a_question_owned_by_the_user(
++    user,
++    technical_question,
++    evidence_item,
++):
++    link = QuestionEvidenceLink(
++        user=user,
++        question=technical_question,
++        evidence=evidence_item,
++    )
++
++    link.full_clean()
++
++
++def test_question_link_rejects_another_users_private_question(
++    user,
++    other_user,
++    evidence_item,
++):
++    private_question = TechnicalQuestion.objects.create(
++        owner=other_user,
++        title="Private question",
++        prompt="Private prompt",
++    )
++    link = QuestionEvidenceLink(
++        user=user,
++        question=private_question,
++        evidence=evidence_item,
++    )
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
++
++
++def test_goal_link_rejects_goal_owned_by_another_user(
++    user,
++    other_user,
++    evidence_item,
++):
++    other_goal = InterviewGoal.objects.create(
++        user=other_user,
++        title="Other goal",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Software Engineer",
++    )
++    link = GoalEvidenceLink(
++        user=user,
++        goal=other_goal,
++        evidence=evidence_item,
++    )
++
++    with pytest.raises(ValidationError):
++        link.full_clean()
+diff --git a/apps/evidence/tests/test_views.py b/apps/evidence/tests/test_views.py
+new file mode 100644
+index 0000000..cb66cb7
+--- /dev/null
++++ b/apps/evidence/tests/test_views.py
+@@ -0,0 +1,199 @@
++import pytest
++from django.urls import reverse
++
++from apps.evidence.models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def test_evidence_list_requires_authentication(client):
++    response = client.get(reverse("evidence:list"))
++
++    assert response.status_code == 302
++    assert response.url.startswith(reverse("login"))
++
++
++def test_user_can_create_an_evidence_record(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:create"),
++        {
++            "source_type": EvidenceItem.SourceType.PROJECT,
++            "title": "ScoreRent",
++            "organisation": "",
++            "role_or_context": "Portfolio project",
++            "start_date": "",
++            "end_date": "",
++            "summary": "Explainable rental decision support.",
++            "problem": "Rental evaluation lacks transparency.",
++            "personal_contribution": "Designed the scoring rules and API.",
++            "technologies": "Python, FastAPI, PostgreSQL",
++            "outcomes": "Deployed the project.",
++            "lessons": "Rules should remain explainable.",
++            "evidence_url": "",
++        },
++    )
++
++    item = EvidenceItem.objects.get(owner=user)
++    assert response.status_code == 302
++    assert response.url == reverse("evidence:detail", args=[item.pk])
++
++
++def test_user_cannot_open_someone_elses_evidence(client, user, other_evidence):
++    client.force_login(user)
++
++    response = client.get(reverse("evidence:detail", args=[other_evidence.pk]))
++
++    assert response.status_code == 404
++
++
++def test_user_can_add_a_decision_record(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:decision_add", args=[evidence_item.pk]),
++        {
++            "title": "Keep the planner deterministic",
++            "context": "Recommendations need to be explainable.",
++            "alternatives": "Generate the plan with an LLM.",
++            "decision": "Use deterministic scoring rules.",
++            "rationale": "The same inputs should produce the same plan.",
++            "tradeoffs": "Rules need manual maintenance.",
++            "outcome": "Every recommendation has a clear rationale.",
++            "would_choose_again": "YES",
++            "reflection": "AI can be added later without owning prioritisation.",
++        },
++    )
++
++    assert response.status_code == 302
++    assert DecisionRecord.objects.filter(evidence=evidence_item).count() == 1
++
++
++def test_user_can_add_a_behavioural_story(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:story_add", args=[evidence_item.pk]),
++        {
++            "title": "Recovered from a failed integration patch",
++            "situation": "A patch did not apply after the dashboard changed.",
++            "task": "Integrate the milestone without losing recent work.",
++            "actions": "Inspected the exact context and repaired the patch.",
++            "result": "The patch applied and all tests passed.",
++            "reflection": "Validate generated changes against the current branch.",
++            "competencies": "Ownership, Debugging",
++            "follow_up_questions": "How did you isolate the mismatch?",
++        },
++    )
++
++    assert response.status_code == 302
++    assert BehaviouralStory.objects.filter(evidence=evidence_item).count() == 1
++
++
++def test_user_can_save_their_topic_interview_angle(client, user, topic):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_profile_save", args=[topic.pk]),
++        {
++            "readiness": TopicEvidenceProfile.Readiness.PROJECT_EVIDENCE,
++            "personal_angle": "Used database constraints in ViewCoach.",
++            "interview_angle": "Explain defence in depth.",
++            "evidence_gap": "No high-volume benchmark yet.",
++            "follow_up_questions": "Why not rely on form validation?",
++        },
++    )
++
++    profile = TopicEvidenceProfile.objects.get(user=user, topic=topic)
++    assert response.status_code == 302
++    assert profile.readiness == TopicEvidenceProfile.Readiness.PROJECT_EVIDENCE
++
++
++def test_user_can_link_owned_evidence_to_a_topic(
++    client,
++    user,
++    topic,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_link", args=[topic.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "connection_note": "The project uses database constraints.",
++        },
++    )
++
++    link = TopicEvidenceLink.objects.get(profile__user=user, profile__topic=topic)
++    assert response.status_code == 302
++    assert link.evidence == evidence_item
++
++
++def test_user_cannot_link_another_users_evidence_to_a_topic(
++    client,
++    user,
++    topic,
++    other_evidence,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:topic_link", args=[topic.pk]),
++        {"evidence": other_evidence.pk, "connection_note": "Private"},
++    )
++
++    assert response.status_code == 302
++    assert TopicEvidenceLink.objects.count() == 0
++
++
++def test_user_can_link_evidence_to_a_question(
++    client,
++    user,
++    technical_question,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:question_link", args=[technical_question.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "answer_angle": "Use the ViewCoach ownership constraint example.",
++        },
++    )
++
++    link = QuestionEvidenceLink.objects.get(user=user, question=technical_question)
++    assert response.status_code == 302
++    assert link.evidence == evidence_item
++
++
++def test_user_can_link_evidence_to_an_interview_goal(
++    client,
++    user,
++    goal,
++    evidence_item,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:goal_link", args=[goal.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "relevance": GoalEvidenceLink.Relevance.CORE,
++            "framing_notes": "Lead with backend architecture and testing.",
++        },
++    )
++
++    link = GoalEvidenceLink.objects.get(user=user, goal=goal)
++    assert response.status_code == 302
++    assert link.relevance == GoalEvidenceLink.Relevance.CORE
+diff --git a/apps/evidence/urls.py b/apps/evidence/urls.py
+new file mode 100644
+index 0000000..bd59259
+--- /dev/null
++++ b/apps/evidence/urls.py
+@@ -0,0 +1,68 @@
++from django.urls import path
++
++from . import views
++
++app_name = "evidence"
++
++urlpatterns = [
++    path("", views.evidence_list, name="list"),
++    path("new/", views.evidence_create, name="create"),
++    path("<int:evidence_id>/", views.evidence_detail, name="detail"),
++    path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
++    path("<int:evidence_id>/delete/", views.evidence_delete, name="delete"),
++    path(
++        "<int:evidence_id>/decisions/",
++        views.decision_add,
++        name="decision_add",
++    ),
++    path(
++        "<int:evidence_id>/decisions/<int:decision_id>/delete/",
++        views.decision_delete,
++        name="decision_delete",
++    ),
++    path(
++        "<int:evidence_id>/stories/",
++        views.story_add,
++        name="story_add",
++    ),
++    path(
++        "<int:evidence_id>/stories/<int:story_id>/delete/",
++        views.story_delete,
++        name="story_delete",
++    ),
++    path(
++        "topics/<int:topic_id>/profile/",
++        views.topic_profile_save,
++        name="topic_profile_save",
++    ),
++    path(
++        "topics/<int:topic_id>/links/",
++        views.topic_evidence_link,
++        name="topic_link",
++    ),
++    path(
++        "topics/<int:topic_id>/links/<int:link_id>/delete/",
++        views.topic_evidence_unlink,
++        name="topic_unlink",
++    ),
++    path(
++        "questions/<int:question_id>/links/",
++        views.question_evidence_link,
++        name="question_link",
++    ),
++    path(
++        "questions/<int:question_id>/links/<int:link_id>/delete/",
++        views.question_evidence_unlink,
++        name="question_unlink",
++    ),
++    path(
++        "goals/<int:goal_id>/links/",
++        views.goal_evidence_link,
++        name="goal_link",
++    ),
++    path(
++        "goals/<int:goal_id>/links/<int:link_id>/delete/",
++        views.goal_evidence_unlink,
++        name="goal_unlink",
++    ),
++]
+diff --git a/apps/evidence/views.py b/apps/evidence/views.py
+new file mode 100644
+index 0000000..dd727d8
+--- /dev/null
++++ b/apps/evidence/views.py
+@@ -0,0 +1,345 @@
++from django.contrib import messages
++from django.contrib.auth.decorators import login_required
++from django.core.paginator import Paginator
++from django.db import IntegrityError
++from django.db.models import Q
++from django.shortcuts import get_object_or_404, redirect, render
++from django.views.decorators.http import require_POST
++
++from apps.goals.models import InterviewGoal
++from apps.questions.models import Question
++from apps.roadmaps.models import RoadmapTopic
++
++from .forms import (
++    BehaviouralStoryForm,
++    DecisionRecordForm,
++    EvidenceItemForm,
++    GoalEvidenceLinkForm,
++    QuestionEvidenceLinkForm,
++    TopicEvidenceLinkForm,
++    TopicEvidenceProfileForm,
++)
++from .models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++from .services import filter_evidence_library
++
++
++def _owned_evidence(user):
++    return EvidenceItem.objects.filter(owner=user)
++
++
++def _owned_item(user, evidence_id):
++    return get_object_or_404(_owned_evidence(user), pk=evidence_id)
++
++
++def _accessible_topic(user, topic_id):
++    return get_object_or_404(
++        RoadmapTopic.objects.select_related("section", "section__roadmap").filter(
++            Q(section__roadmap__is_system=True)
++            | Q(section__roadmap__created_by=user)
++        ),
++        pk=topic_id,
++        section__roadmap__is_published=True,
++    )
++
++
++def _accessible_question(user, question_id):
++    return get_object_or_404(
++        Question.objects.filter(Q(is_system=True) | Q(owner=user)),
++        pk=question_id,
++    )
++
++
++def _owned_goal(user, goal_id):
++    return get_object_or_404(InterviewGoal, user=user, pk=goal_id)
++
++
++@login_required
++def evidence_list(request):
++    search_term = request.GET.get("q", "").strip()
++    source_type = request.GET.get("type", "").strip()
++    evidence = filter_evidence_library(
++        user=request.user,
++        search_term=search_term,
++        source_type=source_type,
++    )
++    page = Paginator(evidence, 16).get_page(request.GET.get("page"))
++    return render(
++        request,
++        "evidence/evidence_list.html",
++        {
++            "page": page,
++            "source_types": EvidenceItem.SourceType.choices,
++            "filters": {"q": search_term, "type": source_type},
++        },
++    )
++
++
++@login_required
++def evidence_create(request):
++    if request.method == "POST":
++        form = EvidenceItemForm(request.POST)
++        if form.is_valid():
++            item = form.save(commit=False)
++            item.owner = request.user
++            item.save()
++            messages.success(request, "Evidence record created.")
++            return redirect(item)
++    else:
++        form = EvidenceItemForm()
++    return render(
++        request,
++        "evidence/evidence_form.html",
++        {"form": form, "is_editing": False},
++    )
++
++
++@login_required
++def evidence_edit(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    if request.method == "POST":
++        form = EvidenceItemForm(request.POST, instance=item)
++        if form.is_valid():
++            item = form.save()
++            messages.success(request, "Evidence record updated.")
++            return redirect(item)
++    else:
++        form = EvidenceItemForm(instance=item)
++    return render(
++        request,
++        "evidence/evidence_form.html",
++        {"form": form, "item": item, "is_editing": True},
++    )
++
++
++@login_required
++def evidence_detail(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    return render(
++        request,
++        "evidence/evidence_detail.html",
++        {
++            "item": item,
++            "decisions": item.decisions.all(),
++            "stories": item.behavioural_stories.all(),
++            "topic_links": item.topic_links.select_related(
++                "profile__topic__section__roadmap"
++            ),
++            "question_links": item.question_links.select_related("question"),
++            "goal_links": item.goal_links.select_related("goal"),
++            "decision_form": DecisionRecordForm(),
++            "story_form": BehaviouralStoryForm(),
++        },
++    )
++
++
++@login_required
++def evidence_delete(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    if request.method == "POST":
++        title = item.title
++        item.delete()
++        messages.success(request, f"Deleted evidence record: {title}.")
++        return redirect("evidence:list")
++    return render(request, "evidence/evidence_confirm_delete.html", {"item": item})
++
++
++@login_required
++@require_POST
++def decision_add(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    form = DecisionRecordForm(request.POST)
++    if form.is_valid():
++        decision = form.save(commit=False)
++        decision.evidence = item
++        decision.save()
++        messages.success(request, "Decision record added.")
++    else:
++        messages.error(request, "Check the decision details and try again.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def decision_delete(request, evidence_id, decision_id):
++    item = _owned_item(request.user, evidence_id)
++    decision = get_object_or_404(DecisionRecord, evidence=item, pk=decision_id)
++    decision.delete()
++    messages.success(request, "Decision record removed.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def story_add(request, evidence_id):
++    item = _owned_item(request.user, evidence_id)
++    form = BehaviouralStoryForm(request.POST)
++    if form.is_valid():
++        story = form.save(commit=False)
++        story.evidence = item
++        story.save()
++        messages.success(request, "Behavioural story added.")
++    else:
++        messages.error(request, "Check the story details and try again.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def story_delete(request, evidence_id, story_id):
++    item = _owned_item(request.user, evidence_id)
++    story = get_object_or_404(BehaviouralStory, evidence=item, pk=story_id)
++    story.delete()
++    messages.success(request, "Behavioural story removed.")
++    return redirect(item)
++
++
++@login_required
++@require_POST
++def topic_profile_save(request, topic_id):
++    topic = _accessible_topic(request.user, topic_id)
++    profile, _ = TopicEvidenceProfile.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    form = TopicEvidenceProfileForm(request.POST, instance=profile)
++    if form.is_valid():
++        form.save()
++        messages.success(request, "Personal interview angle saved.")
++    else:
++        messages.error(request, "Check the personal evidence fields and try again.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def topic_evidence_link(request, topic_id):
++    topic = _accessible_topic(request.user, topic_id)
++    profile, _ = TopicEvidenceProfile.objects.get_or_create(
++        user=request.user,
++        topic=topic,
++    )
++    form = TopicEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            TopicEvidenceLink.objects.create(
++                profile=profile,
++                evidence=form.cleaned_data["evidence"],
++                connection_note=form.cleaned_data["connection_note"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this topic.")
++        else:
++            messages.success(request, "Evidence linked to this roadmap topic.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def topic_evidence_unlink(request, topic_id, link_id):
++    topic = _accessible_topic(request.user, topic_id)
++    link = get_object_or_404(
++        TopicEvidenceLink,
++        profile__user=request.user,
++        profile__topic=topic,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this topic.")
++    return redirect(
++        "roadmaps:topic_detail",
++        slug=topic.section.roadmap.slug,
++        topic_id=topic.pk,
++    )
++
++
++@login_required
++@require_POST
++def question_evidence_link(request, question_id):
++    question = _accessible_question(request.user, question_id)
++    form = QuestionEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            QuestionEvidenceLink.objects.create(
++                user=request.user,
++                question=question,
++                evidence=form.cleaned_data["evidence"],
++                answer_angle=form.cleaned_data["answer_angle"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this question.")
++        else:
++            messages.success(request, "Evidence linked to this question.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect("questions:detail", pk=question.pk)
++
++
++@login_required
++@require_POST
++def question_evidence_unlink(request, question_id, link_id):
++    question = _accessible_question(request.user, question_id)
++    link = get_object_or_404(
++        QuestionEvidenceLink,
++        user=request.user,
++        question=question,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this question.")
++    return redirect("questions:detail", pk=question.pk)
++
++
++@login_required
++@require_POST
++def goal_evidence_link(request, goal_id):
++    goal = _owned_goal(request.user, goal_id)
++    form = GoalEvidenceLinkForm(request.POST, user=request.user)
++    if form.is_valid():
++        try:
++            GoalEvidenceLink.objects.create(
++                user=request.user,
++                goal=goal,
++                evidence=form.cleaned_data["evidence"],
++                relevance=form.cleaned_data["relevance"],
++                framing_notes=form.cleaned_data["framing_notes"],
++            )
++        except IntegrityError:
++            messages.info(request, "That evidence is already linked to this goal.")
++        else:
++            messages.success(request, "Evidence linked to this interview goal.")
++    else:
++        messages.error(request, "Choose one of your evidence records.")
++    return redirect(goal)
++
++
++@login_required
++@require_POST
++def goal_evidence_unlink(request, goal_id, link_id):
++    goal = _owned_goal(request.user, goal_id)
++    link = get_object_or_404(
++        GoalEvidenceLink,
++        user=request.user,
++        goal=goal,
++        pk=link_id,
++    )
++    link.delete()
++    messages.success(request, "Evidence unlinked from this goal.")
++    return redirect(goal)
+diff --git a/apps/goals/views.py b/apps/goals/views.py
+index aefafc0..d54c521 100644
+--- a/apps/goals/views.py
++++ b/apps/goals/views.py
+@@ -6,6 +6,9 @@ from django.db import IntegrityError, transaction
+ from django.shortcuts import get_object_or_404, redirect, render
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import GoalEvidenceLinkForm
++from apps.evidence.models import EvidenceItem, GoalEvidenceLink
++
+ from .forms import InterviewGoalForm, InterviewStageForm
+ from .models import InterviewGoal, InterviewStage
+ from .services import (
+@@ -144,6 +147,14 @@ def goal_detail(request, goal_id):
+             "report": readiness_report(goal=goal),
+             "stage_form": InterviewStageForm(),
+             "status_choices": InterviewGoal.Status.choices,
++            "goal_evidence_links": GoalEvidenceLink.objects.filter(
++                user=request.user,
++                goal=goal,
++            ).select_related("evidence"),
++            "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+         },
+     )
+ 
+@@ -189,6 +200,14 @@ def stage_add(request, goal_id):
+                 "report": readiness_report(goal=goal),
+                 "stage_form": form,
+                 "status_choices": InterviewGoal.Status.choices,
++                "goal_evidence_links": GoalEvidenceLink.objects.filter(
++                    user=request.user,
++                    goal=goal,
++                ).select_related("evidence"),
++                "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
++                "has_evidence_items": EvidenceItem.objects.filter(
++                    owner=request.user,
++                ).exists(),
+             },
+             status=400,
+         )
+diff --git a/apps/planner/forms.py b/apps/planner/forms.py
+index 8b1d8de..b6fa0e2 100644
+--- a/apps/planner/forms.py
++++ b/apps/planner/forms.py
+@@ -1,17 +1,30 @@
++from decimal import Decimal
++
+ from django import forms
+ 
+ 
+ class StudyPlanPreferencesForm(forms.Form):
+-    TIME_BUDGET_CHOICES = (
+-        (30, "30 minutes"),
+-        (45, "45 minutes"),
+-        (60, "1 hour"),
+-        (90, "1 hour 30 minutes"),
+-        (120, "2 hours"),
++    time_budget_hours = forms.DecimalField(
++        min_value=Decimal("0.25"),
++        max_value=Decimal("16"),
++        decimal_places=2,
++        max_digits=4,
++        label="Hours available today",
++        help_text="Enter any amount from 15 minutes to 16 hours, in 15-minute steps.",
++        widget=forms.NumberInput(
++            attrs={
++                "min": "0.25",
++                "max": "16",
++                "step": "0.25",
++                "inputmode": "decimal",
++                "placeholder": "e.g. 8",
++            }
++        ),
+     )
+ 
+-    time_budget_minutes = forms.TypedChoiceField(
+-        choices=TIME_BUDGET_CHOICES,
+-        coerce=int,
+-        label="Time available today",
+-    )
++    def clean(self):
++        cleaned_data = super().clean()
++        hours = cleaned_data.get("time_budget_hours")
++        if hours is not None:
++            cleaned_data["time_budget_minutes"] = int(hours * Decimal("60"))
++        return cleaned_data
+diff --git a/apps/planner/services.py b/apps/planner/services.py
+index feb6cb8..6442bfe 100644
+--- a/apps/planner/services.py
++++ b/apps/planner/services.py
+@@ -32,79 +32,74 @@ def _primary_goal(*, user):
+     )
+ 
+ 
+-def _active_roadmap_enrolment(*, user, goal=None):
++def _ordered_active_roadmap_enrolments(*, user, goal=None):
+     enrolment_query = UserRoadmap.objects.filter(
+         user=user,
+         status=UserRoadmap.Status.IN_PROGRESS,
+         roadmap__is_published=True,
+     ).select_related("roadmap")
++
+     if goal is not None:
+         linked_roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))
+         if linked_roadmap_ids:
+-            linked_enrolments = list(
+-                enrolment_query.filter(roadmap_id__in=linked_roadmap_ids)
++            enrolment_query = enrolment_query.filter(
++                roadmap_id__in=linked_roadmap_ids
+             )
+-            if linked_enrolments:
+-                in_progress_roadmap_ids = set(
+-                    UserTopicProgress.objects.filter(
+-                        user=user,
+-                        status=UserTopicProgress.Status.IN_PROGRESS,
+-                        topic__section__roadmap_id__in=linked_roadmap_ids,
+-                    ).values_list("topic__section__roadmap_id", flat=True)
+-                )
+-                completed_counts = {
+-                    roadmap_id: UserTopicProgress.objects.filter(
+-                        user=user,
+-                        status=UserTopicProgress.Status.COMPLETED,
+-                        topic__section__roadmap_id=roadmap_id,
+-                    ).count()
+-                    for roadmap_id in linked_roadmap_ids
+-                }
+-                topic_counts = {
+-                    roadmap_id: RoadmapTopic.objects.filter(
+-                        section__roadmap_id=roadmap_id,
+-                    ).count()
+-                    for roadmap_id in linked_roadmap_ids
+-                }
+-                incomplete_enrolments = [
+-                    enrolment
+-                    for enrolment in linked_enrolments
+-                    if completed_counts.get(enrolment.roadmap_id, 0)
+-                    < topic_counts.get(enrolment.roadmap_id, 0)
+-                ]
+-                if not incomplete_enrolments:
+-                    return None
+-                linked_enrolments = incomplete_enrolments
+-
+-                far_future = date.max
+-                linked_enrolments.sort(
+-                    key=lambda enrolment: (
+-                        0 if enrolment.roadmap_id in in_progress_roadmap_ids else 1,
+-                        completed_counts.get(enrolment.roadmap_id, 0)
+-                        / max(topic_counts.get(enrolment.roadmap_id, 0), 1),
+-                        enrolment.target_date or far_future,
+-                        enrolment.started_at or timezone.now(),
+-                        enrolment.pk,
+-                    )
+-                )
+-                return linked_enrolments[0]
+ 
+     enrolments = list(enrolment_query)
+     if not enrolments:
+-        return None
++        return []
++
++    roadmap_ids = [enrolment.roadmap_id for enrolment in enrolments]
++    in_progress_roadmap_ids = set(
++        UserTopicProgress.objects.filter(
++            user=user,
++            status=UserTopicProgress.Status.IN_PROGRESS,
++            topic__section__roadmap_id__in=roadmap_ids,
++        ).values_list("topic__section__roadmap_id", flat=True)
++    )
++    completed_counts = {
++        roadmap_id: UserTopicProgress.objects.filter(
++            user=user,
++            status=UserTopicProgress.Status.COMPLETED,
++            topic__section__roadmap_id=roadmap_id,
++        ).count()
++        for roadmap_id in roadmap_ids
++    }
++    topic_counts = {
++        roadmap_id: RoadmapTopic.objects.filter(
++            section__roadmap_id=roadmap_id,
++        ).count()
++        for roadmap_id in roadmap_ids
++    }
++    enrolments = [
++        enrolment
++        for enrolment in enrolments
++        if completed_counts.get(enrolment.roadmap_id, 0)
++        < topic_counts.get(enrolment.roadmap_id, 0)
++    ]
+ 
+     far_future = date.max
+     enrolments.sort(
+         key=lambda enrolment: (
++            0 if enrolment.roadmap_id in in_progress_roadmap_ids else 1,
++            completed_counts.get(enrolment.roadmap_id, 0)
++            / max(topic_counts.get(enrolment.roadmap_id, 0), 1),
+             enrolment.target_date or far_future,
+             enrolment.started_at or timezone.now(),
+             enrolment.pk,
+         )
+     )
+-    return enrolments[0]
++    return enrolments
+ 
+ 
+-def _next_roadmap_topic(*, user, enrolment):
++def _active_roadmap_enrolment(*, user, goal=None):
++    enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
++    return enrolments[0] if enrolments else None
++
++
++def _unfinished_roadmap_topics(*, user, enrolment, excluded_topic_ids=None):
++    excluded_topic_ids = excluded_topic_ids or set()
+     topic_ordering = (
+         "section__position",
+         "position",
+@@ -116,26 +111,60 @@ def _next_roadmap_topic(*, user, enrolment):
+         section__roadmap=enrolment.roadmap,
+     ).select_related("section", "section__roadmap")
+ 
+-    in_progress = topics.filter(
+-        user_progress__user=user,
+-        user_progress__status=UserTopicProgress.Status.IN_PROGRESS,
+-    ).order_by(*topic_ordering).first()
+-    if in_progress is not None:
+-        return in_progress
+-
+     completed_topic_ids = UserTopicProgress.objects.filter(
+         user=user,
+         status=UserTopicProgress.Status.COMPLETED,
+         topic__section__roadmap=enrolment.roadmap,
+     ).values_list("topic_id", flat=True)
+-    return (
+-        topics.exclude(pk__in=completed_topic_ids)
+-        .order_by(*topic_ordering)
+-        .first()
++    available = topics.exclude(
++        pk__in=completed_topic_ids
++    ).exclude(pk__in=excluded_topic_ids)
++
++    in_progress_ids = set(
++        UserTopicProgress.objects.filter(
++            user=user,
++            status=UserTopicProgress.Status.IN_PROGRESS,
++            topic__section__roadmap=enrolment.roadmap,
++        ).values_list("topic_id", flat=True)
++    )
++    return sorted(
++        available.order_by(*topic_ordering),
++        key=lambda topic: (0 if topic.pk in in_progress_ids else 1),
+     )
+ 
++def _next_roadmap_topic(*, user, enrolment, excluded_topic_ids=None):
++    topics = _unfinished_roadmap_topics(
++        user=user,
++        enrolment=enrolment,
++        excluded_topic_ids=excluded_topic_ids,
++    )
++    return topics[0] if topics else None
++
++
++def _ordered_roadmap_topics(*, user, enrolments, limit):
++    topic_queues = [
++        _unfinished_roadmap_topics(user=user, enrolment=enrolment)
++        for enrolment in enrolments
++    ]
++    selected = []
++    while len(selected) < limit:
++        added_topic = False
++        for queue in topic_queues:
++            if not queue:
++                continue
++            selected.append(queue.pop(0))
++            added_topic = True
++            if len(selected) == limit:
++                break
++        if not added_topic:
++            break
++    return selected
++
++
++def _recent_weak_questions(*, user, excluded_question_ids, now, limit=10):
++    if limit <= 0:
++        return []
+ 
+-def _recent_weak_question(*, user, excluded_question_ids, now):
+     recent_cutoff = now - timedelta(days=14)
+     attempts = (
+         ReviewAttempt.objects.filter(
+@@ -153,14 +182,27 @@ def _recent_weak_question(*, user, excluded_question_ids, now):
+         .order_by("-reviewed_at", "-pk")
+     )
+ 
++    results = []
+     seen_question_ids = set()
+-    for attempt in attempts[:50]:
++    for attempt in attempts[:100]:
+         question = attempt.state.question
+         if question.pk in seen_question_ids:
+             continue
+         seen_question_ids.add(question.pk)
+-        return question, attempt
+-    return None, None
++        results.append((question, attempt))
++        if len(results) == limit:
++            break
++    return results
++
++
++def _recent_weak_question(*, user, excluded_question_ids, now):
++    questions = _recent_weak_questions(
++        user=user,
++        excluded_question_ids=excluded_question_ids,
++        now=now,
++        limit=1,
++    )
++    return questions[0] if questions else (None, None)
+ 
+ 
+ def _practice_question(*, user, topic, excluded_question_ids, plan_date, goal=None):
+@@ -248,48 +290,80 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
+         )
+         remaining_minutes = max(0, remaining_minutes - estimated_minutes)
+ 
+-    enrolment = _active_roadmap_enrolment(user=user, goal=goal)
+-    next_topic = None
+-    if enrolment is not None:
+-        next_topic = _next_roadmap_topic(user=user, enrolment=enrolment)
+-
+-    if next_topic is not None and remaining_minutes >= 15:
+-        estimated_minutes = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
+-        deadline_note = ""
+-        priority_score = 80
+-        goal_deadline = goal.next_deadline if goal else None
+-        target_date = goal_deadline or enrolment.target_date
+-        if target_date:
+-            days_remaining = (target_date - plan_date).days
+-            if 0 <= days_remaining <= 14:
+-                priority_score += 10
+-                deadline_note = f" Your next stage is {days_remaining} days away."
+-        if goal is not None:
+-            deadline_note += f" This supports your primary goal: {goal.title}."
+-        payloads.append(
+-            {
+-                "kind": StudyRecommendation.Kind.ROADMAP,
+-                "title": f"Continue: {next_topic.title}",
+-                "description": (
+-                    f"Move the {enrolment.roadmap.title} roadmap forward by one focused topic."
+-                ),
+-                "rationale": (
+-                    "This is the next unfinished topic in your active roadmap."
+-                    f"{deadline_note}"
+-                ),
+-                "estimated_minutes": estimated_minutes,
+-                "priority_score": priority_score,
+-                "topic": next_topic,
+-            }
++    enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
++    first_selected_topic = None
++    if remaining_minutes >= 15 and enrolments:
++        if time_budget_minutes <= 60:
++            roadmap_allocation = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
++        else:
++            roadmap_allocation = min(
++                remaining_minutes,
++                max(ROADMAP_TOPIC_MINUTES, time_budget_minutes // 2),
++            )
++        roadmap_limit = min(12, max(1, roadmap_allocation // 15))
++        roadmap_topics = _ordered_roadmap_topics(
++            user=user,
++            enrolments=enrolments,
++            limit=roadmap_limit,
+         )
+-        remaining_minutes -= estimated_minutes
++        roadmap_minutes_left = roadmap_allocation
++
++        for topic in roadmap_topics:
++            if remaining_minutes < 15 or roadmap_minutes_left < 15:
++                break
++            estimated_minutes = min(
++                ROADMAP_TOPIC_MINUTES,
++                remaining_minutes,
++                roadmap_minutes_left,
++            )
++            enrolment = next(
++                item
++                for item in enrolments
++                if item.roadmap_id == topic.section.roadmap_id
++            )
++            deadline_note = ""
++            priority_score = 80
++            goal_deadline = goal.next_deadline if goal else None
++            target_date = goal_deadline or enrolment.target_date
++            if target_date:
++                days_remaining = (target_date - plan_date).days
++                if 0 <= days_remaining <= 14:
++                    priority_score += 10
++                    deadline_note = f" Your next stage is {days_remaining} days away."
++            if goal is not None:
++                deadline_note += f" This supports your primary goal: {goal.title}."
+ 
+-    weak_question, weak_attempt = _recent_weak_question(
++            payloads.append(
++                {
++                    "kind": StudyRecommendation.Kind.ROADMAP,
++                    "title": f"Continue: {topic.title}",
++                    "description": (
++                        f"Move the {enrolment.roadmap.title} roadmap forward "
++                        "with one focused topic."
++                    ),
++                    "rationale": (
++                        "This is one of the next unfinished topics across your "
++                        f"active roadmaps.{deadline_note}"
++                    ),
++                    "estimated_minutes": estimated_minutes,
++                    "priority_score": priority_score,
++                    "topic": topic,
++                }
++            )
++            first_selected_topic = first_selected_topic or topic
++            remaining_minutes -= estimated_minutes
++            roadmap_minutes_left -= estimated_minutes
++
++    weak_limit = min(10, remaining_minutes // WEAK_AREA_MINUTES)
++    weak_questions = _recent_weak_questions(
+         user=user,
+         excluded_question_ids=selected_question_ids,
+         now=now,
++        limit=weak_limit,
+     )
+-    if weak_question is not None and remaining_minutes >= WEAK_AREA_MINUTES:
++    for weak_question, weak_attempt in weak_questions:
++        if remaining_minutes < WEAK_AREA_MINUTES:
++            break
+         payloads.append(
+             {
+                 "kind": StudyRecommendation.Kind.WEAK_AREA,
+@@ -310,35 +384,39 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
+         selected_question_ids.add(weak_question.pk)
+         remaining_minutes -= WEAK_AREA_MINUTES
+ 
+-    if remaining_minutes >= 15:
++    practice_count = 0
++    while remaining_minutes >= 15 and practice_count < 28:
+         practice_question = _practice_question(
+             user=user,
+-            topic=next_topic,
++            topic=first_selected_topic,
+             excluded_question_ids=selected_question_ids,
+             plan_date=plan_date,
+             goal=goal,
+         )
+-        if practice_question is not None:
+-            estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
+-            payloads.append(
+-                {
+-                    "kind": StudyRecommendation.Kind.PRACTICE,
+-                    "title": f"Practise: {practice_question.title}",
+-                    "description": (
+-                        "Work through one fresh built-in question and explain the approach "
+-                        "before reading the notes."
+-                    ),
+-                    "rationale": (
+-                        "A fresh question adds retrieval practice while keeping the "
+-                        "session balanced."
+-                        + (f" It is matched to {goal.title}." if goal else "")
+-                    ),
+-                    "estimated_minutes": estimated_minutes,
+-                    "priority_score": 50,
+-                    "question": practice_question,
+-                }
+-            )
+-            remaining_minutes -= estimated_minutes
++        if practice_question is None:
++            break
++        estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
++        payloads.append(
++            {
++                "kind": StudyRecommendation.Kind.PRACTICE,
++                "title": f"Practise: {practice_question.title}",
++                "description": (
++                    "Work through one fresh built-in question and explain the approach "
++                    "before reading the notes."
++                ),
++                "rationale": (
++                    "A fresh question adds retrieval practice while keeping the "
++                    "session balanced."
++                    + (f" It is matched to {goal.title}." if goal else "")
++                ),
++                "estimated_minutes": estimated_minutes,
++                "priority_score": 50,
++                "question": practice_question,
++            }
++        )
++        selected_question_ids.add(practice_question.pk)
++        remaining_minutes -= estimated_minutes
++        practice_count += 1
+ 
+     if not payloads:
+         incomplete_question = (
+diff --git a/apps/planner/tests/test_forms.py b/apps/planner/tests/test_forms.py
+new file mode 100644
+index 0000000..b33c849
+--- /dev/null
++++ b/apps/planner/tests/test_forms.py
+@@ -0,0 +1,15 @@
++from apps.planner.forms import StudyPlanPreferencesForm
++
++
++def test_study_time_accepts_twelve_hours():
++    form = StudyPlanPreferencesForm({"time_budget_hours": "12"})
++
++    assert form.is_valid()
++    assert form.cleaned_data["time_budget_minutes"] == 720
++
++
++def test_study_time_rejects_more_than_sixteen_hours():
++    form = StudyPlanPreferencesForm({"time_budget_hours": "16.25"})
++
++    assert not form.is_valid()
++    assert "time_budget_hours" in form.errors
+diff --git a/apps/planner/tests/test_services.py b/apps/planner/tests/test_services.py
+index f2022ee..8ebf9a6 100644
+--- a/apps/planner/tests/test_services.py
++++ b/apps/planner/tests/test_services.py
+@@ -117,6 +117,27 @@ def test_completed_roadmap_topic_is_skipped(user):
+     assert recommendation.topic == second_topic
+ 
+ 
++def test_large_budget_schedules_multiple_roadmap_topics(user):
++    roadmap, _, _ = _active_roadmap(user)
++    section = roadmap.sections.get()
++    for position in range(3, 9):
++        RoadmapTopic.objects.create(
++            section=section,
++            title=f"Backend topic {position}",
++            slug=f"backend-topic-{position}",
++            position=position,
++        )
++
++    plan = generate_daily_plan(user=user, time_budget_minutes=720)
++
++    roadmap_recommendations = plan.recommendations.filter(
++        kind=StudyRecommendation.Kind.ROADMAP
++    )
++    assert roadmap_recommendations.count() == 8
++    assert plan.time_budget_minutes == 720
++    assert plan_summary(plan=plan)["estimated_minutes"] <= 720
++
++
+ def test_recent_hard_review_becomes_weak_area_recommendation(user):
+     now = timezone.now()
+     question = _ready_question(user)
+diff --git a/apps/planner/tests/test_views.py b/apps/planner/tests/test_views.py
+index 8cac95d..bcd7f36 100644
+--- a/apps/planner/tests/test_views.py
++++ b/apps/planner/tests/test_views.py
+@@ -29,12 +29,25 @@ def test_user_can_rebuild_plan_for_available_time(client, user):
+ 
+     response = client.post(
+         reverse("planner:regenerate"),
+-        {"time_budget_minutes": "45"},
++        {"time_budget_hours": "8"},
+     )
+ 
+     assert response.status_code == 302
+     plan = StudyPlan.objects.get(user=user)
+-    assert plan.time_budget_minutes == 45
++    assert plan.time_budget_minutes == 480
++
++
++def test_user_can_build_a_twelve_hour_plan(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("planner:regenerate"),
++        {"time_budget_hours": "12"},
++    )
++
++    assert response.status_code == 302
++    plan = StudyPlan.objects.get(user=user)
++    assert plan.time_budget_minutes == 720
+ 
+ 
+ def test_user_cannot_toggle_someone_elses_recommendation(
+@@ -66,7 +79,7 @@ def test_active_session_blocks_plan_regeneration(client, user):
+ 
+     response = client.post(
+         reverse("planner:regenerate"),
+-        {"time_budget_minutes": "90"},
++        {"time_budget_hours": "1.5"},
+         follow=True,
+     )
+ 
+diff --git a/apps/planner/views.py b/apps/planner/views.py
+index 492823b..88e2b10 100644
+--- a/apps/planner/views.py
++++ b/apps/planner/views.py
+@@ -24,7 +24,7 @@ def today_plan(request):
+     summary = plan_summary(plan=plan)
+     active_session = plan.sessions.filter(ended_at__isnull=True).first()
+     form = StudyPlanPreferencesForm(
+-        initial={"time_budget_minutes": plan.time_budget_minutes}
++        initial={"time_budget_hours": plan.time_budget_minutes / 60}
+     )
+     return render(
+         request,
+@@ -47,7 +47,7 @@ def regenerate_plan(request):
+ 
+     form = StudyPlanPreferencesForm(request.POST)
+     if not form.is_valid():
+-        messages.error(request, "Choose a valid amount of study time.")
++        messages.error(request, "Enter between 0.25 and 16 study hours.")
+         return redirect("planner:today")
+ 
+     generate_daily_plan(
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+index d7cd825..0000000 100644
+--- a/apps/questions/views.py
++++ b/apps/questions/views.py
+@@ -13,6 +13,9 @@ from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import QuestionEvidenceLinkForm
++from apps.evidence.models import EvidenceItem, QuestionEvidenceLink
++
+ from .forms import (
+     QUESTION_FORM_BY_TYPE,
+     QuestionImportItemFormSet,
+@@ -335,6 +338,14 @@ def question_detail(request, pk):
+             "user_state": state,
+             "user_note": note,
+             "user_copy": user_copy,
++            "question_evidence_links": QuestionEvidenceLink.objects.filter(
++                user=request.user,
++                question=question,
++            ).select_related("evidence"),
++            "question_evidence_form": QuestionEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+         },
+     )
+ 
+diff --git a/apps/roadmaps/views.py b/apps/roadmaps/views.py
+index fde0b31..4faad70 100644
+--- a/apps/roadmaps/views.py
++++ b/apps/roadmaps/views.py
+@@ -6,6 +6,9 @@ from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
++from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
++
+ from .forms import TopicNotesForm, TopicResourceForm
+ from .models import (
+     Roadmap,
+@@ -133,6 +136,10 @@ def topic_detail(request, slug, topic_id):
+         topic=topic,
+     ).first()
+     navigation = _topic_navigation(roadmap, topic)
++    evidence_profile = TopicEvidenceProfile.objects.filter(
++        user=request.user,
++        topic=topic,
++    ).first()
+ 
+     return render(
+         request,
+@@ -152,6 +159,18 @@ def topic_detail(request, slug, topic_id):
+                 user=request.user,
+                 topic=topic,
+             ),
++            "evidence_profile": evidence_profile,
++            "evidence_profile_form": TopicEvidenceProfileForm(
++                instance=evidence_profile,
++            ),
++            "topic_evidence_links": TopicEvidenceLink.objects.filter(
++                profile__user=request.user,
++                profile__topic=topic,
++            ).select_related("evidence"),
++            "topic_evidence_link_form": TopicEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+             **navigation,
+         },
+     )
+diff --git a/config/settings/base.py b/config/settings/base.py
+index cb39046..87cc2ec 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -22,6 +22,7 @@ INSTALLED_APPS = [
+     "apps.planner.apps.PlannerConfig",
+     "apps.interviews.apps.InterviewsConfig",
+     "apps.goals.apps.GoalsConfig",
++    "apps.evidence.apps.EvidenceConfig",
+ ]
+ 
+ MIDDLEWARE = [
+diff --git a/config/urls.py b/config/urls.py
+index e5f4fcd..fb89a2d 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -11,4 +11,5 @@ urlpatterns = [
+     path("plan/", include("apps.planner.urls")),
+     path("interviews/", include("apps.interviews.urls")),
+     path("goals/", include("apps.goals.urls")),
++    path("evidence/", include("apps.evidence.urls")),
+ ]
+diff --git a/docs/architecture/overview.md b/docs/architecture/overview.md
+index 203807b..f3a991d 100644
+--- a/docs/architecture/overview.md
++++ b/docs/architecture/overview.md
+@@ -2,7 +2,7 @@
+ 
+ ## Current milestone
+ 
+-Milestone 3.2 adds a deterministic daily planner on top of the structured question library, review engine and learning roadmaps. Goals, mastery analytics and AI enhancement remain outside this boundary.
++Milestone 3.5 adds a private personal-evidence layer on top of questions, roadmaps, mock interviews, goals and the deterministic study planner. AI enhancement remains outside this boundary.
+ 
+ ## System shape
+ 
+@@ -73,13 +73,25 @@ Owns structured learning paths:
+ - per-user roadmap and topic progress;
+ - private topic notes and learning resources.
+ 
++### `apps.evidence`
++
++Owns private, reusable proof from projects, work, coursework, leadership and technical incidents:
++
++- structured evidence records;
++- technical decision logs;
++- behavioural STAR stories;
++- personal overlays for roadmap topics;
++- links from evidence to questions and interview goals.
++
++The module stores facts once and uses link records for role-specific framing. It does not seed a user's private history into the public question or roadmap curriculum. See [`personal-evidence-layer.md`](personal-evidence-layer.md).
++
+ ### `apps.planner`
+ 
+ Owns the daily focus workflow:
+ 
+ - one study plan per user and local calendar day;
+ - ordered, explainable recommendations;
+-- available-time budgeting and regeneration;
++- free-form available-time budgeting from 15 minutes to 16 hours and scalable regeneration;
+ - recommendation completion and study-session tracking.
+ 
+ The planner reads review, roadmap and question data through application services. It does not alter the scheduling rules or progress ownership of those modules. See [`adaptive-study-planner.md`](adaptive-study-planner.md).
+@@ -119,8 +131,6 @@ SQLite is deliberately not configured as an application environment because futu
+ 
+ Likely later modules include:
+ 
+-- `interviews` for mock-interview sessions and interview modes;
+-- `goals` for lightweight interview context and deadlines;
+ - `analytics` for pattern mastery and coverage;
+ - `ai` for optional enhancement workflows.
+ 
+diff --git a/docs/architecture/personal-evidence-layer.md b/docs/architecture/personal-evidence-layer.md
+new file mode 100644
+index 0000000..0196a5e
+--- /dev/null
++++ b/docs/architecture/personal-evidence-layer.md
+@@ -0,0 +1,48 @@
++# Personal Evidence Layer
++
++## Purpose
++
++Roadmaps describe general role and skill expectations. The personal evidence layer records where a user has actually applied those expectations and how they can explain the work under interview follow-up.
++
++The layer prevents project history, technical decisions and behavioural stories from being duplicated across roadmap notes, interview goals and individual questions.
++
++## Core model
++
++`EvidenceItem` is the reusable private source record. It can represent a project, work experience, coursework, leadership experience or technical incident. It stores the context, problem, personal contribution, technologies, outcome, lessons and an optional supporting link.
++
++Each evidence item may own:
++
++- `DecisionRecord` entries for architecture and trade-off discussions;
++- `BehaviouralStory` entries structured around situation, task, action, result and reflection.
++
++## Reuse through links
++
++Evidence is linked rather than copied:
++
++- `TopicEvidenceProfile` stores the user's personal angle, interview explanation, evidence gap and readiness for a roadmap topic.
++- `TopicEvidenceLink` attaches reusable evidence records to that profile.
++- `QuestionEvidenceLink` records which real example supports an interview-question answer.
++- `GoalEvidenceLink` stores goal-specific framing without changing the underlying historical record.
++
++This separation keeps facts stable while allowing the same project to be framed differently for backend, AI-enabled software and data roles.
++
++## Ownership boundary
++
++Every evidence record is user-owned and private. Link forms only expose evidence owned by the authenticated user. Views validate access to the linked roadmap topic, question or interview goal before creating or removing a relationship.
++
++Model validation also rejects cross-user links when records are created outside the normal form workflow.
++
++## Evidence readiness
++
++Topic evidence uses four explicit states:
++
++1. Knowledge only
++2. Project evidence
++3. Work evidence
++4. Interview ready
++
++This is separate from roadmap completion. A user may understand a topic without yet having a defensible example or rehearsed explanation.
++
++## Future extensions
++
++The layer is intentionally deterministic and does not require AI. Later AI or RAG features may retrieve the user's approved evidence to draft practice questions, identify unsupported claims or simulate follow-up questions, but the user-owned records remain the source of truth.
+diff --git a/static/css/editorial.css b/static/css/editorial.css
+index da547c8..1f0368c 100644
+--- a/static/css/editorial.css
++++ b/static/css/editorial.css
+@@ -662,12 +662,35 @@ a {
+         text-decoration: none;
+     }
+ 
++    .app-mobile-header-actions {
++        display: flex;
++        align-items: center;
++        gap: 0.65rem;
++    }
++
+     .mobile-account-avatar {
+         width: 2rem;
+         height: 2rem;
++        flex: 0 0 auto;
+         font-size: 0.82rem;
+     }
+ 
++    .mobile-logout-form {
++        margin: 0;
++    }
++
++    .mobile-logout-button {
++        padding: 0.4rem 0.55rem;
++        border: 1px solid var(--vc-border-strong);
++        border-radius: 0.25rem;
++        color: var(--vc-burgundy-dark);
++        background: var(--vc-paper-strong);
++        cursor: pointer;
++        font: inherit;
++        font-size: 0.75rem;
++        font-weight: 750;
++    }
++
+     .app-main {
+         padding: 1.25rem 1rem 5.5rem;
+         margin-left: 0;
+@@ -698,6 +721,75 @@ a {
+         color: var(--vc-burgundy);
+     }
+ 
++    .mobile-more-menu {
++        position: relative;
++        min-width: 0;
++    }
++
++    .mobile-more-menu > summary {
++        height: 100%;
++        list-style: none;
++        cursor: pointer;
++    }
++
++    .mobile-more-menu > summary::-webkit-details-marker {
++        display: none;
++    }
++
++    .mobile-more-panel {
++        position: fixed;
++        right: 0.75rem;
++        bottom: 4.65rem;
++        left: 0.75rem;
++        display: grid;
++        max-height: min(70vh, 34rem);
++        overflow-y: auto;
++        padding: 0.8rem 1rem 1rem;
++        border: 1px solid var(--vc-border);
++        background: var(--vc-paper-strong);
++        box-shadow: 0 -12px 30px rgba(33, 29, 27, 0.14);
++    }
++
++    .mobile-more-heading {
++        display: grid;
++        gap: 0.15rem;
++        padding: 0.35rem 0 0.75rem;
++        border-bottom: 1px solid var(--vc-border);
++    }
++
++    .mobile-more-heading span {
++        overflow: hidden;
++        color: var(--vc-muted);
++        font-size: 0.72rem;
++        text-overflow: ellipsis;
++        white-space: nowrap;
++    }
++
++    .mobile-more-panel > a,
++    .mobile-more-panel form button {
++        width: 100%;
++        padding: 0.8rem 0;
++        border: 0;
++        border-bottom: 1px solid var(--vc-border);
++        color: var(--vc-ink);
++        background: transparent;
++        font: inherit;
++        font-size: 0.9rem;
++        font-weight: 700;
++        text-align: left;
++        text-decoration: none;
++    }
++
++    .mobile-more-panel form {
++        margin: 0;
++    }
++
++    .mobile-more-panel form button {
++        border-bottom: 0;
++        color: var(--vc-burgundy-dark);
++        cursor: pointer;
++    }
++
+     .review-page .app-mobile-header {
+         display: none;
+     }
+diff --git a/static/css/evidence.css b/static/css/evidence.css
+new file mode 100644
+index 0000000..b14928f
+--- /dev/null
++++ b/static/css/evidence.css
+@@ -0,0 +1,579 @@
++.evidence-page-header,
++.evidence-detail-header,
++.evidence-form-header {
++    display: flex;
++    align-items: flex-end;
++    justify-content: space-between;
++    gap: 2rem;
++    padding-bottom: 2rem;
++    border-bottom: 2px solid var(--vc-ink);
++}
++
++.evidence-page-header > div,
++.evidence-detail-header > div,
++.evidence-form-header {
++    max-width: 58rem;
++}
++
++.evidence-page-header h1,
++.evidence-detail-header h1,
++.evidence-form-header h1 {
++    margin: 0.45rem 0 1rem;
++    font-size: clamp(2.7rem, 7vw, 5.2rem);
++    line-height: 0.98;
++    letter-spacing: -0.045em;
++}
++
++.evidence-page-header p,
++.evidence-detail-header p,
++.evidence-form-header p {
++    max-width: 50rem;
++    color: var(--vc-muted);
++    line-height: 1.65;
++}
++
++.evidence-filter-panel {
++    display: grid;
++    grid-template-columns: minmax(16rem, 1fr) minmax(12rem, 18rem) auto;
++    gap: 1rem;
++    align-items: end;
++    padding: 1.25rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-filter-panel label,
++.evidence-inline-link-form label {
++    display: block;
++    margin-bottom: 0.35rem;
++    font-size: 0.78rem;
++    font-weight: 750;
++}
++
++.evidence-filter-panel input,
++.evidence-filter-panel select,
++.evidence-form input,
++.evidence-form select,
++.evidence-form textarea,
++.evidence-add-panel input,
++.evidence-add-panel select,
++.evidence-add-panel textarea,
++.topic-evidence-profile-form input,
++.topic-evidence-profile-form select,
++.topic-evidence-profile-form textarea,
++.evidence-inline-link-form input,
++.evidence-inline-link-form select,
++.evidence-inline-link-form textarea,
++.goal-evidence-section input,
++.goal-evidence-section select,
++.goal-evidence-section textarea {
++    width: 100%;
++    padding: 0.75rem;
++    border: 1px solid var(--vc-border-strong);
++    border-radius: 0.25rem;
++    color: var(--vc-ink);
++    background: var(--vc-paper-strong);
++    font: inherit;
++}
++
++.evidence-catalogue {
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-card {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
++    gap: 2.5rem;
++    padding: 1.6rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-card:first-child {
++    border-top: 0;
++}
++
++.evidence-card h2 {
++    margin: 0.5rem 0;
++    font-size: 1.45rem;
++}
++
++.evidence-card h2 a {
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.evidence-card h2 a:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.evidence-card p {
++    max-width: 48rem;
++    margin: 0;
++    color: var(--vc-muted);
++    line-height: 1.55;
++}
++
++.evidence-card-meta,
++.evidence-detail-kicker,
++.evidence-tag-row {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.55rem;
++}
++
++.evidence-card-meta,
++.evidence-detail-kicker {
++    color: var(--vc-muted);
++    font-size: 0.73rem;
++    font-weight: 750;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++}
++
++.evidence-tag-row {
++    margin-top: 0.9rem;
++}
++
++.evidence-tag-row span {
++    padding: 0.28rem 0.5rem;
++    border: 1px solid var(--vc-border);
++    border-radius: 0.25rem;
++    color: #4b4540;
++    background: #eee9e2;
++    font-size: 0.74rem;
++    font-weight: 700;
++}
++
++.evidence-card-counts {
++    display: grid;
++    grid-template-columns: repeat(5, minmax(0, 1fr));
++    gap: 0;
++    align-self: center;
++    margin: 0;
++    border: 1px solid var(--vc-border);
++}
++
++.evidence-card-counts div {
++    padding: 0.8rem 0.5rem;
++    border-left: 1px solid var(--vc-border);
++    text-align: center;
++}
++
++.evidence-card-counts div:first-child {
++    border-left: 0;
++}
++
++.evidence-card-counts dt {
++    color: var(--vc-muted);
++    font-size: 0.65rem;
++    text-transform: uppercase;
++}
++
++.evidence-card-counts dd {
++    margin: 0.25rem 0 0;
++    font-family: var(--vc-font-serif);
++    font-size: 1.2rem;
++    font-weight: 700;
++}
++
++.evidence-empty-state {
++    max-width: 48rem;
++    padding: 3rem 0;
++}
++
++.evidence-empty-state h2 {
++    margin: 0.5rem 0;
++    font-size: 2rem;
++}
++
++.evidence-breadcrumbs {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.5rem;
++    margin-bottom: 1.5rem;
++    color: var(--vc-muted);
++    font-size: 0.84rem;
++}
++
++.evidence-breadcrumbs a {
++    color: var(--vc-ink);
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.evidence-form-header {
++    display: block;
++}
++
++.evidence-form {
++    max-width: 68rem;
++    padding: 2rem 0;
++}
++
++.evidence-form-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1.25rem 1.5rem;
++}
++
++.evidence-field-summary,
++.evidence-field-problem,
++.evidence-field-personal_contribution,
++.evidence-field-technologies,
++.evidence-field-outcomes,
++.evidence-field-lessons,
++.evidence-field-evidence_url {
++    grid-column: 1 / -1;
++}
++
++.evidence-form-actions,
++.evidence-header-actions,
++.evidence-section-heading,
++.evidence-linked-heading,
++.evidence-record-heading {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.evidence-form-actions {
++    justify-content: flex-start;
++    margin-top: 2rem;
++}
++
++.evidence-detail-layout {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(16rem, 21rem);
++    gap: clamp(2rem, 5vw, 4.5rem);
++    align-items: start;
++    margin-top: 2.5rem;
++}
++
++.evidence-detail-main {
++    display: grid;
++    gap: 3rem;
++}
++
++.evidence-narrative,
++.evidence-section,
++.goal-evidence-section {
++    padding-bottom: 2.5rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-narrative h2,
++.evidence-section h2,
++.goal-evidence-section h2 {
++    margin: 0.25rem 0 1.5rem;
++    font-size: 1.65rem;
++}
++
++.evidence-narrative-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1px;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-border);
++}
++
++.evidence-narrative-grid article {
++    padding: 1.4rem;
++    background: var(--vc-paper);
++}
++
++.evidence-narrative-grid h3,
++.evidence-record h3,
++.evidence-sidebar-panel h2 {
++    margin-top: 0;
++}
++
++.evidence-section-heading > span {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.evidence-record-list {
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-record {
++    padding: 1.5rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-record h4 {
++    margin: 1rem 0 0.3rem;
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    letter-spacing: 0.05em;
++    text-transform: uppercase;
++}
++
++.evidence-record p {
++    margin: 0.3rem 0 0;
++    line-height: 1.6;
++}
++
++.evidence-record-heading span {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.evidence-remove-button,
++.evidence-linked-list button,
++.goal-evidence-list button {
++    padding: 0;
++    border: 0;
++    color: var(--vc-muted);
++    background: transparent;
++    cursor: pointer;
++    font: inherit;
++    font-size: 0.74rem;
++    font-weight: 700;
++}
++
++.evidence-remove-button {
++    margin-top: 1rem;
++}
++
++.evidence-remove-button:hover,
++.evidence-linked-list button:hover,
++.goal-evidence-list button:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.evidence-add-panel {
++    margin-top: 1.25rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-add-panel > summary {
++    padding: 1rem 0;
++    cursor: pointer;
++    font-weight: 750;
++}
++
++.evidence-add-panel form {
++    display: grid;
++    gap: 1rem;
++    padding-bottom: 1rem;
++}
++
++.evidence-add-panel .button {
++    justify-self: start;
++}
++
++.evidence-detail-sidebar {
++    display: grid;
++    gap: 1.5rem;
++}
++
++.evidence-sidebar-panel {
++    padding: 1.25rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.evidence-sidebar-panel .button {
++    margin-top: 1rem;
++}
++
++.evidence-sidebar-panel h3 {
++    margin: 1.2rem 0 0.4rem;
++    font-size: 0.9rem;
++}
++
++.evidence-sidebar-panel ul {
++    padding-left: 1rem;
++    margin: 0;
++}
++
++.evidence-link-summary {
++    margin: 0;
++}
++
++.evidence-link-summary div {
++    display: flex;
++    justify-content: space-between;
++    gap: 1rem;
++    padding: 0.65rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-link-summary dt {
++    color: var(--vc-muted);
++}
++
++.evidence-link-summary dd {
++    margin: 0;
++    text-align: right;
++}
++
++.topic-evidence-profile-form,
++.evidence-inline-link-form {
++    display: grid;
++    gap: 1rem;
++}
++
++.topic-evidence-profile-form {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++}
++
++.topic-evidence-profile-form .form-field:first-child,
++.topic-evidence-profile-form .button {
++    grid-column: 1 / -1;
++}
++
++.topic-evidence-profile-form .button,
++.evidence-inline-link-form .button {
++    justify-self: start;
++}
++
++.evidence-linked-block {
++    margin-top: 2rem;
++    padding-top: 1.5rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-linked-heading h3 {
++    margin: 0;
++}
++
++.evidence-linked-list {
++    padding: 0;
++    margin: 1rem 0;
++    list-style: none;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-linked-list li {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 1rem;
++    align-items: start;
++    padding: 0.9rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-linked-list li > div {
++    display: grid;
++    gap: 0.2rem;
++}
++
++.evidence-linked-list a {
++    color: var(--vc-ink);
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.evidence-linked-list span {
++    color: var(--vc-muted);
++    font-size: 0.73rem;
++}
++
++.evidence-linked-list p {
++    margin: 0.35rem 0 0;
++    color: var(--vc-muted);
++    font-size: 0.84rem;
++}
++
++.evidence-inline-link-form {
++    margin-top: 1.25rem;
++    padding: 1rem;
++    border: 1px solid var(--vc-border);
++    background: #f2ede6;
++}
++
++.question-evidence-card {
++    margin-top: 1.25rem;
++}
++
++.goal-evidence-list {
++    border-top: 1px solid var(--vc-border);
++}
++
++.goal-evidence-list article {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem) auto;
++    gap: 1.5rem;
++    align-items: start;
++    padding: 1.1rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.goal-evidence-list h3 {
++    margin: 0.25rem 0;
++}
++
++.goal-evidence-list h3 a {
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.goal-evidence-list span,
++.goal-evidence-list p {
++    color: var(--vc-muted);
++    font-size: 0.8rem;
++}
++
++@media (max-width: 64rem) {
++    .evidence-card,
++    .evidence-detail-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .evidence-detail-sidebar {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        grid-row: 1;
++    }
++}
++
++@media (max-width: 48rem) {
++
++    .evidence-page-header,
++    .evidence-detail-header,
++    .evidence-form-actions,
++    .evidence-header-actions,
++    .evidence-section-heading,
++    .evidence-linked-heading,
++    .evidence-record-heading {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .evidence-filter-panel,
++    .evidence-form-grid,
++    .evidence-narrative-grid,
++    .topic-evidence-profile-form,
++    .evidence-detail-sidebar,
++    .goal-evidence-list article {
++        grid-template-columns: 1fr;
++    }
++
++    .evidence-field-summary,
++    .evidence-field-problem,
++    .evidence-field-personal_contribution,
++    .evidence-field-technologies,
++    .evidence-field-outcomes,
++    .evidence-field-lessons,
++    .evidence-field-evidence_url,
++    .topic-evidence-profile-form .form-field:first-child,
++    .topic-evidence-profile-form .button {
++        grid-column: auto;
++    }
++
++    .evidence-card-counts {
++        grid-template-columns: repeat(3, 1fr);
++    }
++
++    .evidence-card-counts div:nth-child(4) {
++        border-left: 0;
++        border-top: 1px solid var(--vc-border);
++    }
++
++    .evidence-card-counts div:nth-child(5) {
++        border-top: 1px solid var(--vc-border);
++    }
++}
+diff --git a/static/css/goals.css b/static/css/goals.css
+index 5b9f640..1829714 100644
+--- a/static/css/goals.css
++++ b/static/css/goals.css
+@@ -546,9 +546,6 @@
+ }
+ 
+ @media (max-width: 48rem) {
+-    .app-mobile-navigation {
+-        grid-template-columns: repeat(7, 1fr);
+-    }
+ 
+     .goals-header,
+     .goal-detail-header,
+diff --git a/static/css/interviews.css b/static/css/interviews.css
+index 6b43933..6cefb83 100644
+--- a/static/css/interviews.css
++++ b/static/css/interviews.css
+@@ -538,9 +538,6 @@
+ 
+ 
+ @media (max-width: 48rem) {
+-    .app-mobile-navigation {
+-        grid-template-columns: repeat(6, 1fr);
+-    }
+ 
+     .mobile-nav-link {
+         min-width: 0;
+diff --git a/static/css/roadmaps.css b/static/css/roadmaps.css
+index 5f5689b..ce44cec 100644
+--- a/static/css/roadmaps.css
++++ b/static/css/roadmaps.css
+@@ -413,9 +413,6 @@
+ }
+ 
+ @media (max-width: 48rem) {
+-    .app-mobile-navigation {
+-        grid-template-columns: repeat(5, 1fr);
+-    }
+ }
+ 
+ .roadmap-topic-link {
+diff --git a/templates/base.html b/templates/base.html
+index 5b3b5bd..e8538d4 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -12,6 +12,7 @@
+     <link rel="stylesheet" href="{% static 'css/planner.css' %}">
+     <link rel="stylesheet" href="{% static 'css/interviews.css' %}">
+     <link rel="stylesheet" href="{% static 'css/goals.css' %}">
++    <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
+ </head>
+ <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+ {% if user.is_authenticated %}
+@@ -41,6 +42,13 @@
+                     </span>
+                     <span>Interview goals</span>
+                 </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' %}is-active{% endif %}"
++                   href="{% url 'evidence:list' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
++                    </span>
++                    <span>Personal evidence</span>
++                </a>
+                 <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
+                    href="{% url 'reviews:queue' %}">
+                     <span class="app-nav-icon" aria-hidden="true">
+@@ -95,7 +103,13 @@
+ 
+         <header class="app-mobile-header">
+             <a class="app-mobile-brand" href="{% url 'dashboard' %}">ViewCoach</a>
+-            <span class="mobile-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
++            <div class="app-mobile-header-actions">
++                <span class="mobile-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
++                <form class="mobile-logout-form" method="post" action="{% url 'logout' %}">
++                    {% csrf_token %}
++                    <button class="mobile-logout-button" type="submit">Log out</button>
++                </form>
++            </div>
+         </header>
+ 
+         <main class="app-main page-content {% block main_class %}{% endblock %}">
+@@ -129,36 +143,38 @@
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4z"></path></svg>
+                 <span>Home</span>
+             </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'goals' %}is-active{% endif %}"
+-               href="{% url 'goals:list' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+-                <span>Goals</span>
++            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
++               href="{% url 'planner:today' %}">
++                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
++                <span>Plan</span>
+             </a>
+             <a class="mobile-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
+                href="{% url 'reviews:queue' %}">
+                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
+                 <span>Review</span>
+             </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'interviews' %}is-active{% endif %}"
+-               href="{% url 'interviews:list' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
+-                <span>Mock</span>
+-            </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
+-               href="{% url 'roadmaps:list' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
+-                <span>Paths</span>
+-            </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
+-               href="{% url 'questions:list' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
+-                <span>Bank</span>
+-            </a>
+-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
+-               href="{% url 'planner:today' %}">
+-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+-                <span>Plan</span>
+-            </a>
++            <details class="mobile-more-menu">
++                <summary class="mobile-nav-link {% if request.resolver_match.namespace == 'goals' or request.resolver_match.namespace == 'evidence' or request.resolver_match.namespace == 'interviews' or request.resolver_match.namespace == 'roadmaps' or request.resolver_match.namespace == 'questions' %}is-active{% endif %}">
++                    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>
++                    <span>More</span>
++                </summary>
++                <div class="mobile-more-panel">
++                    <div class="mobile-more-heading">
++                        <strong>More from ViewCoach</strong>
++                        <span>{{ user.email }}</span>
++                    </div>
++                    <a href="{% url 'goals:list' %}">Interview goals</a>
++                    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++                    <a href="{% url 'interviews:list' %}">Mock interviews</a>
++                    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
++                    <a href="{% url 'questions:list' %}">Question bank</a>
++                    <a href="{% url 'questions:import_history' %}">Imports</a>
++                    <form method="post" action="{% url 'logout' %}">
++                        {% csrf_token %}
++                        <button type="submit">Log out</button>
++                    </form>
++                </div>
++            </details>
+         </nav>
+     </div>
+ {% endif %}
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 96f9f29..0000000 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -127,12 +127,17 @@
+             <div>
+                 <dt>In my library</dt>
+                 <dd>{{ question_count }}</dd>
++            </div>
++            <div>
++                <dt>Evidence records</dt>
++                <dd>{{ evidence_summary.total_count }}</dd>
+             </div>
+         </dl>
+ 
+         <div class="dashboard-brief-links">
+             <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
+             <a href="{% url 'goals:list' %}">Interview goals <span aria-hidden="true">→</span></a>
++            <a href="{% url 'evidence:list' %}">Personal evidence <span aria-hidden="true">→</span></a>
+             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
+             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
+             <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
+diff --git a/templates/evidence/_goal_evidence.html b/templates/evidence/_goal_evidence.html
+new file mode 100644
+index 0000000..4dad6a0
+--- /dev/null
++++ b/templates/evidence/_goal_evidence.html
+@@ -0,0 +1,36 @@
++<section class="goal-evidence-section" aria-labelledby="goal-evidence-heading">
++    <div class="goal-section-heading">
++        <div>
++            <p class="eyebrow">Personal proof</p>
++            <h2 id="goal-evidence-heading">Evidence for this goal</h2>
++        </div>
++        <a href="{% url 'evidence:list' %}">Evidence library</a>
++    </div>
++
++    {% if goal_evidence_links %}
++    <div class="goal-evidence-list">
++        {% for link in goal_evidence_links %}
++        <article>
++            <div><span>{{ link.get_relevance_display }}</span><h3><a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a></h3><p>{{ link.evidence.get_source_type_display }}{% if link.evidence.organisation %} · {{ link.evidence.organisation }}{% endif %}</p></div>
++            {% if link.framing_notes %}<p>{{ link.framing_notes }}</p>{% endif %}
++            <form method="post" action="{% url 'evidence:goal_unlink' goal.pk link.pk %}">{% csrf_token %}<button type="submit">Remove</button></form>
++        </article>
++        {% endfor %}
++    </div>
++    {% else %}
++    <div class="goal-inline-empty"><strong>No evidence linked yet</strong><p>Add the projects, work examples and stories you want to foreground for this role.</p></div>
++    {% endif %}
++
++    {% if has_evidence_items %}
++    <details class="goal-stage-form-panel">
++        <summary>Link evidence to this goal</summary>
++        <form method="post" action="{% url 'evidence:goal_link' goal.pk %}">
++            {% csrf_token %}
++            {% for field in goal_evidence_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
++            <button class="button" type="submit">Link evidence</button>
++        </form>
++    </details>
++    {% else %}
++    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
++    {% endif %}
++</section>
+diff --git a/templates/evidence/_question_evidence.html b/templates/evidence/_question_evidence.html
+new file mode 100644
+index 0000000..25ae458
+--- /dev/null
++++ b/templates/evidence/_question_evidence.html
+@@ -0,0 +1,32 @@
++<section class="content-card question-evidence-card">
++    <div class="page-header-split">
++        <div>
++            <p class="eyebrow">Personal evidence</p>
++            <h2>Real examples for this answer</h2>
++        </div>
++        <a href="{% url 'evidence:list' %}">Open evidence library</a>
++    </div>
++
++    {% if question_evidence_links %}
++    <ul class="evidence-linked-list">
++        {% for link in question_evidence_links %}
++        <li>
++            <div><a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a><span>{{ link.evidence.get_source_type_display }}</span>{% if link.answer_angle %}<p>{{ link.answer_angle }}</p>{% endif %}</div>
++            <form method="post" action="{% url 'evidence:question_unlink' question.pk link.pk %}">{% csrf_token %}<button type="submit">Remove</button></form>
++        </li>
++        {% endfor %}
++    </ul>
++    {% else %}
++    <p class="muted">Link a real project, work example, decision or incident so the answer is grounded in evidence.</p>
++    {% endif %}
++
++    {% if has_evidence_items %}
++    <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:question_link' question.pk %}">
++        {% csrf_token %}
++        {% for field in question_evidence_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
++        <button class="button button-secondary" type="submit">Link evidence</button>
++    </form>
++    {% else %}
++    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
++    {% endif %}
++</section>
+diff --git a/templates/evidence/_topic_evidence.html b/templates/evidence/_topic_evidence.html
+new file mode 100644
+index 0000000..64af10e
+--- /dev/null
++++ b/templates/evidence/_topic_evidence.html
+@@ -0,0 +1,48 @@
++<section class="topic-workspace-panel evidence-topic-panel" aria-labelledby="topic-evidence-heading">
++    <div class="topic-panel-heading">
++        <div>
++            <p class="eyebrow">My angle</p>
++            <h2 id="topic-evidence-heading">Personal evidence and interview framing</h2>
++        </div>
++        <span>{% if evidence_profile %}{{ evidence_profile.get_readiness_display }}{% else %}Knowledge only{% endif %}</span>
++    </div>
++
++    <form class="topic-evidence-profile-form" method="post" action="{% url 'evidence:topic_profile_save' topic.pk %}">
++        {% csrf_token %}
++        {% for field in evidence_profile_form %}
++        <div class="form-field">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++        <button class="button" type="submit">Save my angle</button>
++    </form>
++
++    <div class="evidence-linked-block">
++        <div class="evidence-linked-heading">
++            <h3>Linked evidence</h3>
++            <a href="{% url 'evidence:create' %}">Add a new record</a>
++        </div>
++        {% if topic_evidence_links %}
++        <ul class="evidence-linked-list">
++            {% for link in topic_evidence_links %}
++            <li>
++                <div><a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a><span>{{ link.evidence.get_source_type_display }}</span>{% if link.connection_note %}<p>{{ link.connection_note }}</p>{% endif %}</div>
++                <form method="post" action="{% url 'evidence:topic_unlink' topic.pk link.pk %}">{% csrf_token %}<button type="submit">Remove</button></form>
++            </li>
++            {% endfor %}
++        </ul>
++        {% else %}
++        <p class="muted">No project, work or coursework evidence linked to this topic yet.</p>
++        {% endif %}
++
++        {% if has_evidence_items %}
++        <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:topic_link' topic.pk %}">
++            {% csrf_token %}
++            {% for field in topic_evidence_link_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
++            <button class="button button-secondary" type="submit">Link evidence</button>
++        </form>
++        {% endif %}
++    </div>
++</section>
+diff --git a/templates/evidence/evidence_confirm_delete.html b/templates/evidence/evidence_confirm_delete.html
+new file mode 100644
+index 0000000..9e59016
+--- /dev/null
++++ b/templates/evidence/evidence_confirm_delete.html
+@@ -0,0 +1,18 @@
++{% extends "base.html" %}
++
++{% block title %}Delete {{ item.title }} | ViewCoach{% endblock %}
++
++{% block content %}
++<section class="form-card danger-card">
++    <p class="eyebrow">Delete evidence</p>
++    <h1>Delete “{{ item.title }}”?</h1>
++    <p>This also removes its decision records, behavioural stories and links to topics, questions and goals.</p>
++    <form method="post">
++        {% csrf_token %}
++        <div class="button-row">
++            <button class="button button-danger" type="submit">Delete evidence</button>
++            <a href="{% url 'evidence:detail' item.pk %}">Cancel</a>
++        </div>
++    </form>
++</section>
++{% endblock %}
+diff --git a/templates/evidence/evidence_detail.html b/templates/evidence/evidence_detail.html
+new file mode 100644
+index 0000000..95d7df7
+--- /dev/null
++++ b/templates/evidence/evidence_detail.html
+@@ -0,0 +1,138 @@
++{% extends "base.html" %}
++
++{% block title %}{{ item.title }} | Personal evidence | ViewCoach{% endblock %}
++{% block body_class %}evidence-detail-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++    <span aria-hidden="true">/</span>
++    <span>{{ item.title }}</span>
++</nav>
++
++<section class="evidence-detail-header">
++    <div>
++        <div class="evidence-detail-kicker">
++            <span>{{ item.get_source_type_display }}</span>
++            {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
++            {% if item.role_or_context %}<span>{{ item.role_or_context }}</span>{% endif %}
++        </div>
++        <h1>{{ item.title }}</h1>
++        {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
++    </div>
++    <div class="evidence-header-actions">
++        <a class="button button-secondary" href="{% url 'evidence:edit' item.pk %}">Edit evidence</a>
++        <a class="danger-link" href="{% url 'evidence:delete' item.pk %}">Delete</a>
++    </div>
++</section>
++
++<div class="evidence-detail-layout">
++    <main class="evidence-detail-main">
++        <section class="evidence-narrative" aria-labelledby="evidence-narrative-heading">
++            <p class="eyebrow">Case study</p>
++            <h2 id="evidence-narrative-heading">The work and what it proves</h2>
++            <div class="evidence-narrative-grid">
++                <article><h3>Problem or context</h3>{% if item.problem %}{{ item.problem|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>What I personally did</h3>{% if item.personal_contribution %}{{ item.personal_contribution|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>Outcome or impact</h3>{% if item.outcomes %}{{ item.outcomes|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>What I learned</h3>{% if item.lessons %}{{ item.lessons|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++            </div>
++        </section>
++
++        <section class="evidence-section" aria-labelledby="decisions-heading">
++            <div class="evidence-section-heading">
++                <div><p class="eyebrow">Technical judgement</p><h2 id="decisions-heading">Decision records</h2></div>
++                <span>{{ decisions|length }} captured</span>
++            </div>
++            {% if decisions %}
++            <div class="evidence-record-list">
++                {% for decision in decisions %}
++                <article class="evidence-record">
++                    <div class="evidence-record-heading"><h3>{{ decision.title }}</h3><span>Would choose again: {{ decision.get_would_choose_again_display }}</span></div>
++                    {% if decision.context %}<h4>Context</h4>{{ decision.context|linebreaks }}{% endif %}
++                    {% if decision.alternatives %}<h4>Alternatives</h4>{{ decision.alternatives|linebreaks }}{% endif %}
++                    <h4>Decision</h4>{{ decision.decision|linebreaks }}
++                    {% if decision.rationale %}<h4>Why</h4>{{ decision.rationale|linebreaks }}{% endif %}
++                    {% if decision.tradeoffs %}<h4>Trade-offs</h4>{{ decision.tradeoffs|linebreaks }}{% endif %}
++                    {% if decision.outcome %}<h4>Outcome</h4>{{ decision.outcome|linebreaks }}{% endif %}
++                    {% if decision.reflection %}<h4>Reflection</h4>{{ decision.reflection|linebreaks }}{% endif %}
++                    <form method="post" action="{% url 'evidence:decision_delete' item.pk decision.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove decision</button></form>
++                </article>
++                {% endfor %}
++            </div>
++            {% endif %}
++            <details class="evidence-add-panel">
++                <summary>Add decision record</summary>
++                <form method="post" action="{% url 'evidence:decision_add' item.pk %}">
++                    {% csrf_token %}
++                    {% for field in decision_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
++                    <button class="button" type="submit">Save decision</button>
++                </form>
++            </details>
++        </section>
++
++        <section class="evidence-section" aria-labelledby="stories-heading">
++            <div class="evidence-section-heading">
++                <div><p class="eyebrow">Behavioural preparation</p><h2 id="stories-heading">STAR stories</h2></div>
++                <span>{{ stories|length }} captured</span>
++            </div>
++            {% if stories %}
++            <div class="evidence-record-list">
++                {% for story in stories %}
++                <article class="evidence-record">
++                    <h3>{{ story.title }}</h3>
++                    <h4>Situation</h4>{{ story.situation|linebreaks }}
++                    {% if story.task %}<h4>Task</h4>{{ story.task|linebreaks }}{% endif %}
++                    <h4>Actions</h4>{{ story.actions|linebreaks }}
++                    {% if story.result %}<h4>Result</h4>{{ story.result|linebreaks }}{% endif %}
++                    {% if story.reflection %}<h4>Reflection</h4>{{ story.reflection|linebreaks }}{% endif %}
++                    {% if story.competency_list %}<div class="evidence-tag-row">{% for competency in story.competency_list %}<span>{{ competency }}</span>{% endfor %}</div>{% endif %}
++                    {% if story.follow_up_questions %}<h4>Likely follow-ups</h4>{{ story.follow_up_questions|linebreaks }}{% endif %}
++                    <form method="post" action="{% url 'evidence:story_delete' item.pk story.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove story</button></form>
++                </article>
++                {% endfor %}
++            </div>
++            {% endif %}
++            <details class="evidence-add-panel">
++                <summary>Add behavioural story</summary>
++                <form method="post" action="{% url 'evidence:story_add' item.pk %}">
++                    {% csrf_token %}
++                    {% for field in story_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}{{ field.errors }}</div>{% endfor %}
++                    <button class="button" type="submit">Save story</button>
++                </form>
++            </details>
++        </section>
++    </main>
++
++    <aside class="evidence-detail-sidebar">
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Skills</p>
++            <h2>Technologies and strengths</h2>
++            {% if item.technology_list %}<div class="evidence-tag-row">{% for technology in item.technology_list %}<span>{{ technology }}</span>{% endfor %}</div>{% else %}<p class="muted">No technologies captured.</p>{% endif %}
++            {% if item.evidence_url %}<a class="button button-secondary" href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">Open supporting evidence</a>{% endif %}
++        </section>
++
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Reused in</p>
++            <h2>Interview preparation links</h2>
++            <dl class="evidence-link-summary">
++                <div><dt>Roadmap topics</dt><dd>{{ topic_links|length }}</dd></div>
++                <div><dt>Questions</dt><dd>{{ question_links|length }}</dd></div>
++                <div><dt>Goals</dt><dd>{{ goal_links|length }}</dd></div>
++            </dl>
++            {% if topic_links %}<h3>Topics</h3><ul>{% for link in topic_links %}<li><a href="{% url 'roadmaps:topic_detail' link.profile.topic.section.roadmap.slug link.profile.topic.pk %}">{{ link.profile.topic.title }}</a></li>{% endfor %}</ul>{% endif %}
++            {% if question_links %}<h3>Questions</h3><ul>{% for link in question_links %}<li><a href="{% url 'questions:detail' link.question.pk %}">{{ link.question.title }}</a></li>{% endfor %}</ul>{% endif %}
++            {% if goal_links %}<h3>Goals</h3><ul>{% for link in goal_links %}<li><a href="{% url 'goals:detail' link.goal.pk %}">{{ link.goal.title }}</a></li>{% endfor %}</ul>{% endif %}
++        </section>
++
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Timeline</p>
++            <dl class="evidence-link-summary">
++                <div><dt>Start</dt><dd>{% if item.start_date %}{{ item.start_date|date:"M Y" }}{% else %}Not set{% endif %}</dd></div>
++                <div><dt>End</dt><dd>{% if item.end_date %}{{ item.end_date|date:"M Y" }}{% else %}Ongoing or not set{% endif %}</dd></div>
++                <div><dt>Updated</dt><dd>{{ item.updated_at|date:"j M Y" }}</dd></div>
++            </dl>
++        </section>
++    </aside>
++</div>
++{% endblock %}
+diff --git a/templates/evidence/evidence_form.html b/templates/evidence/evidence_form.html
+new file mode 100644
+index 0000000..eef3783
+--- /dev/null
++++ b/templates/evidence/evidence_form.html
+@@ -0,0 +1,38 @@
++{% extends "base.html" %}
++
++{% block title %}{% if is_editing %}Edit evidence{% else %}Add evidence{% endif %} | ViewCoach{% endblock %}
++{% block body_class %}evidence-form-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++    {% if item %}<span aria-hidden="true">/</span><a href="{% url 'evidence:detail' item.pk %}">{{ item.title }}</a>{% endif %}
++    <span aria-hidden="true">/</span>
++    <span>{% if is_editing %}Edit{% else %}New{% endif %}</span>
++</nav>
++
++<section class="evidence-form-header">
++    <p class="eyebrow">{% if is_editing %}Update record{% else %}New record{% endif %}</p>
++    <h1>{% if is_editing %}Keep the evidence accurate.{% else %}Capture the work behind the claim.{% endif %}</h1>
++    <p>Focus on what you personally did, the trade-offs involved and the evidence you can defend in follow-up questions.</p>
++</section>
++
++<form class="evidence-form" method="post">
++    {% csrf_token %}
++    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
++    <div class="evidence-form-grid">
++        {% for field in form %}
++        <div class="form-field evidence-field-{{ field.name }}">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++    </div>
++    <div class="evidence-form-actions">
++        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create evidence record{% endif %}</button>
++        {% if item %}<a href="{% url 'evidence:detail' item.pk %}">Cancel</a>{% else %}<a href="{% url 'evidence:list' %}">Cancel</a>{% endif %}
++    </div>
++</form>
++{% endblock %}
+diff --git a/templates/evidence/evidence_list.html b/templates/evidence/evidence_list.html
+new file mode 100644
+index 0000000..bfab55a
+--- /dev/null
++++ b/templates/evidence/evidence_list.html
+@@ -0,0 +1,80 @@
++{% extends "base.html" %}
++
++{% block title %}Personal evidence | ViewCoach{% endblock %}
++{% block body_class %}evidence-list-page{% endblock %}
++
++{% block content %}
++<section class="evidence-page-header">
++    <div>
++        <p class="eyebrow">Personal evidence</p>
++        <h1>Turn experience into interview answers.</h1>
++        <p>
++            Capture projects, work, coursework, leadership and technical incidents once,
++            then reuse them across roadmap topics, questions and interview goals.
++        </p>
++    </div>
++    <a class="button" href="{% url 'evidence:create' %}">Add evidence</a>
++</section>
++
++<form class="evidence-filter-panel" method="get">
++    <div>
++        <label for="evidence-search">Search</label>
++        <input id="evidence-search" type="search" name="q" value="{{ filters.q }}" placeholder="Project, technology, organisation or outcome">
++    </div>
++    <div>
++        <label for="evidence-type">Type</label>
++        <select id="evidence-type" name="type">
++            <option value="">All evidence</option>
++            {% for value, label in source_types %}
++                <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
++            {% endfor %}
++        </select>
++    </div>
++    <button class="button button-secondary" type="submit">Filter</button>
++</form>
++
++{% if page.object_list %}
++<section class="evidence-catalogue" aria-label="Evidence records">
++    {% for item in page.object_list %}
++    <article class="evidence-card">
++        <div class="evidence-card-main">
++            <div class="evidence-card-meta">
++                <span>{{ item.get_source_type_display }}</span>
++                {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
++                <span>Updated {{ item.updated_at|date:"j M Y" }}</span>
++            </div>
++            <h2><a href="{% url 'evidence:detail' item.pk %}">{{ item.title }}</a></h2>
++            {% if item.summary %}<p>{{ item.summary|truncatewords:30 }}</p>{% endif %}
++            {% if item.technology_list %}
++            <div class="evidence-tag-row">
++                {% for technology in item.technology_list|slice:":5" %}<span>{{ technology }}</span>{% endfor %}
++            </div>
++            {% endif %}
++        </div>
++        <dl class="evidence-card-counts">
++            <div><dt>Decisions</dt><dd>{{ item.decision_count }}</dd></div>
++            <div><dt>Stories</dt><dd>{{ item.story_count }}</dd></div>
++            <div><dt>Topics</dt><dd>{{ item.topic_count }}</dd></div>
++            <div><dt>Questions</dt><dd>{{ item.question_count }}</dd></div>
++            <div><dt>Goals</dt><dd>{{ item.goal_count }}</dd></div>
++        </dl>
++    </article>
++    {% endfor %}
++</section>
++
++{% if page.paginator.num_pages > 1 %}
++<nav class="pagination" aria-label="Evidence pages">
++    {% if page.has_previous %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
++    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++    {% if page.has_next %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.next_page_number }}">Next</a>{% endif %}
++</nav>
++{% endif %}
++{% else %}
++<section class="evidence-empty-state">
++    <p class="eyebrow">Nothing here yet</p>
++    <h2>Start with the project you expect interviewers to ask about.</h2>
++    <p>Capture the problem, your contribution, the decisions you made and what changed because of the work.</p>
++    <a class="button" href="{% url 'evidence:create' %}">Create first evidence record</a>
++</section>
++{% endif %}
++{% endblock %}
+diff --git a/templates/goals/goal_detail.html b/templates/goals/goal_detail.html
+index c34bae9..d18bce8 100644
+--- a/templates/goals/goal_detail.html
++++ b/templates/goals/goal_detail.html
+@@ -129,6 +129,8 @@
+                 </form>
+             </details>
+         </section>
++
++        {% include "evidence/_goal_evidence.html" %}
+     </main>
+ 
+     <aside class="goal-detail-sidebar">
+diff --git a/templates/planner/today.html b/templates/planner/today.html
+index 124ab3d..c9acf62 100644
+--- a/templates/planner/today.html
++++ b/templates/planner/today.html
+@@ -88,13 +88,16 @@
+             <form method="post" action="{% url 'planner:regenerate' %}">
+                 {% csrf_token %}
+                 <div class="form-field">
+-                    {{ preferences_form.time_budget_minutes.label_tag }}
+-                    {{ preferences_form.time_budget_minutes }}
++                    {{ preferences_form.time_budget_hours.label_tag }}
++                    {{ preferences_form.time_budget_hours }}
++                    {% if preferences_form.time_budget_hours.help_text %}
++                        <p class="help-text">{{ preferences_form.time_budget_hours.help_text }}</p>
++                    {% endif %}
+                 </div>
+                 <button class="button button-secondary button-full" type="submit">Rebuild today’s plan</button>
+             </form>
+             <p class="planner-settings-note">
+-                Rebuilding uses deterministic priorities. Due reviews come first, followed by active roadmap work, weak areas and fresh practice when time allows.
++                Rebuilding uses deterministic priorities and scales the number of roadmap, weak-area and practice tasks to the time you enter. Due reviews still come first.
+             </p>
+         </section>
+ 
+diff --git a/templates/questions/_personal_notes.html b/templates/questions/_personal_notes.html
+index 627b9d3..664a113 100644
+--- a/templates/questions/_personal_notes.html
++++ b/templates/questions/_personal_notes.html
+@@ -15,3 +15,5 @@
+         <p class="muted">No personal notes yet. The canonical answer stays read-only; add your own explanation here.</p>
+     {% endif %}
+ </section>
++
++{% include "evidence/_question_evidence.html" %}
+diff --git a/templates/roadmaps/topic_detail.html b/templates/roadmaps/topic_detail.html
+index 2cffd6e..10ba583 100644
+--- a/templates/roadmaps/topic_detail.html
++++ b/templates/roadmaps/topic_detail.html
+@@ -91,6 +91,8 @@
+                 <button class="button button-secondary" type="submit">Add resource</button>
+             </form>
+         </section>
++
++        {% include "evidence/_topic_evidence.html" %}
+     </main>
+ 
+     <aside class="topic-workspace-sidebar">
