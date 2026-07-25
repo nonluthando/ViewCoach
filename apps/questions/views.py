@@ -12,6 +12,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.evidence.forms import QuestionEvidenceLinkForm
+from apps.evidence.models import EvidenceItem, QuestionEvidenceLink
+
 from .forms import (
     QUESTION_FORM_BY_TYPE,
     QuestionImportItemFormSet,
@@ -334,6 +337,14 @@ def question_detail(request, pk):
             "user_state": state,
             "user_note": note,
             "user_copy": user_copy,
+            "question_evidence_links": QuestionEvidenceLink.objects.filter(
+                user=request.user,
+                question=question,
+            ).select_related("evidence"),
+            "question_evidence_form": QuestionEvidenceLinkForm(user=request.user),
+            "has_evidence_items": EvidenceItem.objects.filter(
+                owner=request.user,
+            ).exists(),
         },
     )
 

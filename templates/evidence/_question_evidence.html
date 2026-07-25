@@ -1,0 +1,45 @@
+<section class="content-card question-evidence-card">
+    <div class="page-header-split">
+        <div>
+            <p class="eyebrow">Personal evidence</p>
+            <h2>Real examples for this answer</h2>
+        </div>
+        <a href="{% url 'evidence:list' %}">Open evidence library</a>
+    </div>
+
+    {% if question_evidence_links %}
+    <ul class="evidence-linked-list">
+        {% for link in question_evidence_links %}
+        <li>
+            <div>
+                <a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a>
+                <span>{{ link.evidence.get_source_type_display }}</span>
+                {% if link.answer_angle %}<p>{{ link.answer_angle }}</p>{% endif %}
+            </div>
+            <form method="post" action="{% url 'evidence:question_unlink' question.pk link.pk %}">
+                {% csrf_token %}
+                <button type="submit">Remove</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Link a real project, work example, decision or incident so the answer is grounded in evidence.</p>
+    {% endif %}
+
+    {% if has_evidence_items %}
+    <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:question_link' question.pk %}">
+        {% csrf_token %}
+        {% for field in question_evidence_form %}
+        <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <button class="button button-secondary" type="submit">Link evidence</button>
+    </form>
+    {% else %}
+    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
+    {% endif %}
+</section>

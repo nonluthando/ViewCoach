@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{% static 'css/planner.css' %}">
     <link rel="stylesheet" href="{% static 'css/interviews.css' %}">
     <link rel="stylesheet" href="{% static 'css/goals.css' %}">
+    <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
@@ -40,6 +41,13 @@
                         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3"></path><path d="M22 12h-3"></path></svg>
                     </span>
                     <span>Interview goals</span>
+                </a>
+                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' %}is-active{% endif %}"
+                   href="{% url 'evidence:list' %}">
+                    <span class="app-nav-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
+                    </span>
+                    <span>Personal evidence</span>
                 </a>
                 <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
                    href="{% url 'reviews:queue' %}">

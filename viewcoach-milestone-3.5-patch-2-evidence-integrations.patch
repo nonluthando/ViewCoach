@@ -1,0 +1,1342 @@
+diff --git a/apps/core/views.py b/apps/core/views.py
+index b4cb856..09040a3 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -3,6 +3,7 @@ from django.db import OperationalError, connection
+ from django.http import JsonResponse
+ from django.shortcuts import render
+ 
++from apps.evidence.services import evidence_dashboard_summary
+ from apps.goals.services import primary_goal_for_user, readiness_report
+ from apps.planner.services import generate_daily_plan, plan_summary
+ from apps.questions.models import Question
+@@ -21,6 +22,7 @@ def dashboard(request):
+     today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
+     primary_goal = primary_goal_for_user(user=request.user)
+     readiness = readiness_report(goal=primary_goal) if primary_goal else None
++    evidence_summary = evidence_dashboard_summary(user=request.user)
+ 
+     return render(
+         request,
+@@ -36,6 +38,7 @@ def dashboard(request):
+             "today_plan": today_plan,
+             "primary_goal": primary_goal,
+             "readiness": readiness,
++            "evidence_summary": evidence_summary,
+             "recent_questions": questions.select_related(
+                 "technicalquestion",
+                 "conceptquestion",
+diff --git a/apps/goals/views.py b/apps/goals/views.py
+index aefafc0..d54c521 100644
+--- a/apps/goals/views.py
++++ b/apps/goals/views.py
+@@ -6,6 +6,9 @@ from django.db import IntegrityError, transaction
+ from django.shortcuts import get_object_or_404, redirect, render
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import GoalEvidenceLinkForm
++from apps.evidence.models import EvidenceItem, GoalEvidenceLink
++
+ from .forms import InterviewGoalForm, InterviewStageForm
+ from .models import InterviewGoal, InterviewStage
+ from .services import (
+@@ -144,6 +147,14 @@ def goal_detail(request, goal_id):
+             "report": readiness_report(goal=goal),
+             "stage_form": InterviewStageForm(),
+             "status_choices": InterviewGoal.Status.choices,
++            "goal_evidence_links": GoalEvidenceLink.objects.filter(
++                user=request.user,
++                goal=goal,
++            ).select_related("evidence"),
++            "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+         },
+     )
+ 
+@@ -189,6 +200,14 @@ def stage_add(request, goal_id):
+                 "report": readiness_report(goal=goal),
+                 "stage_form": form,
+                 "status_choices": InterviewGoal.Status.choices,
++                "goal_evidence_links": GoalEvidenceLink.objects.filter(
++                    user=request.user,
++                    goal=goal,
++                ).select_related("evidence"),
++                "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
++                "has_evidence_items": EvidenceItem.objects.filter(
++                    owner=request.user,
++                ).exists(),
+             },
+             status=400,
+         )
+diff --git a/apps/questions/views.py b/apps/questions/views.py
+index d7cd825..0000000 100644
+--- a/apps/questions/views.py
++++ b/apps/questions/views.py
+@@ -13,6 +13,9 @@ from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import QuestionEvidenceLinkForm
++from apps.evidence.models import EvidenceItem, QuestionEvidenceLink
++
+ from .forms import (
+     QUESTION_FORM_BY_TYPE,
+     QuestionImportItemFormSet,
+@@ -335,6 +338,14 @@ def question_detail(request, pk):
+             "user_state": state,
+             "user_note": note,
+             "user_copy": user_copy,
++            "question_evidence_links": QuestionEvidenceLink.objects.filter(
++                user=request.user,
++                question=question,
++            ).select_related("evidence"),
++            "question_evidence_form": QuestionEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+         },
+     )
+ 
+diff --git a/apps/roadmaps/views.py b/apps/roadmaps/views.py
+index fde0b31..4faad70 100644
+--- a/apps/roadmaps/views.py
++++ b/apps/roadmaps/views.py
+@@ -6,6 +6,9 @@ from django.urls import reverse
+ from django.utils import timezone
+ from django.views.decorators.http import require_POST
+ 
++from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
++from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
++
+ from .forms import TopicNotesForm, TopicResourceForm
+ from .models import (
+     Roadmap,
+@@ -133,6 +136,10 @@ def topic_detail(request, slug, topic_id):
+         topic=topic,
+     ).first()
+     navigation = _topic_navigation(roadmap, topic)
++    evidence_profile = TopicEvidenceProfile.objects.filter(
++        user=request.user,
++        topic=topic,
++    ).first()
+ 
+     return render(
+         request,
+@@ -152,6 +159,18 @@ def topic_detail(request, slug, topic_id):
+                 user=request.user,
+                 topic=topic,
+             ),
++            "evidence_profile": evidence_profile,
++            "evidence_profile_form": TopicEvidenceProfileForm(
++                instance=evidence_profile,
++            ),
++            "topic_evidence_links": TopicEvidenceLink.objects.filter(
++                profile__user=request.user,
++                profile__topic=topic,
++            ).select_related("evidence"),
++            "topic_evidence_link_form": TopicEvidenceLinkForm(user=request.user),
++            "has_evidence_items": EvidenceItem.objects.filter(
++                owner=request.user,
++            ).exists(),
+             **navigation,
+         },
+     )
+diff --git a/templates/base.html b/templates/base.html
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -12,6 +12,7 @@
+     <link rel="stylesheet" href="{% static 'css/planner.css' %}">
+     <link rel="stylesheet" href="{% static 'css/interviews.css' %}">
+     <link rel="stylesheet" href="{% static 'css/goals.css' %}">
++    <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
+ </head>
+ <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+ {% if user.is_authenticated %}
+@@ -41,6 +42,13 @@
+                     </span>
+                     <span>Interview goals</span>
+                 </a>
++                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' %}is-active{% endif %}"
++                   href="{% url 'evidence:list' %}">
++                    <span class="app-nav-icon" aria-hidden="true">
++                        <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
++                    </span>
++                    <span>Personal evidence</span>
++                </a>
+                 <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
+                    href="{% url 'reviews:queue' %}">
+                     <span class="app-nav-icon" aria-hidden="true">
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -127,12 +127,17 @@
+             <div>
+                 <dt>In my library</dt>
+                 <dd>{{ question_count }}</dd>
++            </div>
++            <div>
++                <dt>Evidence records</dt>
++                <dd>{{ evidence_summary.total_count }}</dd>
+             </div>
+         </dl>
+ 
+         <div class="dashboard-brief-links">
+             <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
+             <a href="{% url 'goals:list' %}">Interview goals <span aria-hidden="true">→</span></a>
++            <a href="{% url 'evidence:list' %}">Personal evidence <span aria-hidden="true">→</span></a>
+             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
+             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
+             <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
+diff --git a/templates/goals/goal_detail.html b/templates/goals/goal_detail.html
+--- a/templates/goals/goal_detail.html
++++ b/templates/goals/goal_detail.html
+@@ -129,6 +129,8 @@
+                 </form>
+             </details>
+         </section>
++
++        {% include "evidence/_goal_evidence.html" %}
+     </main>
+ 
+     <aside class="goal-detail-sidebar">
+diff --git a/templates/questions/_personal_notes.html b/templates/questions/_personal_notes.html
+--- a/templates/questions/_personal_notes.html
++++ b/templates/questions/_personal_notes.html
+@@ -15,3 +15,5 @@
+         <p class="muted">No personal notes yet. The canonical answer stays read-only; add your own explanation here.</p>
+     {% endif %}
+ </section>
++
++{% include "evidence/_question_evidence.html" %}
+diff --git a/templates/roadmaps/topic_detail.html b/templates/roadmaps/topic_detail.html
+--- a/templates/roadmaps/topic_detail.html
++++ b/templates/roadmaps/topic_detail.html
+@@ -92,6 +92,8 @@
+                 <button class="button button-secondary" type="submit">Add resource</button>
+             </form>
+         </section>
++
++        {% include "evidence/_topic_evidence.html" %}
+     </main>
+ 
+     <aside class="topic-workspace-sidebar">
+diff --git a/templates/evidence/_goal_evidence.html b/templates/evidence/_goal_evidence.html
+new file mode 100644
+index 0000000..ce441b2
+--- /dev/null
++++ b/templates/evidence/_goal_evidence.html
+@@ -0,0 +1,52 @@
++<section class="goal-evidence-section" aria-labelledby="goal-evidence-heading">
++    <div class="goal-section-heading">
++        <div>
++            <p class="eyebrow">Personal proof</p>
++            <h2 id="goal-evidence-heading">Evidence for this goal</h2>
++        </div>
++        <a href="{% url 'evidence:list' %}">Evidence library</a>
++    </div>
++
++    {% if goal_evidence_links %}
++    <div class="goal-evidence-list">
++        {% for link in goal_evidence_links %}
++        <article>
++            <div>
++                <span>{{ link.get_relevance_display }}</span>
++                <h3><a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a></h3>
++                <p>{{ link.evidence.get_source_type_display }}{% if link.evidence.organisation %} · {{ link.evidence.organisation }}{% endif %}</p>
++            </div>
++            {% if link.framing_notes %}<p>{{ link.framing_notes }}</p>{% endif %}
++            <form method="post" action="{% url 'evidence:goal_unlink' goal.pk link.pk %}">
++                {% csrf_token %}
++                <button type="submit">Remove</button>
++            </form>
++        </article>
++        {% endfor %}
++    </div>
++    {% else %}
++    <div class="goal-inline-empty">
++        <strong>No evidence linked yet</strong>
++        <p>Add the projects, work examples and stories you want to foreground for this role.</p>
++    </div>
++    {% endif %}
++
++    {% if has_evidence_items %}
++    <details class="goal-stage-form-panel">
++        <summary>Link evidence to this goal</summary>
++        <form method="post" action="{% url 'evidence:goal_link' goal.pk %}">
++            {% csrf_token %}
++            {% for field in goal_evidence_form %}
++            <div class="form-field">
++                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++                {{ field }}
++                {{ field.errors }}
++            </div>
++            {% endfor %}
++            <button class="button" type="submit">Link evidence</button>
++        </form>
++    </details>
++    {% else %}
++    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
++    {% endif %}
++</section>
+diff --git a/templates/evidence/_question_evidence.html b/templates/evidence/_question_evidence.html
+new file mode 100644
+index 0000000..a8fffdf
+--- /dev/null
++++ b/templates/evidence/_question_evidence.html
+@@ -0,0 +1,45 @@
++<section class="content-card question-evidence-card">
++    <div class="page-header-split">
++        <div>
++            <p class="eyebrow">Personal evidence</p>
++            <h2>Real examples for this answer</h2>
++        </div>
++        <a href="{% url 'evidence:list' %}">Open evidence library</a>
++    </div>
++
++    {% if question_evidence_links %}
++    <ul class="evidence-linked-list">
++        {% for link in question_evidence_links %}
++        <li>
++            <div>
++                <a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a>
++                <span>{{ link.evidence.get_source_type_display }}</span>
++                {% if link.answer_angle %}<p>{{ link.answer_angle }}</p>{% endif %}
++            </div>
++            <form method="post" action="{% url 'evidence:question_unlink' question.pk link.pk %}">
++                {% csrf_token %}
++                <button type="submit">Remove</button>
++            </form>
++        </li>
++        {% endfor %}
++    </ul>
++    {% else %}
++    <p class="muted">Link a real project, work example, decision or incident so the answer is grounded in evidence.</p>
++    {% endif %}
++
++    {% if has_evidence_items %}
++    <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:question_link' question.pk %}">
++        {% csrf_token %}
++        {% for field in question_evidence_form %}
++        <div class="form-field">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++        <button class="button button-secondary" type="submit">Link evidence</button>
++    </form>
++    {% else %}
++    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
++    {% endif %}
++</section>
+diff --git a/templates/evidence/_topic_evidence.html b/templates/evidence/_topic_evidence.html
+new file mode 100644
+index 0000000..3d9263b
+--- /dev/null
++++ b/templates/evidence/_topic_evidence.html
+@@ -0,0 +1,61 @@
++<section class="topic-workspace-panel evidence-topic-panel" aria-labelledby="topic-evidence-heading">
++    <div class="topic-panel-heading">
++        <div>
++            <p class="eyebrow">My angle</p>
++            <h2 id="topic-evidence-heading">Personal evidence and interview framing</h2>
++        </div>
++        <span>{% if evidence_profile %}{{ evidence_profile.get_readiness_display }}{% else %}Knowledge only{% endif %}</span>
++    </div>
++
++    <form class="topic-evidence-profile-form" method="post" action="{% url 'evidence:topic_profile_save' topic.pk %}">
++        {% csrf_token %}
++        {% for field in evidence_profile_form %}
++        <div class="form-field">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++        <button class="button" type="submit">Save my angle</button>
++    </form>
++
++    <div class="evidence-linked-block">
++        <div class="evidence-linked-heading">
++            <h3>Linked evidence</h3>
++            <a href="{% url 'evidence:create' %}">Add a new record</a>
++        </div>
++        {% if topic_evidence_links %}
++        <ul class="evidence-linked-list">
++            {% for link in topic_evidence_links %}
++            <li>
++                <div>
++                    <a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a>
++                    <span>{{ link.evidence.get_source_type_display }}</span>
++                    {% if link.connection_note %}<p>{{ link.connection_note }}</p>{% endif %}
++                </div>
++                <form method="post" action="{% url 'evidence:topic_unlink' topic.pk link.pk %}">
++                    {% csrf_token %}
++                    <button type="submit">Remove</button>
++                </form>
++            </li>
++            {% endfor %}
++        </ul>
++        {% else %}
++        <p class="muted">No project, work or coursework evidence linked to this topic yet.</p>
++        {% endif %}
++
++        {% if has_evidence_items %}
++        <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:topic_link' topic.pk %}">
++            {% csrf_token %}
++            {% for field in topic_evidence_link_form %}
++            <div class="form-field">
++                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++                {{ field }}
++                {{ field.errors }}
++            </div>
++            {% endfor %}
++            <button class="button button-secondary" type="submit">Link evidence</button>
++        </form>
++        {% endif %}
++    </div>
++</section>
+diff --git a/templates/evidence/evidence_confirm_delete.html b/templates/evidence/evidence_confirm_delete.html
+new file mode 100644
+index 0000000..9e59016
+--- /dev/null
++++ b/templates/evidence/evidence_confirm_delete.html
+@@ -0,0 +1,18 @@
++{% extends "base.html" %}
++
++{% block title %}Delete {{ item.title }} | ViewCoach{% endblock %}
++
++{% block content %}
++<section class="form-card danger-card">
++    <p class="eyebrow">Delete evidence</p>
++    <h1>Delete “{{ item.title }}”?</h1>
++    <p>This also removes its decision records, behavioural stories and links to topics, questions and goals.</p>
++    <form method="post">
++        {% csrf_token %}
++        <div class="button-row">
++            <button class="button button-danger" type="submit">Delete evidence</button>
++            <a href="{% url 'evidence:detail' item.pk %}">Cancel</a>
++        </div>
++    </form>
++</section>
++{% endblock %}
+diff --git a/templates/evidence/evidence_form.html b/templates/evidence/evidence_form.html
+new file mode 100644
+index 0000000..eef3783
+--- /dev/null
++++ b/templates/evidence/evidence_form.html
+@@ -0,0 +1,38 @@
++{% extends "base.html" %}
++
++{% block title %}{% if is_editing %}Edit evidence{% else %}Add evidence{% endif %} | ViewCoach{% endblock %}
++{% block body_class %}evidence-form-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++    {% if item %}<span aria-hidden="true">/</span><a href="{% url 'evidence:detail' item.pk %}">{{ item.title }}</a>{% endif %}
++    <span aria-hidden="true">/</span>
++    <span>{% if is_editing %}Edit{% else %}New{% endif %}</span>
++</nav>
++
++<section class="evidence-form-header">
++    <p class="eyebrow">{% if is_editing %}Update record{% else %}New record{% endif %}</p>
++    <h1>{% if is_editing %}Keep the evidence accurate.{% else %}Capture the work behind the claim.{% endif %}</h1>
++    <p>Focus on what you personally did, the trade-offs involved and the evidence you can defend in follow-up questions.</p>
++</section>
++
++<form class="evidence-form" method="post">
++    {% csrf_token %}
++    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
++    <div class="evidence-form-grid">
++        {% for field in form %}
++        <div class="form-field evidence-field-{{ field.name }}">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++    </div>
++    <div class="evidence-form-actions">
++        <button class="button" type="submit">{% if is_editing %}Save changes{% else %}Create evidence record{% endif %}</button>
++        {% if item %}<a href="{% url 'evidence:detail' item.pk %}">Cancel</a>{% else %}<a href="{% url 'evidence:list' %}">Cancel</a>{% endif %}
++    </div>
++</form>
++{% endblock %}
+diff --git a/templates/evidence/evidence_list.html b/templates/evidence/evidence_list.html
+new file mode 100644
+index 0000000..bfab55a
+--- /dev/null
++++ b/templates/evidence/evidence_list.html
+@@ -0,0 +1,80 @@
++{% extends "base.html" %}
++
++{% block title %}Personal evidence | ViewCoach{% endblock %}
++{% block body_class %}evidence-list-page{% endblock %}
++
++{% block content %}
++<section class="evidence-page-header">
++    <div>
++        <p class="eyebrow">Personal evidence</p>
++        <h1>Turn experience into interview answers.</h1>
++        <p>
++            Capture projects, work, coursework, leadership and technical incidents once,
++            then reuse them across roadmap topics, questions and interview goals.
++        </p>
++    </div>
++    <a class="button" href="{% url 'evidence:create' %}">Add evidence</a>
++</section>
++
++<form class="evidence-filter-panel" method="get">
++    <div>
++        <label for="evidence-search">Search</label>
++        <input id="evidence-search" type="search" name="q" value="{{ filters.q }}" placeholder="Project, technology, organisation or outcome">
++    </div>
++    <div>
++        <label for="evidence-type">Type</label>
++        <select id="evidence-type" name="type">
++            <option value="">All evidence</option>
++            {% for value, label in source_types %}
++                <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
++            {% endfor %}
++        </select>
++    </div>
++    <button class="button button-secondary" type="submit">Filter</button>
++</form>
++
++{% if page.object_list %}
++<section class="evidence-catalogue" aria-label="Evidence records">
++    {% for item in page.object_list %}
++    <article class="evidence-card">
++        <div class="evidence-card-main">
++            <div class="evidence-card-meta">
++                <span>{{ item.get_source_type_display }}</span>
++                {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
++                <span>Updated {{ item.updated_at|date:"j M Y" }}</span>
++            </div>
++            <h2><a href="{% url 'evidence:detail' item.pk %}">{{ item.title }}</a></h2>
++            {% if item.summary %}<p>{{ item.summary|truncatewords:30 }}</p>{% endif %}
++            {% if item.technology_list %}
++            <div class="evidence-tag-row">
++                {% for technology in item.technology_list|slice:":5" %}<span>{{ technology }}</span>{% endfor %}
++            </div>
++            {% endif %}
++        </div>
++        <dl class="evidence-card-counts">
++            <div><dt>Decisions</dt><dd>{{ item.decision_count }}</dd></div>
++            <div><dt>Stories</dt><dd>{{ item.story_count }}</dd></div>
++            <div><dt>Topics</dt><dd>{{ item.topic_count }}</dd></div>
++            <div><dt>Questions</dt><dd>{{ item.question_count }}</dd></div>
++            <div><dt>Goals</dt><dd>{{ item.goal_count }}</dd></div>
++        </dl>
++    </article>
++    {% endfor %}
++</section>
++
++{% if page.paginator.num_pages > 1 %}
++<nav class="pagination" aria-label="Evidence pages">
++    {% if page.has_previous %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
++    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
++    {% if page.has_next %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.next_page_number }}">Next</a>{% endif %}
++</nav>
++{% endif %}
++{% else %}
++<section class="evidence-empty-state">
++    <p class="eyebrow">Nothing here yet</p>
++    <h2>Start with the project you expect interviewers to ask about.</h2>
++    <p>Capture the problem, your contribution, the decisions you made and what changed because of the work.</p>
++    <a class="button" href="{% url 'evidence:create' %}">Create first evidence record</a>
++</section>
++{% endif %}
++{% endblock %}
+diff --git a/templates/evidence/evidence_detail.html b/templates/evidence/evidence_detail.html
+new file mode 100644
+index 0000000..95d7df7
+--- /dev/null
++++ b/templates/evidence/evidence_detail.html
+@@ -0,0 +1,138 @@
++{% extends "base.html" %}
++
++{% block title %}{{ item.title }} | Personal evidence | ViewCoach{% endblock %}
++{% block body_class %}evidence-detail-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++    <span aria-hidden="true">/</span>
++    <span>{{ item.title }}</span>
++</nav>
++
++<section class="evidence-detail-header">
++    <div>
++        <div class="evidence-detail-kicker">
++            <span>{{ item.get_source_type_display }}</span>
++            {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
++            {% if item.role_or_context %}<span>{{ item.role_or_context }}</span>{% endif %}
++        </div>
++        <h1>{{ item.title }}</h1>
++        {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
++    </div>
++    <div class="evidence-header-actions">
++        <a class="button button-secondary" href="{% url 'evidence:edit' item.pk %}">Edit evidence</a>
++        <a class="danger-link" href="{% url 'evidence:delete' item.pk %}">Delete</a>
++    </div>
++</section>
++
++<div class="evidence-detail-layout">
++    <main class="evidence-detail-main">
++        <section class="evidence-narrative" aria-labelledby="evidence-narrative-heading">
++            <p class="eyebrow">Case study</p>
++            <h2 id="evidence-narrative-heading">The work and what it proves</h2>
++            <div class="evidence-narrative-grid">
++                <article><h3>Problem or context</h3>{% if item.problem %}{{ item.problem|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>What I personally did</h3>{% if item.personal_contribution %}{{ item.personal_contribution|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>Outcome or impact</h3>{% if item.outcomes %}{{ item.outcomes|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++                <article><h3>What I learned</h3>{% if item.lessons %}{{ item.lessons|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
++            </div>
++        </section>
++
++        <section class="evidence-section" aria-labelledby="decisions-heading">
++            <div class="evidence-section-heading">
++                <div><p class="eyebrow">Technical judgement</p><h2 id="decisions-heading">Decision records</h2></div>
++                <span>{{ decisions|length }} captured</span>
++            </div>
++            {% if decisions %}
++            <div class="evidence-record-list">
++                {% for decision in decisions %}
++                <article class="evidence-record">
++                    <div class="evidence-record-heading"><h3>{{ decision.title }}</h3><span>Would choose again: {{ decision.get_would_choose_again_display }}</span></div>
++                    {% if decision.context %}<h4>Context</h4>{{ decision.context|linebreaks }}{% endif %}
++                    {% if decision.alternatives %}<h4>Alternatives</h4>{{ decision.alternatives|linebreaks }}{% endif %}
++                    <h4>Decision</h4>{{ decision.decision|linebreaks }}
++                    {% if decision.rationale %}<h4>Why</h4>{{ decision.rationale|linebreaks }}{% endif %}
++                    {% if decision.tradeoffs %}<h4>Trade-offs</h4>{{ decision.tradeoffs|linebreaks }}{% endif %}
++                    {% if decision.outcome %}<h4>Outcome</h4>{{ decision.outcome|linebreaks }}{% endif %}
++                    {% if decision.reflection %}<h4>Reflection</h4>{{ decision.reflection|linebreaks }}{% endif %}
++                    <form method="post" action="{% url 'evidence:decision_delete' item.pk decision.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove decision</button></form>
++                </article>
++                {% endfor %}
++            </div>
++            {% endif %}
++            <details class="evidence-add-panel">
++                <summary>Add decision record</summary>
++                <form method="post" action="{% url 'evidence:decision_add' item.pk %}">
++                    {% csrf_token %}
++                    {% for field in decision_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
++                    <button class="button" type="submit">Save decision</button>
++                </form>
++            </details>
++        </section>
++
++        <section class="evidence-section" aria-labelledby="stories-heading">
++            <div class="evidence-section-heading">
++                <div><p class="eyebrow">Behavioural preparation</p><h2 id="stories-heading">STAR stories</h2></div>
++                <span>{{ stories|length }} captured</span>
++            </div>
++            {% if stories %}
++            <div class="evidence-record-list">
++                {% for story in stories %}
++                <article class="evidence-record">
++                    <h3>{{ story.title }}</h3>
++                    <h4>Situation</h4>{{ story.situation|linebreaks }}
++                    {% if story.task %}<h4>Task</h4>{{ story.task|linebreaks }}{% endif %}
++                    <h4>Actions</h4>{{ story.actions|linebreaks }}
++                    {% if story.result %}<h4>Result</h4>{{ story.result|linebreaks }}{% endif %}
++                    {% if story.reflection %}<h4>Reflection</h4>{{ story.reflection|linebreaks }}{% endif %}
++                    {% if story.competency_list %}<div class="evidence-tag-row">{% for competency in story.competency_list %}<span>{{ competency }}</span>{% endfor %}</div>{% endif %}
++                    {% if story.follow_up_questions %}<h4>Likely follow-ups</h4>{{ story.follow_up_questions|linebreaks }}{% endif %}
++                    <form method="post" action="{% url 'evidence:story_delete' item.pk story.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove story</button></form>
++                </article>
++                {% endfor %}
++            </div>
++            {% endif %}
++            <details class="evidence-add-panel">
++                <summary>Add behavioural story</summary>
++                <form method="post" action="{% url 'evidence:story_add' item.pk %}">
++                    {% csrf_token %}
++                    {% for field in story_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}{{ field.errors }}</div>{% endfor %}
++                    <button class="button" type="submit">Save story</button>
++                </form>
++            </details>
++        </section>
++    </main>
++
++    <aside class="evidence-detail-sidebar">
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Skills</p>
++            <h2>Technologies and strengths</h2>
++            {% if item.technology_list %}<div class="evidence-tag-row">{% for technology in item.technology_list %}<span>{{ technology }}</span>{% endfor %}</div>{% else %}<p class="muted">No technologies captured.</p>{% endif %}
++            {% if item.evidence_url %}<a class="button button-secondary" href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">Open supporting evidence</a>{% endif %}
++        </section>
++
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Reused in</p>
++            <h2>Interview preparation links</h2>
++            <dl class="evidence-link-summary">
++                <div><dt>Roadmap topics</dt><dd>{{ topic_links|length }}</dd></div>
++                <div><dt>Questions</dt><dd>{{ question_links|length }}</dd></div>
++                <div><dt>Goals</dt><dd>{{ goal_links|length }}</dd></div>
++            </dl>
++            {% if topic_links %}<h3>Topics</h3><ul>{% for link in topic_links %}<li><a href="{% url 'roadmaps:topic_detail' link.profile.topic.section.roadmap.slug link.profile.topic.pk %}">{{ link.profile.topic.title }}</a></li>{% endfor %}</ul>{% endif %}
++            {% if question_links %}<h3>Questions</h3><ul>{% for link in question_links %}<li><a href="{% url 'questions:detail' link.question.pk %}">{{ link.question.title }}</a></li>{% endfor %}</ul>{% endif %}
++            {% if goal_links %}<h3>Goals</h3><ul>{% for link in goal_links %}<li><a href="{% url 'goals:detail' link.goal.pk %}">{{ link.goal.title }}</a></li>{% endfor %}</ul>{% endif %}
++        </section>
++
++        <section class="evidence-sidebar-panel">
++            <p class="eyebrow">Timeline</p>
++            <dl class="evidence-link-summary">
++                <div><dt>Start</dt><dd>{% if item.start_date %}{{ item.start_date|date:"M Y" }}{% else %}Not set{% endif %}</dd></div>
++                <div><dt>End</dt><dd>{% if item.end_date %}{{ item.end_date|date:"M Y" }}{% else %}Ongoing or not set{% endif %}</dd></div>
++                <div><dt>Updated</dt><dd>{{ item.updated_at|date:"j M Y" }}</dd></div>
++            </dl>
++        </section>
++    </aside>
++</div>
++{% endblock %}
+diff --git a/static/css/evidence.css b/static/css/evidence.css
+new file mode 100644
+index 0000000..b14928f
+--- /dev/null
++++ b/static/css/evidence.css
+@@ -0,0 +1,579 @@
++.evidence-page-header,
++.evidence-detail-header,
++.evidence-form-header {
++    display: flex;
++    align-items: flex-end;
++    justify-content: space-between;
++    gap: 2rem;
++    padding-bottom: 2rem;
++    border-bottom: 2px solid var(--vc-ink);
++}
++
++.evidence-page-header > div,
++.evidence-detail-header > div,
++.evidence-form-header {
++    max-width: 58rem;
++}
++
++.evidence-page-header h1,
++.evidence-detail-header h1,
++.evidence-form-header h1 {
++    margin: 0.45rem 0 1rem;
++    font-size: clamp(2.7rem, 7vw, 5.2rem);
++    line-height: 0.98;
++    letter-spacing: -0.045em;
++}
++
++.evidence-page-header p,
++.evidence-detail-header p,
++.evidence-form-header p {
++    max-width: 50rem;
++    color: var(--vc-muted);
++    line-height: 1.65;
++}
++
++.evidence-filter-panel {
++    display: grid;
++    grid-template-columns: minmax(16rem, 1fr) minmax(12rem, 18rem) auto;
++    gap: 1rem;
++    align-items: end;
++    padding: 1.25rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-filter-panel label,
++.evidence-inline-link-form label {
++    display: block;
++    margin-bottom: 0.35rem;
++    font-size: 0.78rem;
++    font-weight: 750;
++}
++
++.evidence-filter-panel input,
++.evidence-filter-panel select,
++.evidence-form input,
++.evidence-form select,
++.evidence-form textarea,
++.evidence-add-panel input,
++.evidence-add-panel select,
++.evidence-add-panel textarea,
++.topic-evidence-profile-form input,
++.topic-evidence-profile-form select,
++.topic-evidence-profile-form textarea,
++.evidence-inline-link-form input,
++.evidence-inline-link-form select,
++.evidence-inline-link-form textarea,
++.goal-evidence-section input,
++.goal-evidence-section select,
++.goal-evidence-section textarea {
++    width: 100%;
++    padding: 0.75rem;
++    border: 1px solid var(--vc-border-strong);
++    border-radius: 0.25rem;
++    color: var(--vc-ink);
++    background: var(--vc-paper-strong);
++    font: inherit;
++}
++
++.evidence-catalogue {
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-card {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
++    gap: 2.5rem;
++    padding: 1.6rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-card:first-child {
++    border-top: 0;
++}
++
++.evidence-card h2 {
++    margin: 0.5rem 0;
++    font-size: 1.45rem;
++}
++
++.evidence-card h2 a {
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.evidence-card h2 a:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.evidence-card p {
++    max-width: 48rem;
++    margin: 0;
++    color: var(--vc-muted);
++    line-height: 1.55;
++}
++
++.evidence-card-meta,
++.evidence-detail-kicker,
++.evidence-tag-row {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.55rem;
++}
++
++.evidence-card-meta,
++.evidence-detail-kicker {
++    color: var(--vc-muted);
++    font-size: 0.73rem;
++    font-weight: 750;
++    letter-spacing: 0.04em;
++    text-transform: uppercase;
++}
++
++.evidence-tag-row {
++    margin-top: 0.9rem;
++}
++
++.evidence-tag-row span {
++    padding: 0.28rem 0.5rem;
++    border: 1px solid var(--vc-border);
++    border-radius: 0.25rem;
++    color: #4b4540;
++    background: #eee9e2;
++    font-size: 0.74rem;
++    font-weight: 700;
++}
++
++.evidence-card-counts {
++    display: grid;
++    grid-template-columns: repeat(5, minmax(0, 1fr));
++    gap: 0;
++    align-self: center;
++    margin: 0;
++    border: 1px solid var(--vc-border);
++}
++
++.evidence-card-counts div {
++    padding: 0.8rem 0.5rem;
++    border-left: 1px solid var(--vc-border);
++    text-align: center;
++}
++
++.evidence-card-counts div:first-child {
++    border-left: 0;
++}
++
++.evidence-card-counts dt {
++    color: var(--vc-muted);
++    font-size: 0.65rem;
++    text-transform: uppercase;
++}
++
++.evidence-card-counts dd {
++    margin: 0.25rem 0 0;
++    font-family: var(--vc-font-serif);
++    font-size: 1.2rem;
++    font-weight: 700;
++}
++
++.evidence-empty-state {
++    max-width: 48rem;
++    padding: 3rem 0;
++}
++
++.evidence-empty-state h2 {
++    margin: 0.5rem 0;
++    font-size: 2rem;
++}
++
++.evidence-breadcrumbs {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.5rem;
++    margin-bottom: 1.5rem;
++    color: var(--vc-muted);
++    font-size: 0.84rem;
++}
++
++.evidence-breadcrumbs a {
++    color: var(--vc-ink);
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.evidence-form-header {
++    display: block;
++}
++
++.evidence-form {
++    max-width: 68rem;
++    padding: 2rem 0;
++}
++
++.evidence-form-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1.25rem 1.5rem;
++}
++
++.evidence-field-summary,
++.evidence-field-problem,
++.evidence-field-personal_contribution,
++.evidence-field-technologies,
++.evidence-field-outcomes,
++.evidence-field-lessons,
++.evidence-field-evidence_url {
++    grid-column: 1 / -1;
++}
++
++.evidence-form-actions,
++.evidence-header-actions,
++.evidence-section-heading,
++.evidence-linked-heading,
++.evidence-record-heading {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.evidence-form-actions {
++    justify-content: flex-start;
++    margin-top: 2rem;
++}
++
++.evidence-detail-layout {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(16rem, 21rem);
++    gap: clamp(2rem, 5vw, 4.5rem);
++    align-items: start;
++    margin-top: 2.5rem;
++}
++
++.evidence-detail-main {
++    display: grid;
++    gap: 3rem;
++}
++
++.evidence-narrative,
++.evidence-section,
++.goal-evidence-section {
++    padding-bottom: 2.5rem;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-narrative h2,
++.evidence-section h2,
++.goal-evidence-section h2 {
++    margin: 0.25rem 0 1.5rem;
++    font-size: 1.65rem;
++}
++
++.evidence-narrative-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1px;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-border);
++}
++
++.evidence-narrative-grid article {
++    padding: 1.4rem;
++    background: var(--vc-paper);
++}
++
++.evidence-narrative-grid h3,
++.evidence-record h3,
++.evidence-sidebar-panel h2 {
++    margin-top: 0;
++}
++
++.evidence-section-heading > span {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.evidence-record-list {
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-record {
++    padding: 1.5rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-record h4 {
++    margin: 1rem 0 0.3rem;
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    letter-spacing: 0.05em;
++    text-transform: uppercase;
++}
++
++.evidence-record p {
++    margin: 0.3rem 0 0;
++    line-height: 1.6;
++}
++
++.evidence-record-heading span {
++    color: var(--vc-muted);
++    font-size: 0.76rem;
++}
++
++.evidence-remove-button,
++.evidence-linked-list button,
++.goal-evidence-list button {
++    padding: 0;
++    border: 0;
++    color: var(--vc-muted);
++    background: transparent;
++    cursor: pointer;
++    font: inherit;
++    font-size: 0.74rem;
++    font-weight: 700;
++}
++
++.evidence-remove-button {
++    margin-top: 1rem;
++}
++
++.evidence-remove-button:hover,
++.evidence-linked-list button:hover,
++.goal-evidence-list button:hover {
++    color: var(--vc-burgundy-dark);
++    text-decoration: underline;
++}
++
++.evidence-add-panel {
++    margin-top: 1.25rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-add-panel > summary {
++    padding: 1rem 0;
++    cursor: pointer;
++    font-weight: 750;
++}
++
++.evidence-add-panel form {
++    display: grid;
++    gap: 1rem;
++    padding-bottom: 1rem;
++}
++
++.evidence-add-panel .button {
++    justify-self: start;
++}
++
++.evidence-detail-sidebar {
++    display: grid;
++    gap: 1.5rem;
++}
++
++.evidence-sidebar-panel {
++    padding: 1.25rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.evidence-sidebar-panel .button {
++    margin-top: 1rem;
++}
++
++.evidence-sidebar-panel h3 {
++    margin: 1.2rem 0 0.4rem;
++    font-size: 0.9rem;
++}
++
++.evidence-sidebar-panel ul {
++    padding-left: 1rem;
++    margin: 0;
++}
++
++.evidence-link-summary {
++    margin: 0;
++}
++
++.evidence-link-summary div {
++    display: flex;
++    justify-content: space-between;
++    gap: 1rem;
++    padding: 0.65rem 0;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-link-summary dt {
++    color: var(--vc-muted);
++}
++
++.evidence-link-summary dd {
++    margin: 0;
++    text-align: right;
++}
++
++.topic-evidence-profile-form,
++.evidence-inline-link-form {
++    display: grid;
++    gap: 1rem;
++}
++
++.topic-evidence-profile-form {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++}
++
++.topic-evidence-profile-form .form-field:first-child,
++.topic-evidence-profile-form .button {
++    grid-column: 1 / -1;
++}
++
++.topic-evidence-profile-form .button,
++.evidence-inline-link-form .button {
++    justify-self: start;
++}
++
++.evidence-linked-block {
++    margin-top: 2rem;
++    padding-top: 1.5rem;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-linked-heading h3 {
++    margin: 0;
++}
++
++.evidence-linked-list {
++    padding: 0;
++    margin: 1rem 0;
++    list-style: none;
++    border-top: 1px solid var(--vc-border);
++}
++
++.evidence-linked-list li {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) auto;
++    gap: 1rem;
++    align-items: start;
++    padding: 0.9rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.evidence-linked-list li > div {
++    display: grid;
++    gap: 0.2rem;
++}
++
++.evidence-linked-list a {
++    color: var(--vc-ink);
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.evidence-linked-list span {
++    color: var(--vc-muted);
++    font-size: 0.73rem;
++}
++
++.evidence-linked-list p {
++    margin: 0.35rem 0 0;
++    color: var(--vc-muted);
++    font-size: 0.84rem;
++}
++
++.evidence-inline-link-form {
++    margin-top: 1.25rem;
++    padding: 1rem;
++    border: 1px solid var(--vc-border);
++    background: #f2ede6;
++}
++
++.question-evidence-card {
++    margin-top: 1.25rem;
++}
++
++.goal-evidence-list {
++    border-top: 1px solid var(--vc-border);
++}
++
++.goal-evidence-list article {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem) auto;
++    gap: 1.5rem;
++    align-items: start;
++    padding: 1.1rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.goal-evidence-list h3 {
++    margin: 0.25rem 0;
++}
++
++.goal-evidence-list h3 a {
++    color: var(--vc-ink);
++    text-decoration: none;
++}
++
++.goal-evidence-list span,
++.goal-evidence-list p {
++    color: var(--vc-muted);
++    font-size: 0.8rem;
++}
++
++@media (max-width: 64rem) {
++    .evidence-card,
++    .evidence-detail-layout {
++        grid-template-columns: 1fr;
++    }
++
++    .evidence-detail-sidebar {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        grid-row: 1;
++    }
++}
++
++@media (max-width: 48rem) {
++
++    .evidence-page-header,
++    .evidence-detail-header,
++    .evidence-form-actions,
++    .evidence-header-actions,
++    .evidence-section-heading,
++    .evidence-linked-heading,
++    .evidence-record-heading {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .evidence-filter-panel,
++    .evidence-form-grid,
++    .evidence-narrative-grid,
++    .topic-evidence-profile-form,
++    .evidence-detail-sidebar,
++    .goal-evidence-list article {
++        grid-template-columns: 1fr;
++    }
++
++    .evidence-field-summary,
++    .evidence-field-problem,
++    .evidence-field-personal_contribution,
++    .evidence-field-technologies,
++    .evidence-field-outcomes,
++    .evidence-field-lessons,
++    .evidence-field-evidence_url,
++    .topic-evidence-profile-form .form-field:first-child,
++    .topic-evidence-profile-form .button {
++        grid-column: auto;
++    }
++
++    .evidence-card-counts {
++        grid-template-columns: repeat(3, 1fr);
++    }
++
++    .evidence-card-counts div:nth-child(4) {
++        border-left: 0;
++        border-top: 1px solid var(--vc-border);
++    }
++
++    .evidence-card-counts div:nth-child(5) {
++        border-top: 1px solid var(--vc-border);
++    }
++}
+diff --git a/apps/evidence/tests/test_integration.py b/apps/evidence/tests/test_integration.py
+new file mode 100644
+index 0000000..52287aa
+--- /dev/null
++++ b/apps/evidence/tests/test_integration.py
+@@ -0,0 +1,53 @@
++import pytest
++from django.urls import reverse
++
++pytestmark = pytest.mark.django_db
++
++
++def test_topic_workspace_surfaces_personal_evidence_section(client, user, topic):
++    client.force_login(user)
++
++    response = client.get(
++        reverse(
++            "roadmaps:topic_detail",
++            kwargs={
++                "slug": topic.section.roadmap.slug,
++                "topic_id": topic.pk,
++            },
++        )
++    )
++
++    assert response.status_code == 200
++    assert "Personal evidence and interview framing" in response.content.decode()
++
++
++def test_question_detail_surfaces_real_example_section(
++    client,
++    user,
++    technical_question,
++):
++    client.force_login(user)
++
++    response = client.get(reverse("questions:detail", args=[technical_question.pk]))
++
++    assert response.status_code == 200
++    assert "Real examples for this answer" in response.content.decode()
++
++
++def test_goal_detail_surfaces_goal_specific_evidence(client, user, goal):
++    client.force_login(user)
++
++    response = client.get(reverse("goals:detail", args=[goal.pk]))
++
++    assert response.status_code == 200
++    assert "Evidence for this goal" in response.content.decode()
++
++
++def test_dashboard_counts_private_evidence(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++
++    assert response.status_code == 200
++    assert response.context["evidence_summary"]["total_count"] == 1
++    assert reverse("evidence:list") in response.content.decode()

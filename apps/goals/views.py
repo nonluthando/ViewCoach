@@ -6,6 +6,9 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.evidence.forms import GoalEvidenceLinkForm
+from apps.evidence.models import EvidenceItem, GoalEvidenceLink
+
 from .forms import InterviewGoalForm, InterviewStageForm
 from .models import InterviewGoal, InterviewStage
 from .services import (
@@ -144,6 +147,14 @@ def goal_detail(request, goal_id):
             "report": readiness_report(goal=goal),
             "stage_form": InterviewStageForm(),
             "status_choices": InterviewGoal.Status.choices,
+            "goal_evidence_links": GoalEvidenceLink.objects.filter(
+                user=request.user,
+                goal=goal,
+            ).select_related("evidence"),
+            "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
+            "has_evidence_items": EvidenceItem.objects.filter(
+                owner=request.user,
+            ).exists(),
         },
     )
 
@@ -189,6 +200,14 @@ def stage_add(request, goal_id):
                 "report": readiness_report(goal=goal),
                 "stage_form": form,
                 "status_choices": InterviewGoal.Status.choices,
+                "goal_evidence_links": GoalEvidenceLink.objects.filter(
+                    user=request.user,
+                    goal=goal,
+                ).select_related("evidence"),
+                "goal_evidence_form": GoalEvidenceLinkForm(user=request.user),
+                "has_evidence_items": EvidenceItem.objects.filter(
+                    owner=request.user,
+                ).exists(),
             },
             status=400,
         )

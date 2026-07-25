@@ -126,11 +126,16 @@
                 <dt>In my library</dt>
                 <dd>{{ question_count }}</dd>
             </div>
+            <div>
+                <dt>Evidence records</dt>
+                <dd>{{ evidence_summary.total_count }}</dd>
+            </div>
         </dl>
 
         <div class="dashboard-brief-links">
             <a href="{% url 'planner:today' %}">Today’s plan <span aria-hidden="true">→</span></a>
             <a href="{% url 'goals:list' %}">Interview goals <span aria-hidden="true">→</span></a>
+            <a href="{% url 'evidence:list' %}">Personal evidence <span aria-hidden="true">→</span></a>
             <a href="{% url 'reviews:history' %}">Review history <span aria-hidden="true">→</span></a>
             <a href="{% url 'interviews:list' %}">Mock interviews <span aria-hidden="true">→</span></a>
             <a href="{% url 'questions:list' %}?source=mine">My question library <span aria-hidden="true">→</span></a>
