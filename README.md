@@ -2,7 +2,7 @@
 
 A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
 
-The repository currently contains **Milestones 0 through 3.2**.
+The repository currently contains **Milestones 0 through 3.5**.
 
 ## Implemented
 
@@ -53,11 +53,32 @@ The repository currently contains **Milestones 0 through 3.2**.
 
 ### Milestone 3.2 — Adaptive study planner
 
-- a persisted daily plan generated from available study time;
+- a persisted daily plan generated from a user-controlled 15-minute to 16-hour study budget;
 - deterministic priority for due reviews, active roadmap work, recent weak areas and fresh practice;
 - transparent rationales and time estimates for every recommendation;
 - task completion, plan regeneration and study-session tracking;
-- dashboard integration that gives users a clear next action.
+- dashboard integration that gives users a clear next action;
+- compact four-item mobile navigation with an overflow menu and visible logout.
+
+### Milestone 3.3 — Guided mock interviews
+
+- timed technical, conceptual, behavioural, debugging and mixed sessions;
+- deterministic selection that favours due and recently difficult questions;
+- saved response notes, confidence assessments, resumable sessions and debriefs.
+
+### Milestone 3.4 — Interview goals and readiness
+
+- multiple interview goals with one primary goal;
+- OA and interview stages, deadlines and roadmap-aware planning;
+- explainable readiness across roadmap coverage, reviews, questions, mocks and consistency.
+
+### Milestone 3.5 — Personal evidence layer
+
+- private project, work, coursework, leadership and technical-incident records;
+- reusable decision logs and behavioural stories;
+- personal evidence overlays for roadmap topics;
+- evidence links for questions and goal-specific interview framing;
+- explicit evidence readiness from knowledge-only through interview-ready.
 
 ## Architecture decisions
 
@@ -68,7 +89,7 @@ The repository currently contains **Milestones 0 through 3.2**.
 - Concrete base question plus typed child models.
 - Deterministic study logic remains separate from future AI behaviour.
 
-See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md) and [`docs/adr/`](docs/adr/).
+See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md), [`docs/architecture/personal-evidence-layer.md`](docs/architecture/personal-evidence-layer.md) and [`docs/adr/`](docs/adr/).
 
 ## Local setup
 

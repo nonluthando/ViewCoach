@@ -22,3 +22,15 @@ def test_dashboard_shows_question_counts_and_recent_questions(client):
     assert response.context["question_count"] == 1
     assert response.context["ready_question_count"] == 0
     assert question.title in response.content.decode()
+
+
+def test_mobile_navigation_is_compact_and_logout_is_visible(client, user):
+    client.force_login(user)
+
+    response = client.get(reverse("dashboard"))
+    html = response.content.decode()
+
+    assert html.count("mobile-nav-link") == 4
+    assert "mobile-more-panel" in html
+    assert "mobile-logout-button" in html
+    assert "Log out" in html

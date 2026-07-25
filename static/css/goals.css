@@ -546,9 +546,6 @@
 }
 
 @media (max-width: 48rem) {
-    .app-mobile-navigation {
-        grid-template-columns: repeat(7, 1fr);
-    }
 
     .goals-header,
     .goal-detail-header,

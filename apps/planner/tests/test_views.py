@@ -29,12 +29,25 @@ def test_user_can_rebuild_plan_for_available_time(client, user):
 
     response = client.post(
         reverse("planner:regenerate"),
-        {"time_budget_minutes": "45"},
+        {"time_budget_hours": "8"},
     )
 
     assert response.status_code == 302
     plan = StudyPlan.objects.get(user=user)
-    assert plan.time_budget_minutes == 45
+    assert plan.time_budget_minutes == 480
+
+
+def test_user_can_build_a_twelve_hour_plan(client, user):
+    client.force_login(user)
+
+    response = client.post(
+        reverse("planner:regenerate"),
+        {"time_budget_hours": "12"},
+    )
+
+    assert response.status_code == 302
+    plan = StudyPlan.objects.get(user=user)
+    assert plan.time_budget_minutes == 720
 
 
 def test_user_cannot_toggle_someone_elses_recommendation(
@@ -66,7 +79,7 @@ def test_active_session_blocks_plan_regeneration(client, user):
 
     response = client.post(
         reverse("planner:regenerate"),
-        {"time_budget_minutes": "90"},
+        {"time_budget_hours": "1.5"},
         follow=True,
     )
 

@@ -538,9 +538,6 @@
 
 
 @media (max-width: 48rem) {
-    .app-mobile-navigation {
-        grid-template-columns: repeat(6, 1fr);
-    }
 
     .mobile-nav-link {
         min-width: 0;

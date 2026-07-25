@@ -88,13 +88,16 @@
             <form method="post" action="{% url 'planner:regenerate' %}">
                 {% csrf_token %}
                 <div class="form-field">
-                    {{ preferences_form.time_budget_minutes.label_tag }}
-                    {{ preferences_form.time_budget_minutes }}
+                    {{ preferences_form.time_budget_hours.label_tag }}
+                    {{ preferences_form.time_budget_hours }}
+                    {% if preferences_form.time_budget_hours.help_text %}
+                        <p class="help-text">{{ preferences_form.time_budget_hours.help_text }}</p>
+                    {% endif %}
                 </div>
                 <button class="button button-secondary button-full" type="submit">Rebuild today’s plan</button>
             </form>
             <p class="planner-settings-note">
-                Rebuilding uses deterministic priorities. Due reviews come first, followed by active roadmap work, weak areas and fresh practice when time allows.
+                Rebuilding uses deterministic priorities and scales the number of roadmap, weak-area and practice tasks to the time you enter. Due reviews still come first.
             </p>
         </section>
 
