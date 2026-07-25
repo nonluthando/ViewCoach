@@ -413,9 +413,6 @@
 }
 
 @media (max-width: 48rem) {
-    .app-mobile-navigation {
-        grid-template-columns: repeat(5, 1fr);
-    }
 }
 
 .roadmap-topic-link {

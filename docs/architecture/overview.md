@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Milestone 3.2 adds a deterministic daily planner on top of the structured question library, review engine and learning roadmaps. Goals, mastery analytics and AI enhancement remain outside this boundary.
+Milestone 3.5 adds a private personal-evidence layer on top of questions, roadmaps, mock interviews, goals and the deterministic study planner. AI enhancement remains outside this boundary.
 
 ## System shape
 
@@ -73,13 +73,25 @@ Owns structured learning paths:
 - per-user roadmap and topic progress;
 - private topic notes and learning resources.
 
+### `apps.evidence`
+
+Owns private, reusable proof from projects, work, coursework, leadership and technical incidents:
+
+- structured evidence records;
+- technical decision logs;
+- behavioural STAR stories;
+- personal overlays for roadmap topics;
+- links from evidence to questions and interview goals.
+
+The module stores facts once and uses link records for role-specific framing. It does not seed a user's private history into the public question or roadmap curriculum. See [`personal-evidence-layer.md`](personal-evidence-layer.md).
+
 ### `apps.planner`
 
 Owns the daily focus workflow:
 
 - one study plan per user and local calendar day;
 - ordered, explainable recommendations;
-- available-time budgeting and regeneration;
+- free-form available-time budgeting from 15 minutes to 16 hours and scalable regeneration;
 - recommendation completion and study-session tracking.
 
 The planner reads review, roadmap and question data through application services. It does not alter the scheduling rules or progress ownership of those modules. See [`adaptive-study-planner.md`](adaptive-study-planner.md).
@@ -119,8 +131,6 @@ SQLite is deliberately not configured as an application environment because futu
 
 Likely later modules include:
 
-- `interviews` for mock-interview sessions and interview modes;
-- `goals` for lightweight interview context and deadlines;
 - `analytics` for pattern mastery and coverage;
 - `ai` for optional enhancement workflows.
 

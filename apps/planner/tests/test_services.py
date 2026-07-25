@@ -117,6 +117,27 @@ def test_completed_roadmap_topic_is_skipped(user):
     assert recommendation.topic == second_topic
 
 
+def test_large_budget_schedules_multiple_roadmap_topics(user):
+    roadmap, _, _ = _active_roadmap(user)
+    section = roadmap.sections.get()
+    for position in range(3, 9):
+        RoadmapTopic.objects.create(
+            section=section,
+            title=f"Backend topic {position}",
+            slug=f"backend-topic-{position}",
+            position=position,
+        )
+
+    plan = generate_daily_plan(user=user, time_budget_minutes=720)
+
+    roadmap_recommendations = plan.recommendations.filter(
+        kind=StudyRecommendation.Kind.ROADMAP
+    )
+    assert roadmap_recommendations.count() == 8
+    assert plan.time_budget_minutes == 720
+    assert plan_summary(plan=plan)["estimated_minutes"] <= 720
+
+
 def test_recent_hard_review_becomes_weak_area_recommendation(user):
     now = timezone.now()
     question = _ready_question(user)

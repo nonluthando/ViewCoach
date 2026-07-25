@@ -662,10 +662,33 @@ a {
         text-decoration: none;
     }
 
+    .app-mobile-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+
     .mobile-account-avatar {
         width: 2rem;
         height: 2rem;
+        flex: 0 0 auto;
         font-size: 0.82rem;
+    }
+
+    .mobile-logout-form {
+        margin: 0;
+    }
+
+    .mobile-logout-button {
+        padding: 0.4rem 0.55rem;
+        border: 1px solid var(--vc-border-strong);
+        border-radius: 0.25rem;
+        color: var(--vc-burgundy-dark);
+        background: var(--vc-paper-strong);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.75rem;
+        font-weight: 750;
     }
 
     .app-main {
@@ -696,6 +719,75 @@ a {
 
     .mobile-nav-link.is-active {
         color: var(--vc-burgundy);
+    }
+
+    .mobile-more-menu {
+        position: relative;
+        min-width: 0;
+    }
+
+    .mobile-more-menu > summary {
+        height: 100%;
+        list-style: none;
+        cursor: pointer;
+    }
+
+    .mobile-more-menu > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .mobile-more-panel {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 4.65rem;
+        left: 0.75rem;
+        display: grid;
+        max-height: min(70vh, 34rem);
+        overflow-y: auto;
+        padding: 0.8rem 1rem 1rem;
+        border: 1px solid var(--vc-border);
+        background: var(--vc-paper-strong);
+        box-shadow: 0 -12px 30px rgba(33, 29, 27, 0.14);
+    }
+
+    .mobile-more-heading {
+        display: grid;
+        gap: 0.15rem;
+        padding: 0.35rem 0 0.75rem;
+        border-bottom: 1px solid var(--vc-border);
+    }
+
+    .mobile-more-heading span {
+        overflow: hidden;
+        color: var(--vc-muted);
+        font-size: 0.72rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mobile-more-panel > a,
+    .mobile-more-panel form button {
+        width: 100%;
+        padding: 0.8rem 0;
+        border: 0;
+        border-bottom: 1px solid var(--vc-border);
+        color: var(--vc-ink);
+        background: transparent;
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-align: left;
+        text-decoration: none;
+    }
+
+    .mobile-more-panel form {
+        margin: 0;
+    }
+
+    .mobile-more-panel form button {
+        border-bottom: 0;
+        color: var(--vc-burgundy-dark);
+        cursor: pointer;
     }
 
     .review-page .app-mobile-header {

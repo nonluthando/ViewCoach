@@ -32,79 +32,74 @@ def _primary_goal(*, user):
     )
 
 
-def _active_roadmap_enrolment(*, user, goal=None):
+def _ordered_active_roadmap_enrolments(*, user, goal=None):
     enrolment_query = UserRoadmap.objects.filter(
         user=user,
         status=UserRoadmap.Status.IN_PROGRESS,
         roadmap__is_published=True,
     ).select_related("roadmap")
+
     if goal is not None:
         linked_roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))
         if linked_roadmap_ids:
-            linked_enrolments = list(
-                enrolment_query.filter(roadmap_id__in=linked_roadmap_ids)
+            enrolment_query = enrolment_query.filter(
+                roadmap_id__in=linked_roadmap_ids
             )
-            if linked_enrolments:
-                in_progress_roadmap_ids = set(
-                    UserTopicProgress.objects.filter(
-                        user=user,
-                        status=UserTopicProgress.Status.IN_PROGRESS,
-                        topic__section__roadmap_id__in=linked_roadmap_ids,
-                    ).values_list("topic__section__roadmap_id", flat=True)
-                )
-                completed_counts = {
-                    roadmap_id: UserTopicProgress.objects.filter(
-                        user=user,
-                        status=UserTopicProgress.Status.COMPLETED,
-                        topic__section__roadmap_id=roadmap_id,
-                    ).count()
-                    for roadmap_id in linked_roadmap_ids
-                }
-                topic_counts = {
-                    roadmap_id: RoadmapTopic.objects.filter(
-                        section__roadmap_id=roadmap_id,
-                    ).count()
-                    for roadmap_id in linked_roadmap_ids
-                }
-                incomplete_enrolments = [
-                    enrolment
-                    for enrolment in linked_enrolments
-                    if completed_counts.get(enrolment.roadmap_id, 0)
-                    < topic_counts.get(enrolment.roadmap_id, 0)
-                ]
-                if not incomplete_enrolments:
-                    return None
-                linked_enrolments = incomplete_enrolments
-
-                far_future = date.max
-                linked_enrolments.sort(
-                    key=lambda enrolment: (
-                        0 if enrolment.roadmap_id in in_progress_roadmap_ids else 1,
-                        completed_counts.get(enrolment.roadmap_id, 0)
-                        / max(topic_counts.get(enrolment.roadmap_id, 0), 1),
-                        enrolment.target_date or far_future,
-                        enrolment.started_at or timezone.now(),
-                        enrolment.pk,
-                    )
-                )
-                return linked_enrolments[0]
 
     enrolments = list(enrolment_query)
     if not enrolments:
-        return None
+        return []
+
+    roadmap_ids = [enrolment.roadmap_id for enrolment in enrolments]
+    in_progress_roadmap_ids = set(
+        UserTopicProgress.objects.filter(
+            user=user,
+            status=UserTopicProgress.Status.IN_PROGRESS,
+            topic__section__roadmap_id__in=roadmap_ids,
+        ).values_list("topic__section__roadmap_id", flat=True)
+    )
+    completed_counts = {
+        roadmap_id: UserTopicProgress.objects.filter(
+            user=user,
+            status=UserTopicProgress.Status.COMPLETED,
+            topic__section__roadmap_id=roadmap_id,
+        ).count()
+        for roadmap_id in roadmap_ids
+    }
+    topic_counts = {
+        roadmap_id: RoadmapTopic.objects.filter(
+            section__roadmap_id=roadmap_id,
+        ).count()
+        for roadmap_id in roadmap_ids
+    }
+    enrolments = [
+        enrolment
+        for enrolment in enrolments
+        if completed_counts.get(enrolment.roadmap_id, 0)
+        < topic_counts.get(enrolment.roadmap_id, 0)
+    ]
 
     far_future = date.max
     enrolments.sort(
         key=lambda enrolment: (
+            0 if enrolment.roadmap_id in in_progress_roadmap_ids else 1,
+            completed_counts.get(enrolment.roadmap_id, 0)
+            / max(topic_counts.get(enrolment.roadmap_id, 0), 1),
             enrolment.target_date or far_future,
             enrolment.started_at or timezone.now(),
             enrolment.pk,
         )
     )
-    return enrolments[0]
+    return enrolments
 
 
-def _next_roadmap_topic(*, user, enrolment):
+def _active_roadmap_enrolment(*, user, goal=None):
+    enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
+    return enrolments[0] if enrolments else None
+
+
+def _unfinished_roadmap_topics(*, user, enrolment, excluded_topic_ids=None):
+    excluded_topic_ids = excluded_topic_ids or set()
     topic_ordering = (
         "section__position",
         "position",
@@ -116,26 +111,61 @@ def _next_roadmap_topic(*, user, enrolment):
         section__roadmap=enrolment.roadmap,
     ).select_related("section", "section__roadmap")
 
-    in_progress = topics.filter(
-        user_progress__user=user,
-        user_progress__status=UserTopicProgress.Status.IN_PROGRESS,
-    ).order_by(*topic_ordering).first()
-    if in_progress is not None:
-        return in_progress
-
     completed_topic_ids = UserTopicProgress.objects.filter(
         user=user,
         status=UserTopicProgress.Status.COMPLETED,
         topic__section__roadmap=enrolment.roadmap,
     ).values_list("topic_id", flat=True)
-    return (
-        topics.exclude(pk__in=completed_topic_ids)
-        .order_by(*topic_ordering)
-        .first()
+    available = topics.exclude(
+        pk__in=completed_topic_ids
+    ).exclude(pk__in=excluded_topic_ids)
+
+    in_progress_ids = set(
+        UserTopicProgress.objects.filter(
+            user=user,
+            status=UserTopicProgress.Status.IN_PROGRESS,
+            topic__section__roadmap=enrolment.roadmap,
+        ).values_list("topic_id", flat=True)
+    )
+    return sorted(
+        available.order_by(*topic_ordering),
+        key=lambda topic: (0 if topic.pk in in_progress_ids else 1),
     )
 
 
-def _recent_weak_question(*, user, excluded_question_ids, now):
+def _next_roadmap_topic(*, user, enrolment, excluded_topic_ids=None):
+    topics = _unfinished_roadmap_topics(
+        user=user,
+        enrolment=enrolment,
+        excluded_topic_ids=excluded_topic_ids,
+    )
+    return topics[0] if topics else None
+
+
+def _ordered_roadmap_topics(*, user, enrolments, limit):
+    topic_queues = [
+        _unfinished_roadmap_topics(user=user, enrolment=enrolment)
+        for enrolment in enrolments
+    ]
+    selected = []
+    while len(selected) < limit:
+        added_topic = False
+        for queue in topic_queues:
+            if not queue:
+                continue
+            selected.append(queue.pop(0))
+            added_topic = True
+            if len(selected) == limit:
+                break
+        if not added_topic:
+            break
+    return selected
+
+
+def _recent_weak_questions(*, user, excluded_question_ids, now, limit=10):
+    if limit <= 0:
+        return []
+
     recent_cutoff = now - timedelta(days=14)
     attempts = (
         ReviewAttempt.objects.filter(
@@ -153,14 +183,27 @@ def _recent_weak_question(*, user, excluded_question_ids, now):
         .order_by("-reviewed_at", "-pk")
     )
 
+    results = []
     seen_question_ids = set()
-    for attempt in attempts[:50]:
+    for attempt in attempts[:100]:
         question = attempt.state.question
         if question.pk in seen_question_ids:
             continue
         seen_question_ids.add(question.pk)
-        return question, attempt
-    return None, None
+        results.append((question, attempt))
+        if len(results) == limit:
+            break
+    return results
+
+
+def _recent_weak_question(*, user, excluded_question_ids, now):
+    questions = _recent_weak_questions(
+        user=user,
+        excluded_question_ids=excluded_question_ids,
+        now=now,
+        limit=1,
+    )
+    return questions[0] if questions else (None, None)
 
 
 def _practice_question(*, user, topic, excluded_question_ids, plan_date, goal=None):
@@ -248,48 +291,80 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
         )
         remaining_minutes = max(0, remaining_minutes - estimated_minutes)
 
-    enrolment = _active_roadmap_enrolment(user=user, goal=goal)
-    next_topic = None
-    if enrolment is not None:
-        next_topic = _next_roadmap_topic(user=user, enrolment=enrolment)
-
-    if next_topic is not None and remaining_minutes >= 15:
-        estimated_minutes = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
-        deadline_note = ""
-        priority_score = 80
-        goal_deadline = goal.next_deadline if goal else None
-        target_date = goal_deadline or enrolment.target_date
-        if target_date:
-            days_remaining = (target_date - plan_date).days
-            if 0 <= days_remaining <= 14:
-                priority_score += 10
-                deadline_note = f" Your next stage is {days_remaining} days away."
-        if goal is not None:
-            deadline_note += f" This supports your primary goal: {goal.title}."
-        payloads.append(
-            {
-                "kind": StudyRecommendation.Kind.ROADMAP,
-                "title": f"Continue: {next_topic.title}",
-                "description": (
-                    f"Move the {enrolment.roadmap.title} roadmap forward by one focused topic."
-                ),
-                "rationale": (
-                    "This is the next unfinished topic in your active roadmap."
-                    f"{deadline_note}"
-                ),
-                "estimated_minutes": estimated_minutes,
-                "priority_score": priority_score,
-                "topic": next_topic,
-            }
+    enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
+    first_selected_topic = None
+    if remaining_minutes >= 15 and enrolments:
+        if time_budget_minutes <= 60:
+            roadmap_allocation = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
+        else:
+            roadmap_allocation = min(
+                remaining_minutes,
+                max(ROADMAP_TOPIC_MINUTES, time_budget_minutes // 2),
+            )
+        roadmap_limit = min(12, max(1, roadmap_allocation // 15))
+        roadmap_topics = _ordered_roadmap_topics(
+            user=user,
+            enrolments=enrolments,
+            limit=roadmap_limit,
         )
-        remaining_minutes -= estimated_minutes
+        roadmap_minutes_left = roadmap_allocation
 
-    weak_question, weak_attempt = _recent_weak_question(
+        for topic in roadmap_topics:
+            if remaining_minutes < 15 or roadmap_minutes_left < 15:
+                break
+            estimated_minutes = min(
+                ROADMAP_TOPIC_MINUTES,
+                remaining_minutes,
+                roadmap_minutes_left,
+            )
+            enrolment = next(
+                item
+                for item in enrolments
+                if item.roadmap_id == topic.section.roadmap_id
+            )
+            deadline_note = ""
+            priority_score = 80
+            goal_deadline = goal.next_deadline if goal else None
+            target_date = goal_deadline or enrolment.target_date
+            if target_date:
+                days_remaining = (target_date - plan_date).days
+                if 0 <= days_remaining <= 14:
+                    priority_score += 10
+                    deadline_note = f" Your next stage is {days_remaining} days away."
+            if goal is not None:
+                deadline_note += f" This supports your primary goal: {goal.title}."
+
+            payloads.append(
+                {
+                    "kind": StudyRecommendation.Kind.ROADMAP,
+                    "title": f"Continue: {topic.title}",
+                    "description": (
+                        f"Move the {enrolment.roadmap.title} roadmap forward "
+                        "with one focused topic."
+                    ),
+                    "rationale": (
+                        "This is one of the next unfinished topics across your "
+                        f"active roadmaps.{deadline_note}"
+                    ),
+                    "estimated_minutes": estimated_minutes,
+                    "priority_score": priority_score,
+                    "topic": topic,
+                }
+            )
+            first_selected_topic = first_selected_topic or topic
+            remaining_minutes -= estimated_minutes
+            roadmap_minutes_left -= estimated_minutes
+
+    weak_limit = min(10, remaining_minutes // WEAK_AREA_MINUTES)
+    weak_questions = _recent_weak_questions(
         user=user,
         excluded_question_ids=selected_question_ids,
         now=now,
+        limit=weak_limit,
     )
-    if weak_question is not None and remaining_minutes >= WEAK_AREA_MINUTES:
+    for weak_question, weak_attempt in weak_questions:
+        if remaining_minutes < WEAK_AREA_MINUTES:
+            break
         payloads.append(
             {
                 "kind": StudyRecommendation.Kind.WEAK_AREA,
@@ -310,35 +385,39 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
         selected_question_ids.add(weak_question.pk)
         remaining_minutes -= WEAK_AREA_MINUTES
 
-    if remaining_minutes >= 15:
+    practice_count = 0
+    while remaining_minutes >= 15 and practice_count < 28:
         practice_question = _practice_question(
             user=user,
-            topic=next_topic,
+            topic=first_selected_topic,
             excluded_question_ids=selected_question_ids,
             plan_date=plan_date,
             goal=goal,
         )
-        if practice_question is not None:
-            estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
-            payloads.append(
-                {
-                    "kind": StudyRecommendation.Kind.PRACTICE,
-                    "title": f"Practise: {practice_question.title}",
-                    "description": (
-                        "Work through one fresh built-in question and explain the approach "
-                        "before reading the notes."
-                    ),
-                    "rationale": (
-                        "A fresh question adds retrieval practice while keeping the "
-                        "session balanced."
-                        + (f" It is matched to {goal.title}." if goal else "")
-                    ),
-                    "estimated_minutes": estimated_minutes,
-                    "priority_score": 50,
-                    "question": practice_question,
-                }
-            )
-            remaining_minutes -= estimated_minutes
+        if practice_question is None:
+            break
+        estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
+        payloads.append(
+            {
+                "kind": StudyRecommendation.Kind.PRACTICE,
+                "title": f"Practise: {practice_question.title}",
+                "description": (
+                    "Work through one fresh built-in question and explain the approach "
+                    "before reading the notes."
+                ),
+                "rationale": (
+                    "A fresh question adds retrieval practice while keeping the "
+                    "session balanced."
+                    + (f" It is matched to {goal.title}." if goal else "")
+                ),
+                "estimated_minutes": estimated_minutes,
+                "priority_score": 50,
+                "question": practice_question,
+            }
+        )
+        selected_question_ids.add(practice_question.pk)
+        remaining_minutes -= estimated_minutes
+        practice_count += 1
 
     if not payloads:
         incomplete_question = (

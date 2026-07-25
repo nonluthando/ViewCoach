@@ -1,0 +1,67 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.1, pytest-8.4.2, pluggy-1.6.0 -- /workspaces/ViewCoach/.venv/bin/python
+cachedir: .pytest_cache
+django: version: 5.2.16, settings: config.settings.test (from ini)
+rootdir: /workspaces/ViewCoach
+configfile: pyproject.toml
+plugins: django-4.12.0
+collecting ... collected 1 item
+
+apps/core/tests/test_dashboard.py::test_mobile_navigation_is_compact_and_logout_is_visible ERROR [100%]
+
+==================================== ERRORS ====================================
+__ ERROR at setup of test_mobile_navigation_is_compact_and_logout_is_visible ___
+file /workspaces/ViewCoach/apps/core/tests/test_dashboard.py, line 27
+  def test_mobile_navigation_is_compact_and_logout_is_visible(client, user):
+E       fixture 'user' not found
+>       available fixtures: _dj_autoclear_mailbox, _django_clear_site_cache, _django_db_helper, _django_db_marker, _django_isolate_apps, _django_set_urlconf, _django_setup_unittest, _fail_for_invalid_template_variable, _live_server_helper, _template_string_if_invalid_marker, admin_client, admin_user, async_client, async_rf, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, client, db, django_assert_max_num_queries, django_assert_num_queries, django_capture_on_commit_callbacks, django_db_blocker, django_db_createdb, django_db_keepdb, django_db_modify_db_settings, django_db_modify_db_settings_parallel_suffix, django_db_modify_db_settings_tox_suffix, django_db_modify_db_settings_xdist_suffix, django_db_reset_sequences, django_db_serialized_rollback, django_db_setup, django_db_use_migrations, django_isolated_apps, django_mail_dnsname, django_mail_patch_dns, django_test_environment, django_user_model, django_username_field, doctest_namespace, live_server, mailoutbox, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, rf, settings, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, transactional_db
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/workspaces/ViewCoach/apps/core/tests/test_dashboard.py:27
+---------------------------- Captured stdout setup -----------------------------
+Operations to perform:
+  Synchronize unmigrated apps: messages, staticfiles
+  Apply all migrations: accounts, admin, auth, contenttypes, evidence, goals, interviews, planner, questions, reviews, roadmaps, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0001_initial... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying accounts.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying roadmaps.0001_initial... OK
+  Applying roadmaps.0002_usertopicresource... OK
+  Applying questions.0001_initial... OK
+  Applying questions.0002_question_creation_token... OK
+  Applying questions.0003_alter_question_status_questionimportbatch_and_more... OK
+  Applying questions.0004_seeded_library_models... OK
+  Applying goals.0001_initial... OK
+  Applying evidence.0001_initial... OK
+  Applying goals.0002_goal_roadmaps_and_creation_token... OK
+  Applying questions.0005_expand_debug_repository_context... OK
+  Applying interviews.0001_initial... OK
+  Applying interviews.0002_mockinterview_goal... OK
+  Applying planner.0001_initial... OK
+  Applying questions.0006_question_source_system_question... OK
+  Applying reviews.0001_initial... OK
+  Applying sessions.0001_initial... OK
+---------------------------- Captured stderr setup -----------------------------
+Creating test database for alias 'default' ('test_adaptive_interview_coach')...
+=========================== short test summary info ============================
+ERROR apps/core/tests/test_dashboard.py::test_mobile_navigation_is_compact_and_logout_is_visible
+=============================== 1 error in 3.49s ===============================

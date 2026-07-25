@@ -24,7 +24,7 @@ def today_plan(request):
     summary = plan_summary(plan=plan)
     active_session = plan.sessions.filter(ended_at__isnull=True).first()
     form = StudyPlanPreferencesForm(
-        initial={"time_budget_minutes": plan.time_budget_minutes}
+        initial={"time_budget_hours": plan.time_budget_minutes / 60}
     )
     return render(
         request,
@@ -47,7 +47,7 @@ def regenerate_plan(request):
 
     form = StudyPlanPreferencesForm(request.POST)
     if not form.is_valid():
-        messages.error(request, "Choose a valid amount of study time.")
+        messages.error(request, "Enter between 0.25 and 16 study hours.")
         return redirect("planner:today")
 
     generate_daily_plan(
