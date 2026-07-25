@@ -1,0 +1,61 @@
+<section class="topic-workspace-panel evidence-topic-panel" aria-labelledby="topic-evidence-heading">
+    <div class="topic-panel-heading">
+        <div>
+            <p class="eyebrow">My angle</p>
+            <h2 id="topic-evidence-heading">Personal evidence and interview framing</h2>
+        </div>
+        <span>{% if evidence_profile %}{{ evidence_profile.get_readiness_display }}{% else %}Knowledge only{% endif %}</span>
+    </div>
+
+    <form class="topic-evidence-profile-form" method="post" action="{% url 'evidence:topic_profile_save' topic.pk %}">
+        {% csrf_token %}
+        {% for field in evidence_profile_form %}
+        <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <button class="button" type="submit">Save my angle</button>
+    </form>
+
+    <div class="evidence-linked-block">
+        <div class="evidence-linked-heading">
+            <h3>Linked evidence</h3>
+            <a href="{% url 'evidence:create' %}">Add a new record</a>
+        </div>
+        {% if topic_evidence_links %}
+        <ul class="evidence-linked-list">
+            {% for link in topic_evidence_links %}
+            <li>
+                <div>
+                    <a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a>
+                    <span>{{ link.evidence.get_source_type_display }}</span>
+                    {% if link.connection_note %}<p>{{ link.connection_note }}</p>{% endif %}
+                </div>
+                <form method="post" action="{% url 'evidence:topic_unlink' topic.pk link.pk %}">
+                    {% csrf_token %}
+                    <button type="submit">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No project, work or coursework evidence linked to this topic yet.</p>
+        {% endif %}
+
+        {% if has_evidence_items %}
+        <form class="evidence-inline-link-form" method="post" action="{% url 'evidence:topic_link' topic.pk %}">
+            {% csrf_token %}
+            {% for field in topic_evidence_link_form %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <button class="button button-secondary" type="submit">Link evidence</button>
+        </form>
+        {% endif %}
+    </div>
+</section>

@@ -1,0 +1,52 @@
+<section class="goal-evidence-section" aria-labelledby="goal-evidence-heading">
+    <div class="goal-section-heading">
+        <div>
+            <p class="eyebrow">Personal proof</p>
+            <h2 id="goal-evidence-heading">Evidence for this goal</h2>
+        </div>
+        <a href="{% url 'evidence:list' %}">Evidence library</a>
+    </div>
+
+    {% if goal_evidence_links %}
+    <div class="goal-evidence-list">
+        {% for link in goal_evidence_links %}
+        <article>
+            <div>
+                <span>{{ link.get_relevance_display }}</span>
+                <h3><a href="{% url 'evidence:detail' link.evidence.pk %}">{{ link.evidence.title }}</a></h3>
+                <p>{{ link.evidence.get_source_type_display }}{% if link.evidence.organisation %} · {{ link.evidence.organisation }}{% endif %}</p>
+            </div>
+            {% if link.framing_notes %}<p>{{ link.framing_notes }}</p>{% endif %}
+            <form method="post" action="{% url 'evidence:goal_unlink' goal.pk link.pk %}">
+                {% csrf_token %}
+                <button type="submit">Remove</button>
+            </form>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="goal-inline-empty">
+        <strong>No evidence linked yet</strong>
+        <p>Add the projects, work examples and stories you want to foreground for this role.</p>
+    </div>
+    {% endif %}
+
+    {% if has_evidence_items %}
+    <details class="goal-stage-form-panel">
+        <summary>Link evidence to this goal</summary>
+        <form method="post" action="{% url 'evidence:goal_link' goal.pk %}">
+            {% csrf_token %}
+            {% for field in goal_evidence_form %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <button class="button" type="submit">Link evidence</button>
+        </form>
+    </details>
+    {% else %}
+    <a class="button button-secondary" href="{% url 'evidence:create' %}">Create first evidence record</a>
+    {% endif %}
+</section>

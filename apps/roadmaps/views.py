@@ -6,6 +6,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
+from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
+
 from .forms import TopicNotesForm, TopicResourceForm
 from .models import (
     Roadmap,
@@ -133,6 +136,10 @@ def topic_detail(request, slug, topic_id):
         topic=topic,
     ).first()
     navigation = _topic_navigation(roadmap, topic)
+    evidence_profile = TopicEvidenceProfile.objects.filter(
+        user=request.user,
+        topic=topic,
+    ).first()
 
     return render(
         request,
@@ -152,6 +159,18 @@ def topic_detail(request, slug, topic_id):
                 user=request.user,
                 topic=topic,
             ),
+            "evidence_profile": evidence_profile,
+            "evidence_profile_form": TopicEvidenceProfileForm(
+                instance=evidence_profile,
+            ),
+            "topic_evidence_links": TopicEvidenceLink.objects.filter(
+                profile__user=request.user,
+                profile__topic=topic,
+            ).select_related("evidence"),
+            "topic_evidence_link_form": TopicEvidenceLinkForm(user=request.user),
+            "has_evidence_items": EvidenceItem.objects.filter(
+                owner=request.user,
+            ).exists(),
             **navigation,
         },
     )

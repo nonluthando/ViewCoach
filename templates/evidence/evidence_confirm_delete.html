@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ item.title }} | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="form-card danger-card">
+    <p class="eyebrow">Delete evidence</p>
+    <h1>Delete “{{ item.title }}”?</h1>
+    <p>This also removes its decision records, behavioural stories and links to topics, questions and goals.</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="button-row">
+            <button class="button button-danger" type="submit">Delete evidence</button>
+            <a href="{% url 'evidence:detail' item.pk %}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

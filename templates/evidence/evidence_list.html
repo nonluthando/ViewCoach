@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Personal evidence | ViewCoach{% endblock %}
+{% block body_class %}evidence-list-page{% endblock %}
+
+{% block content %}
+<section class="evidence-page-header">
+    <div>
+        <p class="eyebrow">Personal evidence</p>
+        <h1>Turn experience into interview answers.</h1>
+        <p>
+            Capture projects, work, coursework, leadership and technical incidents once,
+            then reuse them across roadmap topics, questions and interview goals.
+        </p>
+    </div>
+    <a class="button" href="{% url 'evidence:create' %}">Add evidence</a>
+</section>
+
+<form class="evidence-filter-panel" method="get">
+    <div>
+        <label for="evidence-search">Search</label>
+        <input id="evidence-search" type="search" name="q" value="{{ filters.q }}" placeholder="Project, technology, organisation or outcome">
+    </div>
+    <div>
+        <label for="evidence-type">Type</label>
+        <select id="evidence-type" name="type">
+            <option value="">All evidence</option>
+            {% for value, label in source_types %}
+                <option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="button button-secondary" type="submit">Filter</button>
+</form>
+
+{% if page.object_list %}
+<section class="evidence-catalogue" aria-label="Evidence records">
+    {% for item in page.object_list %}
+    <article class="evidence-card">
+        <div class="evidence-card-main">
+            <div class="evidence-card-meta">
+                <span>{{ item.get_source_type_display }}</span>
+                {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
+                <span>Updated {{ item.updated_at|date:"j M Y" }}</span>
+            </div>
+            <h2><a href="{% url 'evidence:detail' item.pk %}">{{ item.title }}</a></h2>
+            {% if item.summary %}<p>{{ item.summary|truncatewords:30 }}</p>{% endif %}
+            {% if item.technology_list %}
+            <div class="evidence-tag-row">
+                {% for technology in item.technology_list|slice:":5" %}<span>{{ technology }}</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <dl class="evidence-card-counts">
+            <div><dt>Decisions</dt><dd>{{ item.decision_count }}</dd></div>
+            <div><dt>Stories</dt><dd>{{ item.story_count }}</dd></div>
+            <div><dt>Topics</dt><dd>{{ item.topic_count }}</dd></div>
+            <div><dt>Questions</dt><dd>{{ item.question_count }}</dd></div>
+            <div><dt>Goals</dt><dd>{{ item.goal_count }}</dd></div>
+        </dl>
+    </article>
+    {% endfor %}
+</section>
+
+{% if page.paginator.num_pages > 1 %}
+<nav class="pagination" aria-label="Evidence pages">
+    {% if page.has_previous %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?q={{ filters.q }}&type={{ filters.type }}&page={{ page.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<section class="evidence-empty-state">
+    <p class="eyebrow">Nothing here yet</p>
+    <h2>Start with the project you expect interviewers to ask about.</h2>
+    <p>Capture the problem, your contribution, the decisions you made and what changed because of the work.</p>
+    <a class="button" href="{% url 'evidence:create' %}">Create first evidence record</a>
+</section>
+{% endif %}
+{% endblock %}

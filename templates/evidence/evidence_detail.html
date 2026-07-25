@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} | Personal evidence | ViewCoach{% endblock %}
+{% block body_class %}evidence-detail-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:list' %}">Personal evidence</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ item.title }}</span>
+</nav>
+
+<section class="evidence-detail-header">
+    <div>
+        <div class="evidence-detail-kicker">
+            <span>{{ item.get_source_type_display }}</span>
+            {% if item.organisation %}<span>{{ item.organisation }}</span>{% endif %}
+            {% if item.role_or_context %}<span>{{ item.role_or_context }}</span>{% endif %}
+        </div>
+        <h1>{{ item.title }}</h1>
+        {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+    </div>
+    <div class="evidence-header-actions">
+        <a class="button button-secondary" href="{% url 'evidence:edit' item.pk %}">Edit evidence</a>
+        <a class="danger-link" href="{% url 'evidence:delete' item.pk %}">Delete</a>
+    </div>
+</section>
+
+<div class="evidence-detail-layout">
+    <main class="evidence-detail-main">
+        <section class="evidence-narrative" aria-labelledby="evidence-narrative-heading">
+            <p class="eyebrow">Case study</p>
+            <h2 id="evidence-narrative-heading">The work and what it proves</h2>
+            <div class="evidence-narrative-grid">
+                <article><h3>Problem or context</h3>{% if item.problem %}{{ item.problem|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
+                <article><h3>What I personally did</h3>{% if item.personal_contribution %}{{ item.personal_contribution|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
+                <article><h3>Outcome or impact</h3>{% if item.outcomes %}{{ item.outcomes|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
+                <article><h3>What I learned</h3>{% if item.lessons %}{{ item.lessons|linebreaks }}{% else %}<p class="muted">Not captured yet.</p>{% endif %}</article>
+            </div>
+        </section>
+
+        <section class="evidence-section" aria-labelledby="decisions-heading">
+            <div class="evidence-section-heading">
+                <div><p class="eyebrow">Technical judgement</p><h2 id="decisions-heading">Decision records</h2></div>
+                <span>{{ decisions|length }} captured</span>
+            </div>
+            {% if decisions %}
+            <div class="evidence-record-list">
+                {% for decision in decisions %}
+                <article class="evidence-record">
+                    <div class="evidence-record-heading"><h3>{{ decision.title }}</h3><span>Would choose again: {{ decision.get_would_choose_again_display }}</span></div>
+                    {% if decision.context %}<h4>Context</h4>{{ decision.context|linebreaks }}{% endif %}
+                    {% if decision.alternatives %}<h4>Alternatives</h4>{{ decision.alternatives|linebreaks }}{% endif %}
+                    <h4>Decision</h4>{{ decision.decision|linebreaks }}
+                    {% if decision.rationale %}<h4>Why</h4>{{ decision.rationale|linebreaks }}{% endif %}
+                    {% if decision.tradeoffs %}<h4>Trade-offs</h4>{{ decision.tradeoffs|linebreaks }}{% endif %}
+                    {% if decision.outcome %}<h4>Outcome</h4>{{ decision.outcome|linebreaks }}{% endif %}
+                    {% if decision.reflection %}<h4>Reflection</h4>{{ decision.reflection|linebreaks }}{% endif %}
+                    <form method="post" action="{% url 'evidence:decision_delete' item.pk decision.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove decision</button></form>
+                </article>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <details class="evidence-add-panel">
+                <summary>Add decision record</summary>
+                <form method="post" action="{% url 'evidence:decision_add' item.pk %}">
+                    {% csrf_token %}
+                    {% for field in decision_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+                    <button class="button" type="submit">Save decision</button>
+                </form>
+            </details>
+        </section>
+
+        <section class="evidence-section" aria-labelledby="stories-heading">
+            <div class="evidence-section-heading">
+                <div><p class="eyebrow">Behavioural preparation</p><h2 id="stories-heading">STAR stories</h2></div>
+                <span>{{ stories|length }} captured</span>
+            </div>
+            {% if stories %}
+            <div class="evidence-record-list">
+                {% for story in stories %}
+                <article class="evidence-record">
+                    <h3>{{ story.title }}</h3>
+                    <h4>Situation</h4>{{ story.situation|linebreaks }}
+                    {% if story.task %}<h4>Task</h4>{{ story.task|linebreaks }}{% endif %}
+                    <h4>Actions</h4>{{ story.actions|linebreaks }}
+                    {% if story.result %}<h4>Result</h4>{{ story.result|linebreaks }}{% endif %}
+                    {% if story.reflection %}<h4>Reflection</h4>{{ story.reflection|linebreaks }}{% endif %}
+                    {% if story.competency_list %}<div class="evidence-tag-row">{% for competency in story.competency_list %}<span>{{ competency }}</span>{% endfor %}</div>{% endif %}
+                    {% if story.follow_up_questions %}<h4>Likely follow-ups</h4>{{ story.follow_up_questions|linebreaks }}{% endif %}
+                    <form method="post" action="{% url 'evidence:story_delete' item.pk story.pk %}">{% csrf_token %}<button class="evidence-remove-button" type="submit">Remove story</button></form>
+                </article>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <details class="evidence-add-panel">
+                <summary>Add behavioural story</summary>
+                <form method="post" action="{% url 'evidence:story_add' item.pk %}">
+                    {% csrf_token %}
+                    {% for field in story_form %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}{{ field.errors }}</div>{% endfor %}
+                    <button class="button" type="submit">Save story</button>
+                </form>
+            </details>
+        </section>
+    </main>
+
+    <aside class="evidence-detail-sidebar">
+        <section class="evidence-sidebar-panel">
+            <p class="eyebrow">Skills</p>
+            <h2>Technologies and strengths</h2>
+            {% if item.technology_list %}<div class="evidence-tag-row">{% for technology in item.technology_list %}<span>{{ technology }}</span>{% endfor %}</div>{% else %}<p class="muted">No technologies captured.</p>{% endif %}
+            {% if item.evidence_url %}<a class="button button-secondary" href="{{ item.evidence_url }}" target="_blank" rel="noopener noreferrer">Open supporting evidence</a>{% endif %}
+        </section>
+
+        <section class="evidence-sidebar-panel">
+            <p class="eyebrow">Reused in</p>
+            <h2>Interview preparation links</h2>
+            <dl class="evidence-link-summary">
+                <div><dt>Roadmap topics</dt><dd>{{ topic_links|length }}</dd></div>
+                <div><dt>Questions</dt><dd>{{ question_links|length }}</dd></div>
+                <div><dt>Goals</dt><dd>{{ goal_links|length }}</dd></div>
+            </dl>
+            {% if topic_links %}<h3>Topics</h3><ul>{% for link in topic_links %}<li><a href="{% url 'roadmaps:topic_detail' link.profile.topic.section.roadmap.slug link.profile.topic.pk %}">{{ link.profile.topic.title }}</a></li>{% endfor %}</ul>{% endif %}
+            {% if question_links %}<h3>Questions</h3><ul>{% for link in question_links %}<li><a href="{% url 'questions:detail' link.question.pk %}">{{ link.question.title }}</a></li>{% endfor %}</ul>{% endif %}
+            {% if goal_links %}<h3>Goals</h3><ul>{% for link in goal_links %}<li><a href="{% url 'goals:detail' link.goal.pk %}">{{ link.goal.title }}</a></li>{% endfor %}</ul>{% endif %}
+        </section>
+
+        <section class="evidence-sidebar-panel">
+            <p class="eyebrow">Timeline</p>
+            <dl class="evidence-link-summary">
+                <div><dt>Start</dt><dd>{% if item.start_date %}{{ item.start_date|date:"M Y" }}{% else %}Not set{% endif %}</dd></div>
+                <div><dt>End</dt><dd>{% if item.end_date %}{{ item.end_date|date:"M Y" }}{% else %}Ongoing or not set{% endif %}</dd></div>
+                <div><dt>Updated</dt><dd>{{ item.updated_at|date:"j M Y" }}</dd></div>
+            </dl>
+        </section>
+    </aside>
+</div>
+{% endblock %}
