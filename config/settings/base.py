@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "apps.planner.apps.PlannerConfig",
     "apps.interviews.apps.InterviewsConfig",
     "apps.goals.apps.GoalsConfig",
+    "apps.evidence.apps.EvidenceConfig",
 ]
 
 MIDDLEWARE = [
