@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from apps.evidence.models import BehaviouralStory, EvidenceItem
+from apps.evidence.models import BehaviouralStory
 
 pytestmark = pytest.mark.django_db
 
