@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import (
+    AIPrepAnswer,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -102,6 +103,31 @@ class ProjectExplanationForm(forms.ModelForm):
             "improvements": forms.Textarea(attrs={"rows": 4}),
             "scaling": forms.Textarea(attrs={"rows": 4}),
             "likely_follow_ups": forms.Textarea(attrs={"rows": 5}),
+        }
+
+
+class AIPrepAnswerForm(forms.ModelForm):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["supporting_evidence"].queryset = EvidenceItem.objects.filter(
+            owner=user
+        ).order_by("title")
+        self.fields["supporting_evidence"].empty_label = "No linked evidence"
+
+    class Meta:
+        model = AIPrepAnswer
+        fields = ["answer_notes", "supporting_evidence"]
+        labels = {
+            "answer_notes": "My answer notes",
+            "supporting_evidence": "Primary supporting example",
+        }
+        help_texts = {
+            "answer_notes": (
+                "Use bullets or a rough answer. Keep claims tied to work you can explain."
+            )
+        }
+        widgets = {
+            "answer_notes": forms.Textarea(attrs={"rows": 6}),
         }
 
 

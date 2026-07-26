@@ -17,6 +17,16 @@ urlpatterns = [
         views.project_explanation_edit,
         name="project_explanation_edit",
     ),
+    path(
+        "ai-coding-prep/",
+        views.ai_coding_prep,
+        name="ai_coding_prep",
+    ),
+    path(
+        "ai-coding-prep/<slug:question_key>/answer/",
+        views.ai_prep_answer_save,
+        name="ai_prep_answer_save",
+    ),
     path("<int:evidence_id>/", views.evidence_detail, name="detail"),
     path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
     path("<int:evidence_id>/delete/", views.evidence_delete, name="delete"),

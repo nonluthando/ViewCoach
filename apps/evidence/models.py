@@ -7,6 +7,8 @@ from apps.goals.models import InterviewGoal
 from apps.questions.models import Question
 from apps.roadmaps.models import RoadmapTopic
 
+from .ai_prep import AI_INTERVIEW_QUESTION_BY_KEY
+
 
 class EvidenceItem(models.Model):
     class SourceType(models.TextChoices):
@@ -114,6 +116,66 @@ class ProjectExplanation(models.Model):
 
     def __str__(self):
         return f"Interview explanation: {self.evidence}"
+
+
+class AIPrepAnswer(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ai_prep_answers",
+    )
+    question_key = models.SlugField(max_length=100)
+    answer_notes = models.TextField(blank=True)
+    supporting_evidence = models.ForeignKey(
+        EvidenceItem,
+        on_delete=models.SET_NULL,
+        related_name="ai_prep_answers",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["question_key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "question_key"],
+                name="unique_user_ai_prep_answer",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "question_key"],
+                name="ai_prep_user_question_idx",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.question_key not in AI_INTERVIEW_QUESTION_BY_KEY:
+            raise ValidationError({"question_key": "Unknown AI interview question."})
+        if (
+            self.user_id
+            and self.supporting_evidence_id
+            and self.supporting_evidence.owner_id != self.user_id
+        ):
+            raise ValidationError(
+                {"supporting_evidence": "Supporting evidence must belong to the user."}
+            )
+
+    @property
+    def question(self):
+        return AI_INTERVIEW_QUESTION_BY_KEY.get(self.question_key)
+
+    @property
+    def is_prepared(self):
+        return bool(self.answer_notes.strip())
+
+    def __str__(self):
+        question = self.question
+        label = question.question if question else self.question_key
+        return f"{self.user}: {label}"
 
 
 class DecisionRecord(models.Model):

@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    AIPrepAnswer,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -34,6 +35,13 @@ class EvidenceItemAdmin(admin.ModelAdmin):
     list_filter = ("source_type",)
     search_fields = ("title", "owner__email", "organisation", "technologies")
     inlines = [ProjectExplanationInline, DecisionRecordInline, BehaviouralStoryInline]
+
+
+@admin.register(AIPrepAnswer)
+class AIPrepAnswerAdmin(admin.ModelAdmin):
+    list_display = ("user", "question_key", "supporting_evidence", "updated_at")
+    search_fields = ("user__email", "question_key", "answer_notes")
+    raw_id_fields = ("user", "supporting_evidence")
 
 
 @admin.register(TopicEvidenceProfile)
