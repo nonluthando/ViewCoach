@@ -1,0 +1,1062 @@
+diff --git a/apps/evidence/ai_repository_playbook.py b/apps/evidence/ai_repository_playbook.py
+new file mode 100644
+index 0000000..2000001
+--- /dev/null
++++ b/apps/evidence/ai_repository_playbook.py
+@@ -0,0 +1,313 @@
++from dataclasses import dataclass
++
++
++@dataclass(frozen=True)
++class TimedWorkflowStep:
++    minutes: str
++    title: str
++    actions: tuple[str, ...]
++
++
++@dataclass(frozen=True)
++class PromptTemplate:
++    key: str
++    title: str
++    use_when: str
++    prompt: str
++    why_it_works: str
++    weak_prompt: str
++
++
++@dataclass(frozen=True)
++class CommonMistake:
++    mistake: str
++    why_it_hurts: str
++    better_action: str
++
++
++TIMED_REPOSITORY_WORKFLOW = (
++    TimedWorkflowStep(
++        minutes="0–5",
++        title="Orient yourself",
++        actions=(
++            "Read the task once without changing code.",
++            "Identify the requested fix, feature and expected deliverables.",
++            "Inspect the repository structure, README and test commands.",
++            "Write down constraints such as language, dependencies and time.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="5–12",
++        title="Run and classify the failures",
++        actions=(
++            "Run the full test suite before making changes.",
++            "Read every failing test name, assertion and actual value.",
++            "Group failures that may share one root cause.",
++            "Separate setup problems from genuine application failures.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="12–22",
++        title="Trace the existing behaviour",
++        actions=(
++            "Open the failing test and the smallest relevant production path.",
++            "Trace where the expected and actual values diverge.",
++            "Search for existing helpers, conventions and similar implementations.",
++            "Form a root-cause hypothesis before asking AI for a fix.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="22–32",
++        title="Use AI for focused investigation",
++        actions=(
++            "Give AI the task, failing assertion, relevant code and constraints.",
++            "Ask for an explanation and ranked root-cause hypotheses first.",
++            "Challenge unsupported assumptions and request repository evidence.",
++            "Reject broad rewrites and keep the proposed change narrow.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="32–40",
++        title="Implement the smallest justified fix",
++        actions=(
++            "Change the underlying cause rather than patching the symptom.",
++            "Keep the diff easy to explain.",
++            "Run the specific failing test immediately.",
++            "Revisit the hypothesis if the targeted test still fails.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="40–50",
++        title="Add the requested feature",
++        actions=(
++            "Confirm the expected behaviour and edge cases.",
++            "Follow existing repository patterns.",
++            "Add or update focused tests where appropriate.",
++            "Avoid unrelated refactoring while the clock is running.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="50–56",
++        title="Verify the whole change",
++        actions=(
++            "Run targeted tests and then the complete suite.",
++            "Run formatting, linting or type checks available in the repository.",
++            "Review the final diff for unrelated changes and hidden assumptions.",
++            "Manually reason through important boundaries and error paths.",
++        ),
++    ),
++    TimedWorkflowStep(
++        minutes="56–60",
++        title="Prepare the handover",
++        actions=(
++            "Write a concise AI-use note.",
++            "State what was fixed, how it was verified and what remains uncertain.",
++            "Prepare to explain the root cause and each important decision.",
++            "Stop changing code unless a final check reveals a real issue.",
++        ),
++    ),
++)
++
++
++PROMPT_TEMPLATES = (
++    PromptTemplate(
++        key="repository-orientation",
++        title="Understand an unfamiliar repository",
++        use_when="You need a grounded map before touching the code.",
++        prompt=(
++            "Do not propose code changes yet. Based only on the files below, explain the "
++            "repository structure, the request flow relevant to this task, the test command, "
++            "and the three files I should inspect next. List any assumptions separately."
++        ),
++        why_it_works=(
++            "It asks for orientation, limits the evidence and prevents premature rewriting."
++        ),
++        weak_prompt="Explain this repository.",
++    ),
++    PromptTemplate(
++        key="failing-assertion",
++        title="Interpret a failing test",
++        use_when="A test fails and you need to understand the expectation.",
++        prompt=(
++            "Do not fix the code yet. Explain what this test expects, what the actual result "
++            "shows, and where the two values likely diverge. Trace the relevant execution path "
++            "using the supplied test and implementation. Mark anything not proven by the code."
++        ),
++        why_it_works=(
++            "It separates expected behaviour, observed behaviour and unverified assumptions."
++        ),
++        weak_prompt="Why is this test failing?",
++    ),
++    PromptTemplate(
++        key="root-cause-hypotheses",
++        title="Rank likely root causes",
++        use_when="The symptom could come from several places.",
++        prompt=(
++            "Rank the three most likely root causes for this failure. For each one, cite the "
++            "specific line, value or control-flow fact that supports it, explain what evidence "
++            "would disprove it, and suggest the smallest diagnostic check to run next."
++        ),
++        why_it_works=(
++            "It forces evidence, falsifiability and a cheap next step instead of guesswork."
++        ),
++        weak_prompt="Find the bug and fix it.",
++    ),
++    PromptTemplate(
++        key="compare-fixes",
++        title="Compare possible fixes",
++        use_when="You understand the cause but have more than one valid implementation.",
++        prompt=(
++            "Compare these two possible fixes against the current repository conventions. "
++            "Evaluate correctness, regression risk, readability, scope and testability. "
++            "Recommend the smallest safe option and explain what behaviour it preserves."
++        ),
++        why_it_works=(
++            "It makes trade-offs explicit and discourages choosing the most elaborate solution."
++        ),
++        weak_prompt="Which solution is better?",
++    ),
++    PromptTemplate(
++        key="small-feature",
++        title="Plan a small feature",
++        use_when="The assessment asks for a contained feature after the bugs are fixed.",
++        prompt=(
++            "Before writing code, turn this feature request into observable behaviours and edge "
++            "cases. Identify the existing files and patterns that should be reused. Propose a "
++            "minimal implementation plan and the focused tests that would prove it works."
++        ),
++        why_it_works=(
++            "It converts vague requirements into testable behaviour and keeps the change local."
++        ),
++        weak_prompt="Add this feature.",
++    ),
++    PromptTemplate(
++        key="edge-cases",
++        title="Generate useful edge cases",
++        use_when="Visible tests pass but you need confidence beyond the supplied cases.",
++        prompt=(
++            "Given this requirement and implementation, list the highest-risk missing cases. "
++            "Prioritise boundaries, invalid input, empty values, duplicate data, ordering, "
++            "authorisation and error paths. For each case, state the expected behaviour."
++        ),
++        why_it_works=(
++            "It directs attention to risk categories rather than producing random test data."
++        ),
++        weak_prompt="Give me more tests.",
++    ),
++    PromptTemplate(
++        key="diff-review",
++        title="Review the final diff",
++        use_when="The implementation works and you need a second-pass review.",
++        prompt=(
++            "Review this diff against the original task. Look only for correctness problems, "
++            "missed edge cases, regressions, security issues, unnecessary scope and tests that "
++            "could pass for the wrong reason. Do not suggest style-only refactors."
++        ),
++        why_it_works=(
++            "It gives the review a clear standard and prevents low-value stylistic churn."
++        ),
++        weak_prompt="Review my code.",
++    ),
++    PromptTemplate(
++        key="explain-my-change",
++        title="Prepare to explain the solution",
++        use_when="You need to defend the work in a review or pair-programming interview.",
++        prompt=(
++            "Act as an interviewer reviewing this change. Ask me one question at a time about "
++            "the root cause, chosen fix, alternatives, edge cases, verification and limitations. "
++            "Challenge any answer that is vague or unsupported by the code."
++        ),
++        why_it_works=(
++            "It tests whether you truly understand the change instead of memorising a summary."
++        ),
++        weak_prompt="Help me explain this code.",
++    ),
++)
++
++
++VERIFICATION_CHECKLIST = (
++    "The change matches the written requirement, not only the visible test.",
++    "I can explain every changed line without referring to the AI conversation.",
++    "The targeted failing test passes.",
++    "The complete test suite passes.",
++    "Relevant linting, formatting and type checks pass.",
++    "Important boundaries, invalid inputs and error paths were considered.",
++    "Existing behaviour outside the task was preserved.",
++    "No unverified API, dependency or repository helper was introduced.",
++    "No secrets, private data or unsafe defaults were added.",
++    "The final diff contains no unrelated refactoring or generated clutter.",
++    "Tests would fail if the implementation were meaningfully wrong.",
++    "Remaining limitations or uncertainty are stated honestly.",
++)
++
++
++AI_USE_NOTE_TEMPLATE = (
++    "What I used AI for:",
++    "What context I provided:",
++    "What AI suggested:",
++    "What I accepted:",
++    "What I changed or rejected:",
++    "How I verified the result:",
++    "Known limitations or remaining uncertainty:",
++)
++
++
++SPEAK_ALOUD_LINES = (
++    "The test expects X, but the function currently returns Y.",
++    "I am tracing where that value changes before editing anything.",
++    "This suggestion assumes a helper exists, so I will verify that in the repository.",
++    "The smallest underlying fix appears to be here because both failures share this path.",
++    "I am running the targeted test first so the feedback stays specific.",
++    "The focused test passes; now I am checking the full suite for regressions.",
++    "I rejected the broader rewrite because it changed behaviour outside the request.",
++    "The remaining risk is this edge case, so I am adding one focused test.",
++)
++
++
++COMMON_MISTAKES = (
++    CommonMistake(
++        mistake="Asking AI to fix the whole repository",
++        why_it_hurts="The output becomes broad, speculative and difficult to verify.",
++        better_action="Ask for explanation, evidence and one narrow next step.",
++    ),
++    CommonMistake(
++        mistake="Changing code before running the tests",
++        why_it_hurts="You lose the baseline and may solve the wrong problem.",
++        better_action="Run the full suite and record every failure first.",
++    ),
++    CommonMistake(
++        mistake="Reading only the first failing assertion",
++        why_it_hurts="Later assertions may reveal the true shared cause.",
++        better_action="Inspect the entire failing test and all reported values.",
++    ),
++    CommonMistake(
++        mistake="Accepting a suggestion because it looks familiar",
++        why_it_hurts="Plausible code can use the wrong API or violate repository conventions.",
++        better_action="Verify the interface, installed version and existing patterns.",
++    ),
++    CommonMistake(
++        mistake="Rewriting working code during a timed task",
++        why_it_hurts="It increases regression risk and consumes verification time.",
++        better_action="Prefer the smallest justified change that preserves behaviour.",
++    ),
++    CommonMistake(
++        mistake="Stopping after one targeted test passes",
++        why_it_hurts="The fix may break another path or satisfy the test for the wrong reason.",
++        better_action="Run the complete suite and inspect the final diff.",
++    ),
++    CommonMistake(
++        mistake="Letting AI add an unnecessary dependency",
++        why_it_hurts="It adds supply-chain, compatibility and setup risk.",
++        better_action="Use the repository's existing tools unless the dependency is justified.",
++    ),
++    CommonMistake(
++        mistake="Submitting code you cannot explain",
++        why_it_hurts="The follow-up interview will expose the gap immediately.",
++        better_action="Simplify, rewrite or reject anything you do not understand.",
++    ),
++    CommonMistake(
++        mistake="Writing a vague AI-use note",
++        why_it_hurts="It hides your judgement and makes ownership unclear.",
++        better_action="Separate what was suggested, accepted, changed, rejected and verified.",
++    ),
++)
+diff --git a/apps/evidence/models.py b/apps/evidence/models.py
+index 1000002..2000002 100644
+--- a/apps/evidence/models.py
++++ b/apps/evidence/models.py
+@@ -3,6 +3,7 @@
+ from django.core.exceptions import ValidationError
+ from django.db import models
+ from django.urls import reverse
++from django.utils import timezone
+ 
+ from apps.goals.models import InterviewGoal
+ from apps.questions.models import Question
+@@ -175,6 +175,63 @@ class AIPrepAnswer(models.Model):
+         return f"{self.user}: {label}"
+ 
+ 
++class AIRepositoryPracticeAttempt(models.Model):
++    class ScenarioType(models.TextChoices):
++        DEBUGGING = "DEBUGGING", "Debugging failures"
++        FEATURE = "FEATURE", "Small feature"
++        MIXED = "MIXED", "Debugging and feature"
++
++    user = models.ForeignKey(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="ai_repository_practice_attempts",
++    )
++    title = models.CharField(max_length=180)
++    scenario_type = models.CharField(
++        max_length=12,
++        choices=ScenarioType.choices,
++        default=ScenarioType.MIXED,
++    )
++    practiced_on = models.DateField(default=timezone.localdate)
++    duration_minutes = models.PositiveSmallIntegerField(default=60)
++    tests_fixed = models.PositiveSmallIntegerField(default=0)
++    feature_completed = models.BooleanField(default=False)
++    full_suite_passed = models.BooleanField(default=False)
++    ai_use_note = models.TextField(blank=True)
++    reflection = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ["-practiced_on", "-created_at"]
++        indexes = [
++            models.Index(
++                fields=["user", "-practiced_on"],
++                name="ai_repo_user_practice_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if not 15 <= self.duration_minutes <= 180:
++            raise ValidationError(
++                {"duration_minutes": "Practice duration must be between 15 and 180 minutes."}
++            )
++
++    @property
++    def outcome_label(self):
++        if self.full_suite_passed and self.feature_completed:
++            return "Completed and verified"
++        if self.full_suite_passed:
++            return "Fixes verified"
++        if self.tests_fixed or self.feature_completed:
++            return "Partially completed"
++        return "Attempt recorded"
++
++    def __str__(self):
++        return f"{self.user}: {self.title}"
++
++
+ class DecisionRecord(models.Model):
+     class RepeatChoice(models.TextChoices):
+         YES = "YES", "Yes"
+diff --git a/apps/evidence/forms.py b/apps/evidence/forms.py
+index 1000003..2000003 100644
+--- a/apps/evidence/forms.py
++++ b/apps/evidence/forms.py
+@@ -6,3 +6,4 @@ from .models import (
+     AIPrepAnswer,
++    AIRepositoryPracticeAttempt,
+     BehaviouralStory,
+     DecisionRecord,
+@@ -126,6 +127,43 @@ class AIPrepAnswerForm(forms.ModelForm):
+         }
+ 
+ 
++class AIRepositoryPracticeAttemptForm(forms.ModelForm):
++    class Meta:
++        model = AIRepositoryPracticeAttempt
++        fields = [
++            "title",
++            "scenario_type",
++            "practiced_on",
++            "duration_minutes",
++            "tests_fixed",
++            "feature_completed",
++            "full_suite_passed",
++            "ai_use_note",
++            "reflection",
++        ]
++        labels = {
++            "title": "Practice exercise",
++            "practiced_on": "Date",
++            "duration_minutes": "Minutes used",
++            "tests_fixed": "Failing tests fixed",
++            "feature_completed": "Requested feature completed",
++            "full_suite_passed": "Full suite passed",
++            "ai_use_note": "AI-use note",
++            "reflection": "What I would improve next time",
++        }
++        widgets = {
++            "practiced_on": forms.DateInput(attrs={"type": "date"}),
++            "ai_use_note": forms.Textarea(attrs={"rows": 6}),
++            "reflection": forms.Textarea(attrs={"rows": 4}),
++        }
++
++    def clean_duration_minutes(self):
++        duration = self.cleaned_data["duration_minutes"]
++        if not 15 <= duration <= 180:
++            raise forms.ValidationError("Use a duration between 15 and 180 minutes.")
++        return duration
++
++
+ class DecisionRecordForm(forms.ModelForm):
+     class Meta:
+         model = DecisionRecord
+diff --git a/apps/evidence/views.py b/apps/evidence/views.py
+index 1000004..2000004 100644
+--- a/apps/evidence/views.py
++++ b/apps/evidence/views.py
+@@ -14,5 +14,14 @@ from apps.roadmaps.models import RoadmapTopic
+ 
+ from .ai_prep import AI_ASSISTED_INTERVIEW_QUESTIONS, AI_INTERVIEW_QUESTION_BY_KEY
++from .ai_repository_playbook import (
++    AI_USE_NOTE_TEMPLATE,
++    COMMON_MISTAKES,
++    PROMPT_TEMPLATES,
++    SPEAK_ALOUD_LINES,
++    TIMED_REPOSITORY_WORKFLOW,
++    VERIFICATION_CHECKLIST,
++)
+ from .forms import (
+     AIPrepAnswerForm,
++    AIRepositoryPracticeAttemptForm,
+     BehaviouralStoryForm,
+@@ -27,4 +36,5 @@ from .forms import (
+ )
+ from .models import (
+     AIPrepAnswer,
++    AIRepositoryPracticeAttempt,
+     BehaviouralStory,
+@@ -265,6 +275,63 @@ def ai_prep_answer_save(request, question_key):
+     return redirect("evidence:ai_coding_prep")
+ 
+ 
++@login_required
++def ai_repository_playbook(request):
++    attempts = AIRepositoryPracticeAttempt.objects.filter(
++        user=request.user
++    ).order_by("-practiced_on", "-created_at")
++    completed_attempt_count = attempts.filter(
++        full_suite_passed=True,
++        feature_completed=True,
++    ).count()
++
++    return render(
++        request,
++        "evidence/ai_repository_playbook.html",
++        {
++            "workflow": TIMED_REPOSITORY_WORKFLOW,
++            "prompt_templates": PROMPT_TEMPLATES,
++            "verification_checklist": VERIFICATION_CHECKLIST,
++            "ai_use_note_template": AI_USE_NOTE_TEMPLATE,
++            "speak_aloud_lines": SPEAK_ALOUD_LINES,
++            "common_mistakes": COMMON_MISTAKES,
++            "attempt_form": AIRepositoryPracticeAttemptForm(),
++            "attempts": attempts[:10],
++            "attempt_count": attempts.count(),
++            "completed_attempt_count": completed_attempt_count,
++            "practice_target": 3,
++        },
++    )
++
++
++@login_required
++@require_POST
++def ai_repository_attempt_add(request):
++    form = AIRepositoryPracticeAttemptForm(request.POST)
++    if form.is_valid():
++        attempt = form.save(commit=False)
++        attempt.user = request.user
++        attempt.full_clean()
++        attempt.save()
++        messages.success(request, "Repository practice attempt recorded.")
++    else:
++        messages.error(request, "Check the practice details and try again.")
++    return redirect("evidence:ai_repository_playbook")
++
++
++@login_required
++@require_POST
++def ai_repository_attempt_delete(request, attempt_id):
++    attempt = get_object_or_404(
++        AIRepositoryPracticeAttempt,
++        user=request.user,
++        pk=attempt_id,
++    )
++    attempt.delete()
++    messages.success(request, "Practice attempt removed.")
++    return redirect("evidence:ai_repository_playbook")
++
++
+ @login_required
+ def evidence_delete(request, evidence_id):
+     item = _owned_item(request.user, evidence_id)
+diff --git a/apps/evidence/urls.py b/apps/evidence/urls.py
+index 1000005..2000005 100644
+--- a/apps/evidence/urls.py
++++ b/apps/evidence/urls.py
+@@ -29,5 +29,20 @@ urlpatterns = [
+         views.ai_prep_answer_save,
+         name="ai_prep_answer_save",
+     ),
++    path(
++        "ai-repository-playbook/",
++        views.ai_repository_playbook,
++        name="ai_repository_playbook",
++    ),
++    path(
++        "ai-repository-playbook/attempts/",
++        views.ai_repository_attempt_add,
++        name="ai_repository_attempt_add",
++    ),
++    path(
++        "ai-repository-playbook/attempts/<int:attempt_id>/delete/",
++        views.ai_repository_attempt_delete,
++        name="ai_repository_attempt_delete",
++    ),
+     path("<int:evidence_id>/", views.evidence_detail, name="detail"),
+     path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
+diff --git a/apps/evidence/admin.py b/apps/evidence/admin.py
+index 1000006..2000006 100644
+--- a/apps/evidence/admin.py
++++ b/apps/evidence/admin.py
+@@ -4,3 +4,4 @@ from django.contrib import admin
+ from .models import (
+     AIPrepAnswer,
++    AIRepositoryPracticeAttempt,
+     BehaviouralStory,
+@@ -47,5 +48,19 @@ class AIPrepAnswerAdmin(admin.ModelAdmin):
+     raw_id_fields = ("user", "supporting_evidence")
+ 
+ 
++@admin.register(AIRepositoryPracticeAttempt)
++class AIRepositoryPracticeAttemptAdmin(admin.ModelAdmin):
++    list_display = (
++        "title",
++        "user",
++        "scenario_type",
++        "practiced_on",
++        "duration_minutes",
++        "full_suite_passed",
++    )
++    list_filter = ("scenario_type", "feature_completed", "full_suite_passed")
++    search_fields = ("title", "user__email", "reflection", "ai_use_note")
++
++
+ @admin.register(TopicEvidenceProfile)
+ class TopicEvidenceProfileAdmin(admin.ModelAdmin):
+diff --git a/apps/evidence/migrations/0004_airepositorypracticeattempt.py b/apps/evidence/migrations/0004_airepositorypracticeattempt.py
+new file mode 100644
+index 0000000..2000007
+--- /dev/null
++++ b/apps/evidence/migrations/0004_airepositorypracticeattempt.py
+@@ -0,0 +1,67 @@
++import django.db.models.deletion
++import django.utils.timezone
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    dependencies = [
++        ("evidence", "0003_aiprepanswer"),
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name="AIRepositoryPracticeAttempt",
++            fields=[
++                (
++                    "id",
++                    models.BigAutoField(
++                        auto_created=True,
++                        primary_key=True,
++                        serialize=False,
++                        verbose_name="ID",
++                    ),
++                ),
++                ("title", models.CharField(max_length=180)),
++                (
++                    "scenario_type",
++                    models.CharField(
++                        choices=[
++                            ("DEBUGGING", "Debugging failures"),
++                            ("FEATURE", "Small feature"),
++                            ("MIXED", "Debugging and feature"),
++                        ],
++                        default="MIXED",
++                        max_length=12,
++                    ),
++                ),
++                ("practiced_on", models.DateField(default=django.utils.timezone.localdate)),
++                ("duration_minutes", models.PositiveSmallIntegerField(default=60)),
++                ("tests_fixed", models.PositiveSmallIntegerField(default=0)),
++                ("feature_completed", models.BooleanField(default=False)),
++                ("full_suite_passed", models.BooleanField(default=False)),
++                ("ai_use_note", models.TextField(blank=True)),
++                ("reflection", models.TextField(blank=True)),
++                ("created_at", models.DateTimeField(auto_now_add=True)),
++                ("updated_at", models.DateTimeField(auto_now=True)),
++                (
++                    "user",
++                    models.ForeignKey(
++                        on_delete=django.db.models.deletion.CASCADE,
++                        related_name="ai_repository_practice_attempts",
++                        to=settings.AUTH_USER_MODEL,
++                    ),
++                ),
++            ],
++            options={
++                "ordering": ["-practiced_on", "-created_at"],
++                "indexes": [
++                    models.Index(
++                        fields=["user", "-practiced_on"],
++                        name="ai_repo_user_practice_idx",
++                    )
++                ],
++            },
++        ),
++    ]
+diff --git a/templates/evidence/ai_coding_prep.html b/templates/evidence/ai_coding_prep.html
+index 1000009..2000008 100644
+--- a/templates/evidence/ai_coding_prep.html
++++ b/templates/evidence/ai_coding_prep.html
+@@ -22,7 +22,12 @@
+             debugging, security, ownership and timed repository assessments.
+         </p>
+     </div>
+-    <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">
+-        Project explanations
+-    </a>
++    <div class="evidence-header-actions">
++        <a class="button button-secondary" href="{% url 'evidence:ai_repository_playbook' %}">
++            Repository playbook
++        </a>
++        <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">
++            Project explanations
++        </a>
++    </div>
+ </section>
+diff --git a/templates/evidence/ai_repository_playbook.html b/templates/evidence/ai_repository_playbook.html
+new file mode 100644
+index 0000000..2000009
+--- /dev/null
++++ b/templates/evidence/ai_repository_playbook.html
+@@ -0,0 +1,207 @@
++{% extends "base.html" %}
++
++{% block title %}AI repository playbook | ViewCoach{% endblock %}
++{% block body_class %}ai-repository-playbook-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:list' %}">Personal evidence</a>
++    <span aria-hidden="true">/</span>
++    <a href="{% url 'evidence:interview_pack' %}">Interview pack</a>
++    <span aria-hidden="true">/</span>
++    <span>AI repository playbook</span>
++</nav>
++
++<section class="evidence-page-header">
++    <div>
++        <p class="eyebrow">AI-assisted repository assessments</p>
++        <h1>Use AI without giving away the engineering.</h1>
++        <p>
++            A practical workflow for failing tests, small features, verification,
++            pair-programming follow-ups and transparent AI-use notes.
++        </p>
++    </div>
++    <a class="button button-secondary" href="{% url 'evidence:ai_coding_prep' %}">
++        AI interview questions
++    </a>
++</section>
++
++<section class="evidence-narrative" aria-label="Practice progress">
++    <div class="evidence-narrative-grid">
++        <article>
++            <h3>Practice target</h3>
++            <p>{{ practice_target }} timed exercises</p>
++        </article>
++        <article>
++            <h3>Attempts recorded</h3>
++            <p>{{ attempt_count }}</p>
++        </article>
++        <article>
++            <h3>Completed and verified</h3>
++            <p>{{ completed_attempt_count }}</p>
++        </article>
++        <article>
++            <h3>Default format</h3>
++            <p>60 minutes: failures, feature, verification and AI note.</p>
++        </article>
++    </div>
++</section>
++
++<section class="evidence-section" aria-labelledby="timed-workflow-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Storyteller-style practice</p>
++            <h2 id="timed-workflow-heading">The 60-minute workflow</h2>
++        </div>
++        <span>{{ workflow|length }} phases</span>
++    </div>
++    <div class="evidence-record-list">
++        {% for step in workflow %}
++        <article class="evidence-record">
++            <div class="evidence-record-heading">
++                <h3>{{ step.title }}</h3>
++                <span>{{ step.minutes }} minutes</span>
++            </div>
++            <ol>
++                {% for action in step.actions %}<li>{{ action }}</li>{% endfor %}
++            </ol>
++        </article>
++        {% endfor %}
++    </div>
++</section>
++
++<section class="evidence-section" aria-labelledby="prompt-playbook-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Prompting playbook</p>
++            <h2 id="prompt-playbook-heading">Prompts that preserve your judgement</h2>
++        </div>
++        <span>{{ prompt_templates|length }} templates</span>
++    </div>
++    <div class="evidence-record-list">
++        {% for template in prompt_templates %}
++        <article class="evidence-record">
++            <h3>{{ template.title }}</h3>
++            <h4>Use when</h4>
++            <p>{{ template.use_when }}</p>
++            <h4>Prompt</h4>
++            <pre><code>{{ template.prompt }}</code></pre>
++            <h4>Why it works</h4>
++            <p>{{ template.why_it_works }}</p>
++            <h4>Avoid</h4>
++            <p>{{ template.weak_prompt }}</p>
++        </article>
++        {% endfor %}
++    </div>
++</section>
++
++<section class="evidence-section" aria-labelledby="verification-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Before submission</p>
++            <h2 id="verification-heading">Verification checklist</h2>
++        </div>
++        <span>{{ verification_checklist|length }} checks</span>
++    </div>
++    <ol>
++        {% for check in verification_checklist %}<li>{{ check }}</li>{% endfor %}
++    </ol>
++</section>
++
++<section class="evidence-section" aria-labelledby="ai-note-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Transparent assistance</p>
++            <h2 id="ai-note-heading">AI-use note template</h2>
++        </div>
++    </div>
++    <pre><code>{% for line in ai_use_note_template %}{{ line }}
++{% endfor %}</code></pre>
++</section>
++
++<section class="evidence-section" aria-labelledby="pairing-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Pair programming</p>
++            <h2 id="pairing-heading">Speak while you work</h2>
++        </div>
++    </div>
++    <ul>
++        {% for line in speak_aloud_lines %}<li>“{{ line }}”</li>{% endfor %}
++    </ul>
++</section>
++
++<section class="evidence-section" aria-labelledby="mistakes-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Failure modes</p>
++            <h2 id="mistakes-heading">Common AI-assisted assessment mistakes</h2>
++        </div>
++        <span>{{ common_mistakes|length }} mistakes</span>
++    </div>
++    <div class="evidence-record-list">
++        {% for item in common_mistakes %}
++        <article class="evidence-record">
++            <h3>{{ item.mistake }}</h3>
++            <h4>Why it hurts</h4>
++            <p>{{ item.why_it_hurts }}</p>
++            <h4>Better action</h4>
++            <p>{{ item.better_action }}</p>
++        </article>
++        {% endfor %}
++    </div>
++</section>
++
++<section class="evidence-section" aria-labelledby="practice-log-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Deliberate practice</p>
++            <h2 id="practice-log-heading">Repository practice log</h2>
++        </div>
++    </div>
++
++    <details class="evidence-add-panel" open>
++        <summary>Record a timed attempt</summary>
++        <form method="post" action="{% url 'evidence:ai_repository_attempt_add' %}">
++            {% csrf_token %}
++            {% for field in attempt_form %}
++            <div class="form-field">
++                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++                {{ field }}
++                {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
++                {{ field.errors }}
++            </div>
++            {% endfor %}
++            <button class="button" type="submit">Save practice attempt</button>
++        </form>
++    </details>
++
++    {% if attempts %}
++    <div class="evidence-record-list">
++        {% for attempt in attempts %}
++        <article class="evidence-record">
++            <div class="evidence-record-heading">
++                <h3>{{ attempt.title }}</h3>
++                <span>{{ attempt.practiced_on|date:"j M Y" }}</span>
++            </div>
++            <p>
++                {{ attempt.get_scenario_type_display }} · {{ attempt.duration_minutes }} minutes ·
++                {{ attempt.outcome_label }}
++            </p>
++            <dl class="evidence-link-summary">
++                <div><dt>Tests fixed</dt><dd>{{ attempt.tests_fixed }}</dd></div>
++                <div><dt>Feature completed</dt><dd>{{ attempt.feature_completed|yesno:"Yes,No" }}</dd></div>
++                <div><dt>Full suite passed</dt><dd>{{ attempt.full_suite_passed|yesno:"Yes,No" }}</dd></div>
++            </dl>
++            {% if attempt.ai_use_note %}<h4>AI-use note</h4>{{ attempt.ai_use_note|linebreaks }}{% endif %}
++            {% if attempt.reflection %}<h4>Next improvement</h4>{{ attempt.reflection|linebreaks }}{% endif %}
++            <form method="post" action="{% url 'evidence:ai_repository_attempt_delete' attempt.pk %}">
++                {% csrf_token %}
++                <button class="evidence-remove-button" type="submit">Remove attempt</button>
++            </form>
++        </article>
++        {% endfor %}
++    </div>
++    {% endif %}
++</section>
++{% endblock %}
+diff --git a/apps/evidence/tests/test_ai_repository_playbook.py b/apps/evidence/tests/test_ai_repository_playbook.py
+new file mode 100644
+index 0000000..2000010
+--- /dev/null
++++ b/apps/evidence/tests/test_ai_repository_playbook.py
+@@ -0,0 +1,159 @@
++import pytest
++from django.core.exceptions import ValidationError
++from django.urls import reverse
++
++from apps.evidence.ai_repository_playbook import (
++    PROMPT_TEMPLATES,
++    TIMED_REPOSITORY_WORKFLOW,
++    VERIFICATION_CHECKLIST,
++)
++from apps.evidence.models import AIRepositoryPracticeAttempt
++
++pytestmark = pytest.mark.django_db
++
++
++def attempt_payload():
++    return {
++        "title": "Storyteller repository practice 1",
++        "scenario_type": AIRepositoryPracticeAttempt.ScenarioType.MIXED,
++        "practiced_on": "2026-07-26",
++        "duration_minutes": 60,
++        "tests_fixed": 3,
++        "feature_completed": "on",
++        "full_suite_passed": "on",
++        "ai_use_note": "Used AI to compare two narrow fixes and reviewed the final diff.",
++        "reflection": "Read all assertions before changing code.",
++    }
++
++
++def test_playbook_has_complete_workflow_and_prompt_coverage():
++    assert len(TIMED_REPOSITORY_WORKFLOW) == 8
++    assert len(PROMPT_TEMPLATES) >= 8
++    assert len(VERIFICATION_CHECKLIST) >= 10
++
++
++def test_repository_playbook_requires_authentication(client):
++    response = client.get(reverse("evidence:ai_repository_playbook"))
++
++    assert response.status_code == 302
++    assert response.url.startswith(reverse("login"))
++
++
++def test_repository_playbook_displays_workflow_prompts_and_verification(client, user):
++    client.force_login(user)
++
++    response = client.get(reverse("evidence:ai_repository_playbook"))
++    html = response.content.decode()
++
++    assert response.status_code == 200
++    assert "Run and classify the failures" in html
++    assert "Do not propose code changes yet." in html
++    assert "The complete test suite passes." in html
++    assert "What I changed or rejected:" in html
++
++
++def test_user_can_record_repository_practice_attempt(client, user):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:ai_repository_attempt_add"),
++        attempt_payload(),
++    )
++
++    attempt = AIRepositoryPracticeAttempt.objects.get(user=user)
++    assert response.status_code == 302
++    assert response.url == reverse("evidence:ai_repository_playbook")
++    assert attempt.tests_fixed == 3
++    assert attempt.feature_completed is True
++    assert attempt.full_suite_passed is True
++
++
++def test_repository_playbook_only_shows_current_users_attempts(
++    client,
++    user,
++    other_user,
++):
++    AIRepositoryPracticeAttempt.objects.create(
++        user=other_user,
++        title="Private practice attempt",
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("evidence:ai_repository_playbook"))
++
++    assert "Private practice attempt" not in response.content.decode()
++
++
++def test_user_cannot_delete_another_users_attempt(
++    client,
++    user,
++    other_user,
++):
++    attempt = AIRepositoryPracticeAttempt.objects.create(
++        user=other_user,
++        title="Private practice attempt",
++    )
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk])
++    )
++
++    assert response.status_code == 404
++    assert AIRepositoryPracticeAttempt.objects.filter(pk=attempt.pk).exists()
++
++
++def test_user_can_delete_own_attempt(client, user):
++    attempt = AIRepositoryPracticeAttempt.objects.create(
++        user=user,
++        title="Practice attempt",
++    )
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk])
++    )
++
++    assert response.status_code == 302
++    assert not AIRepositoryPracticeAttempt.objects.filter(pk=attempt.pk).exists()
++
++
++@pytest.mark.parametrize("duration", [0, 14, 181, 500])
++def test_practice_attempt_rejects_unreasonable_duration(user, duration):
++    attempt = AIRepositoryPracticeAttempt(
++        user=user,
++        title="Practice attempt",
++        duration_minutes=duration,
++    )
++
++    with pytest.raises(ValidationError):
++        attempt.full_clean()
++
++
++@pytest.mark.parametrize("duration", [15, 60, 180])
++def test_practice_attempt_accepts_supported_duration(user, duration):
++    attempt = AIRepositoryPracticeAttempt(
++        user=user,
++        title="Practice attempt",
++        duration_minutes=duration,
++    )
++
++    attempt.full_clean()
++
++
++def test_practice_outcome_labels(user):
++    completed = AIRepositoryPracticeAttempt(
++        user=user,
++        title="Completed",
++        feature_completed=True,
++        full_suite_passed=True,
++    )
++    partial = AIRepositoryPracticeAttempt(
++        user=user,
++        title="Partial",
++        tests_fixed=1,
++    )
++
++    assert completed.outcome_label == "Completed and verified"
++    assert partial.outcome_label == "Partially completed"
++

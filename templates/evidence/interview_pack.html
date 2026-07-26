@@ -19,7 +19,10 @@
             together for every project an interviewer may ask about.
         </p>
     </div>
-    <a class="button" href="{% url 'evidence:create' %}">Add project</a>
+    <div class="evidence-header-actions">
+        <a class="button button-secondary" href="{% url 'evidence:ai_coding_prep' %}">AI coding prep</a>
+        <a class="button" href="{% url 'evidence:create' %}">Add project</a>
+    </div>
 </section>
 
 {% if project_cards %}

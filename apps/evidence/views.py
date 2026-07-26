@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db.models import Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -10,7 +11,18 @@ from apps.goals.models import InterviewGoal
 from apps.questions.models import Question
 from apps.roadmaps.models import RoadmapTopic
 
+from .ai_prep import AI_ASSISTED_INTERVIEW_QUESTIONS, AI_INTERVIEW_QUESTION_BY_KEY
+from .ai_repository_playbook import (
+    AI_USE_NOTE_TEMPLATE,
+    COMMON_MISTAKES,
+    PROMPT_TEMPLATES,
+    SPEAK_ALOUD_LINES,
+    TIMED_REPOSITORY_WORKFLOW,
+    VERIFICATION_CHECKLIST,
+)
 from .forms import (
+    AIPrepAnswerForm,
+    AIRepositoryPracticeAttemptForm,
     BehaviouralStoryForm,
     DecisionRecordForm,
     EvidenceItemForm,
@@ -21,6 +33,8 @@ from .forms import (
     TopicEvidenceProfileForm,
 )
 from .models import (
+    AIPrepAnswer,
+    AIRepositoryPracticeAttempt,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -197,6 +211,145 @@ def project_explanation_edit(request, evidence_id):
             "is_editing": explanation is not None,
         },
     )
+
+
+@login_required
+def ai_coding_prep(request):
+    answers_by_key = {
+        answer.question_key: answer
+        for answer in AIPrepAnswer.objects.filter(user=request.user).select_related(
+            "supporting_evidence"
+        )
+    }
+    groups_by_category = {}
+    prepared_count = 0
+
+    for question in AI_ASSISTED_INTERVIEW_QUESTIONS:
+        answer = answers_by_key.get(question.key)
+        if answer and answer.is_prepared:
+            prepared_count += 1
+        groups_by_category.setdefault(question.category, []).append(
+            {
+                "question": question,
+                "answer": answer,
+                "form": AIPrepAnswerForm(
+                    instance=answer,
+                    user=request.user,
+                ),
+            }
+        )
+
+    groups = [
+        {"category": category, "cards": cards}
+        for category, cards in groups_by_category.items()
+    ]
+    follow_up_count = sum(
+        len(question.follow_ups) for question in AI_ASSISTED_INTERVIEW_QUESTIONS
+    )
+
+    return render(
+        request,
+        "evidence/ai_coding_prep.html",
+        {
+            "groups": groups,
+            "prepared_count": prepared_count,
+            "question_count": len(AI_ASSISTED_INTERVIEW_QUESTIONS),
+            "follow_up_count": follow_up_count,
+        },
+    )
+
+
+@login_required
+@require_POST
+def ai_prep_answer_save(request, question_key):
+    if question_key not in AI_INTERVIEW_QUESTION_BY_KEY:
+        raise Http404("Unknown AI interview question.")
+
+    answer = AIPrepAnswer.objects.filter(
+        user=request.user,
+        question_key=question_key,
+    ).first()
+
+    if answer is None:
+        answer = AIPrepAnswer(
+            user=request.user,
+            question_key=question_key,
+        )
+
+    form = AIPrepAnswerForm(
+        request.POST,
+        instance=answer,
+        user=request.user,
+    )
+
+    if form.is_valid():
+        answer = form.save(commit=False)
+        answer.user = request.user
+        answer.question_key = question_key
+        answer.full_clean()
+        answer.save()
+        messages.success(request, "AI interview answer notes saved.")
+    else:
+        messages.error(request, "Check the answer notes and supporting evidence.")
+
+    return redirect("evidence:ai_coding_prep")
+
+
+@login_required
+def ai_repository_playbook(request):
+    attempts = AIRepositoryPracticeAttempt.objects.filter(
+        user=request.user
+    ).order_by("-practiced_on", "-created_at")
+    completed_attempt_count = attempts.filter(
+        full_suite_passed=True,
+        feature_completed=True,
+    ).count()
+
+    return render(
+        request,
+        "evidence/ai_repository_playbook.html",
+        {
+            "workflow": TIMED_REPOSITORY_WORKFLOW,
+            "prompt_templates": PROMPT_TEMPLATES,
+            "verification_checklist": VERIFICATION_CHECKLIST,
+            "ai_use_note_template": AI_USE_NOTE_TEMPLATE,
+            "speak_aloud_lines": SPEAK_ALOUD_LINES,
+            "common_mistakes": COMMON_MISTAKES,
+            "attempt_form": AIRepositoryPracticeAttemptForm(),
+            "attempts": attempts[:10],
+            "attempt_count": attempts.count(),
+            "completed_attempt_count": completed_attempt_count,
+            "practice_target": 3,
+        },
+    )
+
+
+@login_required
+@require_POST
+def ai_repository_attempt_add(request):
+    form = AIRepositoryPracticeAttemptForm(request.POST)
+    if form.is_valid():
+        attempt = form.save(commit=False)
+        attempt.user = request.user
+        attempt.full_clean()
+        attempt.save()
+        messages.success(request, "Repository practice attempt recorded.")
+    else:
+        messages.error(request, "Check the practice details and try again.")
+    return redirect("evidence:ai_repository_playbook")
+
+
+@login_required
+@require_POST
+def ai_repository_attempt_delete(request, attempt_id):
+    attempt = get_object_or_404(
+        AIRepositoryPracticeAttempt,
+        user=request.user,
+        pk=attempt_id,
+    )
+    attempt.delete()
+    messages.success(request, "Practice attempt removed.")
+    return redirect("evidence:ai_repository_playbook")
 
 
 @login_required

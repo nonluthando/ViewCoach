@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}AI-assisted coding prep | ViewCoach{% endblock %}
+{% block body_class %}ai-coding-prep-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:list' %}">Personal evidence</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'evidence:interview_pack' %}">Interview pack</a>
+    <span aria-hidden="true">/</span>
+    <span>AI-assisted coding prep</span>
+</nav>
+
+<section class="evidence-page-header">
+    <div>
+        <p class="eyebrow">AI-assisted coding prep</p>
+        <h1>Be ready to defend how you use AI.</h1>
+        <p>
+            Prepare clear, evidence-based answers about prompting, verification,
+            debugging, security, ownership and timed repository assessments.
+        </p>
+    </div>
+    <div class="evidence-header-actions">
+        <a class="button button-secondary" href="{% url 'evidence:ai_repository_playbook' %}">
+            Repository playbook
+        </a>
+        <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">
+            Project explanations
+        </a>
+    </div>
+</section>
+
+<section class="evidence-narrative" aria-label="Preparation progress">
+    <div class="evidence-narrative-grid">
+        <article>
+            <h3>Core questions</h3>
+            <p>{{ question_count }}</p>
+        </article>
+        <article>
+            <h3>Follow-up questions</h3>
+            <p>{{ follow_up_count }}</p>
+        </article>
+        <article>
+            <h3>Answers prepared</h3>
+            <p>{{ prepared_count }} of {{ question_count }}</p>
+        </article>
+        <article>
+            <h3>Answer standard</h3>
+            <p>Specific example, judgement, verification and ownership.</p>
+        </article>
+    </div>
+</section>
+
+{% for group in groups %}
+<section class="evidence-section" aria-labelledby="ai-category-{{ forloop.counter }}">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">AI interview questions</p>
+            <h2 id="ai-category-{{ forloop.counter }}">{{ group.category }}</h2>
+        </div>
+        <span>{{ group.cards|length }} questions</span>
+    </div>
+
+    <div class="evidence-record-list">
+        {% for card in group.cards %}
+        <article class="evidence-record" id="{{ card.question.key }}">
+            <div class="evidence-record-heading">
+                <h3>{{ card.question.question }}</h3>
+                {% if card.answer.is_prepared %}<span>Prepared</span>{% else %}<span>Not prepared</span>{% endif %}
+            </div>
+
+            <h4>What the interviewer is testing</h4>
+            <p>{{ card.question.interviewer_is_testing }}</p>
+
+            <h4>A strong answer covers</h4>
+            <ul>
+                {% for point in card.question.strong_answer_points %}<li>{{ point }}</li>{% endfor %}
+            </ul>
+
+            <details class="evidence-add-panel">
+                <summary>{{ card.question.follow_ups|length }} likely follow-up questions</summary>
+                <ol>
+                    {% for follow_up in card.question.follow_ups %}<li>{{ follow_up }}</li>{% endfor %}
+                </ol>
+            </details>
+
+            <details class="evidence-add-panel" {% if card.answer.is_prepared %}open{% endif %}>
+                <summary>Prepare my answer</summary>
+                <form method="post" action="{% url 'evidence:ai_prep_answer_save' card.question.key %}">
+                    {% csrf_token %}
+                    {% for field in card.form %}
+                    <div class="form-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                    {% endfor %}
+                    <button class="button" type="submit">Save answer notes</button>
+                </form>
+            </details>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% endblock %}
