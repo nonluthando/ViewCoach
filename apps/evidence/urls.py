@@ -7,6 +7,16 @@ app_name = "evidence"
 urlpatterns = [
     path("", views.evidence_list, name="list"),
     path("new/", views.evidence_create, name="create"),
+    path(
+        "interview-pack/",
+        views.interview_pack,
+        name="interview_pack",
+    ),
+    path(
+        "projects/<int:evidence_id>/explanation/",
+        views.project_explanation_edit,
+        name="project_explanation_edit",
+    ),
     path("<int:evidence_id>/", views.evidence_detail, name="detail"),
     path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
     path("<int:evidence_id>/delete/", views.evidence_delete, name="delete"),

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} interview explanation | ViewCoach{% endblock %}
+{% block body_class %}evidence-form-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:list' %}">Personal evidence</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'evidence:interview_pack' %}">Interview pack</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ item.title }}</span>
+</nav>
+
+<section class="evidence-form-header">
+    <p class="eyebrow">Project interview preparation</p>
+    <h1>{{ item.title }}</h1>
+    <p>
+        Prepare the short answer first, then capture the detail you need for technical
+        follow-ups. Blank sections simply stay hidden from the interview pack.
+    </p>
+</section>
+
+<form class="evidence-form" method="post">
+    {% csrf_token %}
+    <div class="evidence-form-grid">
+        {% for field in form %}
+        <div class="form-field evidence-field-{{ field.name }}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="evidence-form-actions">
+        <button class="button" type="submit">Save interview explanation</button>
+        <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

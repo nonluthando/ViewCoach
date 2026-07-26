@@ -39,6 +39,36 @@
             </div>
         </section>
 
+        {% if item.source_type == "PROJECT" %}
+        <section class="evidence-section" aria-labelledby="project-explanation-heading">
+            <div class="evidence-section-heading">
+                <div>
+                    <p class="eyebrow">Interview preparation</p>
+                    <h2 id="project-explanation-heading">Project explanation</h2>
+                </div>
+                <a class="button button-secondary" href="{% url 'evidence:project_explanation_edit' item.pk %}">
+                    {% if item.project_explanation %}Edit explanation{% else %}Build explanation{% endif %}
+                </a>
+            </div>
+            {% if item.project_explanation %}
+                {% if item.project_explanation.quick_pitch %}
+                <article class="evidence-record">
+                    <h3>30-second explanation</h3>
+                    {{ item.project_explanation.quick_pitch|linebreaks }}
+                </article>
+                {% endif %}
+                {% if item.project_explanation.two_minute_answer %}
+                <article class="evidence-record">
+                    <h3>Two-minute explanation</h3>
+                    {{ item.project_explanation.two_minute_answer|linebreaks }}
+                </article>
+                {% endif %}
+            {% else %}
+                <p class="muted">Add interview-ready versions of this project explanation.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+
         <section class="evidence-section" aria-labelledby="decisions-heading">
             <div class="evidence-section-heading">
                 <div><p class="eyebrow">Technical judgement</p><h2 id="decisions-heading">Decision records</h2></div>
