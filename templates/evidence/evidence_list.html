@@ -13,7 +13,10 @@
             then reuse them across roadmap topics, questions and interview goals.
         </p>
     </div>
-    <a class="button" href="{% url 'evidence:create' %}">Add evidence</a>
+    <div class="evidence-header-actions">
+        <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">Interview pack</a>
+        <a class="button" href="{% url 'evidence:create' %}">Add evidence</a>
+    </div>
 </section>
 
 <form class="evidence-filter-panel" method="get">

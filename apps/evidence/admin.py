@@ -5,6 +5,7 @@ from .models import (
     DecisionRecord,
     EvidenceItem,
     GoalEvidenceLink,
+    ProjectExplanation,
     QuestionEvidenceLink,
     TopicEvidenceLink,
     TopicEvidenceProfile,
@@ -21,12 +22,18 @@ class BehaviouralStoryInline(admin.StackedInline):
     extra = 0
 
 
+class ProjectExplanationInline(admin.StackedInline):
+    model = ProjectExplanation
+    extra = 0
+    max_num = 1
+
+
 @admin.register(EvidenceItem)
 class EvidenceItemAdmin(admin.ModelAdmin):
     list_display = ("title", "owner", "source_type", "organisation", "updated_at")
     list_filter = ("source_type",)
     search_fields = ("title", "owner__email", "organisation", "technologies")
-    inlines = [DecisionRecordInline, BehaviouralStoryInline]
+    inlines = [ProjectExplanationInline, DecisionRecordInline, BehaviouralStoryInline]
 
 
 @admin.register(TopicEvidenceProfile)

@@ -5,6 +5,7 @@ from .models import (
     DecisionRecord,
     EvidenceItem,
     GoalEvidenceLink,
+    ProjectExplanation,
     QuestionEvidenceLink,
     TopicEvidenceLink,
     TopicEvidenceProfile,
@@ -50,6 +51,57 @@ class EvidenceItemForm(forms.ModelForm):
             "technologies": forms.Textarea(attrs={"rows": 2}),
             "outcomes": forms.Textarea(attrs={"rows": 4}),
             "lessons": forms.Textarea(attrs={"rows": 4}),
+        }
+
+
+class ProjectExplanationForm(forms.ModelForm):
+    class Meta:
+        model = ProjectExplanation
+        fields = [
+            "quick_pitch",
+            "two_minute_answer",
+            "architecture",
+            "key_decisions",
+            "difficult_bug",
+            "testing_and_verification",
+            "ai_use",
+            "tradeoffs",
+            "improvements",
+            "scaling",
+            "likely_follow_ups",
+        ]
+        labels = {
+            "quick_pitch": "30-second explanation",
+            "two_minute_answer": "Two-minute explanation",
+            "architecture": "Architecture and data flow",
+            "key_decisions": "Important technical decisions",
+            "difficult_bug": "Difficult bug or failure",
+            "testing_and_verification": "Testing and verification",
+            "ai_use": "How I used AI",
+            "tradeoffs": "Trade-offs",
+            "improvements": "What I would improve",
+            "scaling": "How I would scale it",
+            "likely_follow_ups": "Likely follow-up questions",
+        }
+        help_texts = {
+            "ai_use": (
+                "Explain what AI helped with, what you accepted or rejected, "
+                "and how you verified the result."
+            ),
+            "likely_follow_ups": "Add one likely interviewer question per line.",
+        }
+        widgets = {
+            "quick_pitch": forms.Textarea(attrs={"rows": 4}),
+            "two_minute_answer": forms.Textarea(attrs={"rows": 8}),
+            "architecture": forms.Textarea(attrs={"rows": 5}),
+            "key_decisions": forms.Textarea(attrs={"rows": 5}),
+            "difficult_bug": forms.Textarea(attrs={"rows": 5}),
+            "testing_and_verification": forms.Textarea(attrs={"rows": 5}),
+            "ai_use": forms.Textarea(attrs={"rows": 5}),
+            "tradeoffs": forms.Textarea(attrs={"rows": 4}),
+            "improvements": forms.Textarea(attrs={"rows": 4}),
+            "scaling": forms.Textarea(attrs={"rows": 4}),
+            "likely_follow_ups": forms.Textarea(attrs={"rows": 5}),
         }
 
 

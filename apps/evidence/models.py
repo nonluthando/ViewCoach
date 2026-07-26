@@ -62,6 +62,60 @@ class EvidenceItem(models.Model):
         return self.title
 
 
+class ProjectExplanation(models.Model):
+    evidence = models.OneToOneField(
+        EvidenceItem,
+        on_delete=models.CASCADE,
+        related_name="project_explanation",
+    )
+    quick_pitch = models.TextField(
+        blank=True,
+        help_text="A concise explanation suitable for a 30-second answer.",
+    )
+    two_minute_answer = models.TextField(
+        blank=True,
+        help_text="The complete interview-ready project explanation.",
+    )
+    architecture = models.TextField(blank=True)
+    key_decisions = models.TextField(blank=True)
+    difficult_bug = models.TextField(blank=True)
+    testing_and_verification = models.TextField(blank=True)
+    ai_use = models.TextField(blank=True)
+    tradeoffs = models.TextField(blank=True)
+    improvements = models.TextField(blank=True)
+    scaling = models.TextField(blank=True)
+    likely_follow_ups = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        if self.evidence_id and self.evidence.source_type != EvidenceItem.SourceType.PROJECT:
+            raise ValidationError(
+                {"evidence": "Project explanations can only be attached to project evidence."}
+            )
+
+    @property
+    def has_deep_dive(self):
+        return any(
+            value.strip()
+            for value in (
+                self.architecture,
+                self.key_decisions,
+                self.difficult_bug,
+                self.testing_and_verification,
+                self.ai_use,
+                self.tradeoffs,
+                self.improvements,
+                self.scaling,
+                self.likely_follow_ups,
+            )
+        )
+
+    def __str__(self):
+        return f"Interview explanation: {self.evidence}"
+
+
 class DecisionRecord(models.Model):
     class RepeatChoice(models.TextChoices):
         YES = "YES", "Yes"

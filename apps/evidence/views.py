@@ -15,6 +15,7 @@ from .forms import (
     DecisionRecordForm,
     EvidenceItemForm,
     GoalEvidenceLinkForm,
+    ProjectExplanationForm,
     QuestionEvidenceLinkForm,
     TopicEvidenceLinkForm,
     TopicEvidenceProfileForm,
@@ -24,6 +25,7 @@ from .models import (
     DecisionRecord,
     EvidenceItem,
     GoalEvidenceLink,
+    ProjectExplanation,
     QuestionEvidenceLink,
     TopicEvidenceLink,
     TopicEvidenceProfile,
@@ -136,6 +138,63 @@ def evidence_detail(request, evidence_id):
             "goal_links": item.goal_links.select_related("goal"),
             "decision_form": DecisionRecordForm(),
             "story_form": BehaviouralStoryForm(),
+        },
+    )
+
+
+@login_required
+def interview_pack(request):
+    projects = (
+        _owned_evidence(request.user)
+        .filter(source_type=EvidenceItem.SourceType.PROJECT)
+        .prefetch_related("goal_links__goal")
+        .order_by("-updated_at", "title")
+    )
+    project_cards = []
+    for project in projects:
+        explanation = ProjectExplanation.objects.filter(evidence=project).first()
+        project_cards.append(
+            {
+                "project": project,
+                "explanation": explanation,
+                "goal_links": project.goal_links.all(),
+            }
+        )
+
+    return render(
+        request,
+        "evidence/interview_pack.html",
+        {"project_cards": project_cards},
+    )
+
+
+@login_required
+def project_explanation_edit(request, evidence_id):
+    item = get_object_or_404(
+        _owned_evidence(request.user),
+        pk=evidence_id,
+        source_type=EvidenceItem.SourceType.PROJECT,
+    )
+    explanation = ProjectExplanation.objects.filter(evidence=item).first()
+
+    if request.method == "POST":
+        form = ProjectExplanationForm(request.POST, instance=explanation)
+        if form.is_valid():
+            explanation = form.save(commit=False)
+            explanation.evidence = item
+            explanation.save()
+            messages.success(request, "Project interview explanation saved.")
+            return redirect("evidence:interview_pack")
+    else:
+        form = ProjectExplanationForm(instance=explanation)
+
+    return render(
+        request,
+        "evidence/project_explanation_form.html",
+        {
+            "form": form,
+            "item": item,
+            "is_editing": explanation is not None,
         },
     )
 
