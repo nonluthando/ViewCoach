@@ -42,7 +42,14 @@
                     </span>
                     <span>Interview goals</span>
                 </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' %}is-active{% endif %}"
+                <a class="app-nav-link {% if request.resolver_match.url_name == 'interview_pack' or request.resolver_match.url_name == 'project_explanations' or request.resolver_match.url_name == 'project_explanation_edit' or request.resolver_match.url_name == 'ai_coding_prep' or request.resolver_match.url_name == 'ai_repository_playbook' or request.resolver_match.url_name == 'general_interview_playbook' %}is-active{% endif %}"
+                   href="{% url 'evidence:interview_pack' %}">
+                    <span class="app-nav-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path><path d="M7 2v3"></path><path d="M17 2v3"></path></svg>
+                    </span>
+                    <span>Interview Hub</span>
+                </a>
+                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' and request.resolver_match.url_name != 'interview_pack' and request.resolver_match.url_name != 'project_explanations' and request.resolver_match.url_name != 'project_explanation_edit' and request.resolver_match.url_name != 'ai_coding_prep' and request.resolver_match.url_name != 'ai_repository_playbook' and request.resolver_match.url_name != 'general_interview_playbook' %}is-active{% endif %}"
                    href="{% url 'evidence:list' %}">
                     <span class="app-nav-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
@@ -164,6 +171,7 @@
                         <span>{{ user.email }}</span>
                     </div>
                     <a href="{% url 'goals:list' %}">Interview goals</a>
+                    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
                     <a href="{% url 'evidence:list' %}">Personal evidence</a>
                     <a href="{% url 'interviews:list' %}">Mock interviews</a>
                     <a href="{% url 'roadmaps:list' %}">Roadmaps</a>

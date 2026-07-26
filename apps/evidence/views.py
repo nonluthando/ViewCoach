@@ -158,6 +158,50 @@ def evidence_detail(request, evidence_id):
 
 @login_required
 def interview_pack(request):
+    projects = _owned_evidence(request.user).filter(
+        source_type=EvidenceItem.SourceType.PROJECT
+    )
+    project_count = projects.count()
+    explained_project_count = ProjectExplanation.objects.filter(
+        evidence__owner=request.user,
+    ).count()
+    behavioural_story_count = BehaviouralStory.objects.filter(
+        evidence__owner=request.user,
+    ).count()
+    prepared_ai_count = (
+        AIPrepAnswer.objects.filter(user=request.user)
+        .exclude(answer_notes="")
+        .count()
+    )
+    completed_repository_attempt_count = AIRepositoryPracticeAttempt.objects.filter(
+        user=request.user,
+        full_suite_passed=True,
+        feature_completed=True,
+    ).count()
+    primary_goal = InterviewGoal.objects.filter(
+        user=request.user,
+        status=InterviewGoal.Status.ACTIVE,
+        is_primary=True,
+    ).first()
+
+    return render(
+        request,
+        "evidence/interview_pack.html",
+        {
+            "primary_goal": primary_goal,
+            "project_count": project_count,
+            "explained_project_count": explained_project_count,
+            "behavioural_story_count": behavioural_story_count,
+            "prepared_ai_count": prepared_ai_count,
+            "ai_question_count": len(AI_ASSISTED_INTERVIEW_QUESTIONS),
+            "completed_repository_attempt_count": completed_repository_attempt_count,
+            "repository_practice_target": 3,
+        },
+    )
+
+
+@login_required
+def project_explanations(request):
     projects = (
         _owned_evidence(request.user)
         .filter(source_type=EvidenceItem.SourceType.PROJECT)
@@ -177,9 +221,14 @@ def interview_pack(request):
 
     return render(
         request,
-        "evidence/interview_pack.html",
+        "evidence/project_explanations.html",
         {"project_cards": project_cards},
     )
+
+
+@login_required
+def general_interview_playbook(request):
+    return render(request, "evidence/general_interview_playbook.html")
 
 
 @login_required
@@ -198,7 +247,7 @@ def project_explanation_edit(request, evidence_id):
             explanation.evidence = item
             explanation.save()
             messages.success(request, "Project interview explanation saved.")
-            return redirect("evidence:interview_pack")
+            return redirect("evidence:project_explanations")
     else:
         form = ProjectExplanationForm(instance=explanation)
 

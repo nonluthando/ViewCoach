@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
 
@@ -31,7 +32,16 @@ class InterviewGoal(models.Model):
         related_name="interview_goals",
         blank=True,
     )
-    weekly_minutes = models.PositiveSmallIntegerField(default=300)
+    weekly_minutes = models.PositiveSmallIntegerField(
+        default=300,
+        validators=[
+            MinValueValidator(0, message="Weekly study time cannot be negative."),
+            MaxValueValidator(
+                6300,
+                message="Weekly study time cannot exceed 6300 minutes (105 hours).",
+            ),
+        ],
+    )
     status = models.CharField(
         max_length=12,
         choices=Status.choices,

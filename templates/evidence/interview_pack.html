@@ -1,114 +1,112 @@
 {% extends "base.html" %}
 
-{% block title %}My interview pack | ViewCoach{% endblock %}
-{% block body_class %}interview-pack-page{% endblock %}
+{% block title %}Interview Hub | ViewCoach{% endblock %}
+{% block body_class %}interview-hub-page{% endblock %}
 
 {% block content %}
-<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'evidence:list' %}">Personal evidence</a>
-    <span aria-hidden="true">/</span>
-    <span>Interview pack</span>
-</nav>
-
 <section class="evidence-page-header">
     <div>
-        <p class="eyebrow">My interview pack</p>
-        <h1>Explain the work without scrambling for the words.</h1>
+        <p class="eyebrow">Interview Hub</p>
+        <h1>Prepare the answer, the evidence and the performance.</h1>
         <p>
-            Keep the concise answer, the complete explanation and the technical deep dive
-            together for every project an interviewer may ask about.
+            One place for project explanations, behavioural evidence, AI-assisted coding,
+            interview technique and practice under pressure.
         </p>
     </div>
-    <div class="evidence-header-actions">
-        <a class="button button-secondary" href="{% url 'evidence:ai_coding_prep' %}">AI coding prep</a>
-        <a class="button" href="{% url 'evidence:create' %}">Add project</a>
+    <a class="button button-secondary" href="{% url 'evidence:list' %}">
+        Personal evidence
+    </a>
+</section>
+
+{% if primary_goal %}
+<section class="interview-goal-banner" aria-label="Primary interview goal">
+    <div>
+        <p class="eyebrow">Primary goal</p>
+        <h2>{{ primary_goal.title }}</h2>
+        <p>
+            {{ primary_goal.role_title }}
+            {% if primary_goal.company %} at {{ primary_goal.company }}{% endif %}
+        </p>
+    </div>
+    <a class="button button-secondary" href="{{ primary_goal.get_absolute_url }}">Open goal</a>
+</section>
+{% endif %}
+
+<section class="interview-hub-section" aria-labelledby="prepare-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Prepare your evidence</p>
+            <h2 id="prepare-heading">Build answers you can defend</h2>
+        </div>
+    </div>
+    <div class="interview-hub-grid">
+        <a class="interview-hub-card" href="{% url 'evidence:project_explanations' %}">
+            <span class="interview-hub-card-kicker">Projects</span>
+            <h3>Project explanations</h3>
+            <p>Prepare a short pitch, full explanation, architecture, bugs and trade-offs.</p>
+            <strong>{{ explained_project_count }} of {{ project_count }} projects started</strong>
+        </a>
+        <a class="interview-hub-card" href="{% url 'evidence:list' %}">
+            <span class="interview-hub-card-kicker">Behavioural</span>
+            <h3>STAR stories and evidence</h3>
+            <p>Use real projects, work, leadership and incidents to support your answers.</p>
+            <strong>{{ behavioural_story_count }} stories captured</strong>
+        </a>
     </div>
 </section>
 
-{% if project_cards %}
-<section class="evidence-catalogue" aria-label="Project interview explanations">
-    {% for card in project_cards %}
-    <article class="evidence-card">
-        <div class="evidence-card-main">
-            <div class="evidence-card-meta">
-                <span>Project</span>
-                {% if card.project.role_or_context %}<span>{{ card.project.role_or_context }}</span>{% endif %}
-                <span>Updated {{ card.project.updated_at|date:"j M Y" }}</span>
-            </div>
-            <h2><a href="{% url 'evidence:detail' card.project.pk %}">{{ card.project.title }}</a></h2>
-
-            {% if card.explanation %}
-                {% if card.explanation.quick_pitch %}
-                <div class="evidence-record">
-                    <h3>30-second explanation</h3>
-                    {{ card.explanation.quick_pitch|linebreaks }}
-                </div>
-                {% endif %}
-
-                {% if card.explanation.two_minute_answer %}
-                <details class="evidence-add-panel">
-                    <summary>Two-minute explanation</summary>
-                    {{ card.explanation.two_minute_answer|linebreaks }}
-                </details>
-                {% endif %}
-
-                {% if card.explanation.has_deep_dive %}
-                <details class="evidence-add-panel">
-                    <summary>Technical deep dive</summary>
-                    {% if card.explanation.architecture %}<h4>Architecture and data flow</h4>{{ card.explanation.architecture|linebreaks }}{% endif %}
-                    {% if card.explanation.key_decisions %}<h4>Important decisions</h4>{{ card.explanation.key_decisions|linebreaks }}{% endif %}
-                    {% if card.explanation.difficult_bug %}<h4>Difficult bug or failure</h4>{{ card.explanation.difficult_bug|linebreaks }}{% endif %}
-                    {% if card.explanation.testing_and_verification %}<h4>Testing and verification</h4>{{ card.explanation.testing_and_verification|linebreaks }}{% endif %}
-                    {% if card.explanation.ai_use %}<h4>How I used AI</h4>{{ card.explanation.ai_use|linebreaks }}{% endif %}
-                    {% if card.explanation.tradeoffs %}<h4>Trade-offs</h4>{{ card.explanation.tradeoffs|linebreaks }}{% endif %}
-                    {% if card.explanation.improvements %}<h4>What I would improve</h4>{{ card.explanation.improvements|linebreaks }}{% endif %}
-                    {% if card.explanation.scaling %}<h4>How I would scale it</h4>{{ card.explanation.scaling|linebreaks }}{% endif %}
-                    {% if card.explanation.likely_follow_ups %}<h4>Likely follow-ups</h4>{{ card.explanation.likely_follow_ups|linebreaks }}{% endif %}
-                </details>
-                {% endif %}
-            {% else %}
-                <p class="muted">No interview explanation yet.</p>
-            {% endif %}
-
-            {% if card.project.technology_list %}
-            <div class="evidence-tag-row">
-                {% for technology in card.project.technology_list|slice:":6" %}
-                    <span>{{ technology }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            {% if card.goal_links %}
-            <details class="evidence-add-panel">
-                <summary>Role-specific framing</summary>
-                {% for link in card.goal_links %}
-                <article class="evidence-record">
-                    <h3>{{ link.goal.title }}</h3>
-                    <p><strong>{{ link.get_relevance_display }}</strong></p>
-                    {% if link.framing_notes %}
-                        {{ link.framing_notes|linebreaks }}
-                    {% else %}
-                        <p class="muted">No framing notes captured yet.</p>
-                    {% endif %}
-                </article>
-                {% endfor %}
-            </details>
-            {% endif %}
+<section class="interview-hub-section" aria-labelledby="technical-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Technical interviews</p>
+            <h2 id="technical-heading">Explain how you work</h2>
         </div>
-        <div class="evidence-header-actions">
-            <a class="button button-secondary" href="{% url 'evidence:project_explanation_edit' card.project.pk %}">
-                {% if card.explanation %}Edit explanation{% else %}Build explanation{% endif %}
-            </a>
+    </div>
+    <div class="interview-hub-grid">
+        <a class="interview-hub-card" href="{% url 'evidence:ai_coding_prep' %}">
+            <span class="interview-hub-card-kicker">AI coding</span>
+            <h3>AI-assisted coding prep</h3>
+            <p>Prepare answers about prompting, verification, debugging, safety and ownership.</p>
+            <strong>{{ prepared_ai_count }} of {{ ai_question_count }} answers prepared</strong>
+        </a>
+        <a class="interview-hub-card" href="{% url 'evidence:ai_repository_playbook' %}">
+            <span class="interview-hub-card-kicker">Repository work</span>
+            <h3>AI repository playbook</h3>
+            <p>Practise failing tests, small features, focused prompting and verification.</p>
+            <strong>{{ completed_repository_attempt_count }} of {{ repository_practice_target }} verified practices</strong>
+        </a>
+    </div>
+</section>
+
+<section class="interview-hub-section" aria-labelledby="perform-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Interview performance</p>
+            <h2 id="perform-heading">Know what to do in the room</h2>
         </div>
-    </article>
-    {% endfor %}
+    </div>
+    <div class="interview-hub-grid">
+        <a class="interview-hub-card" href="{% url 'evidence:general_interview_playbook' %}">
+            <span class="interview-hub-card-kicker">General guidance</span>
+            <h3>General interview playbook</h3>
+            <p>
+                Clarifying questions, thinking aloud, getting unstuck, closing and
+                stage-specific guidance.
+            </p>
+            <strong>Read-only guide with progressive disclosure</strong>
+        </a>
+        <a class="interview-hub-card" href="{% url 'interviews:list' %}">
+            <span class="interview-hub-card-kicker">Practice</span>
+            <h3>Mock interviews</h3>
+            <p>Practise under pressure and review what needs another attempt.</p>
+            <strong>Open mock interview workspace</strong>
+        </a>
+        <article class="interview-hub-card is-coming-soon">
+            <span class="interview-hub-card-kicker">Later milestone</span>
+            <h3>Company packs</h3>
+            <p>Role-specific preparation for Storyteller, Dentsu, Amazon and other targets.</p>
+            <strong>Coming later</strong>
+        </article>
+    </div>
 </section>
-{% else %}
-<section class="evidence-empty-state">
-    <p class="eyebrow">No projects yet</p>
-    <h2>Add the projects you expect interviewers to ask about.</h2>
-    <p>Start with ScoreRent, ViewCoach or your strongest work example.</p>
-    <a class="button" href="{% url 'evidence:create' %}">Add first project</a>
-</section>
-{% endif %}
 {% endblock %}

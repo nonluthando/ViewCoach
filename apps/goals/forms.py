@@ -11,6 +11,23 @@ class InterviewGoalForm(forms.ModelForm):
         required=False,
         label="Make this my primary goal",
     )
+    weekly_minutes = forms.IntegerField(
+        min_value=0,
+        max_value=6300,
+        label="Weekly study time",
+        help_text=(
+            "Enter your total available study time for the week. "
+            "Example: 600 minutes = 10 hours."
+        ),
+        error_messages={
+            "invalid": "Enter your weekly study time as a whole number of minutes.",
+            "min_value": "Weekly study time cannot be negative.",
+            "max_value": "Weekly study time cannot exceed 6300 minutes (105 hours).",
+        },
+        widget=forms.NumberInput(
+            attrs={"min": 0, "max": 6300, "step": 1, "inputmode": "numeric"}
+        ),
+    )
 
     class Meta:
         model = InterviewGoal
@@ -24,10 +41,8 @@ class InterviewGoalForm(forms.ModelForm):
         ]
         labels = {
             "roadmaps": "Relevant roadmaps",
-            "weekly_minutes": "Weekly study time",
         }
         help_texts = {
-            "weekly_minutes": "Total minutes you can realistically study each week.",
             "roadmaps": (
                 "Select every path that contributes to this goal. The planner will rotate "
                 "through the linked roadmaps instead of treating one role as one syllabus."
@@ -35,7 +50,6 @@ class InterviewGoalForm(forms.ModelForm):
         }
         widgets = {
             "roadmaps": forms.CheckboxSelectMultiple,
-            "weekly_minutes": forms.NumberInput(attrs={"min": 30, "step": 30}),
         }
 
     def __init__(self, *args, user=None, **kwargs):

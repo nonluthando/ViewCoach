@@ -13,6 +13,16 @@ urlpatterns = [
         name="interview_pack",
     ),
     path(
+        "interview-pack/projects/",
+        views.project_explanations,
+        name="project_explanations",
+    ),
+    path(
+        "interview-pack/general-playbook/",
+        views.general_interview_playbook,
+        name="general_interview_playbook",
+    ),
+    path(
         "projects/<int:evidence_id>/explanation/",
         views.project_explanation_edit,
         name="project_explanation_edit",

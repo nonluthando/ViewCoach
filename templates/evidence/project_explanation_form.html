@@ -5,9 +5,9 @@
 
 {% block content %}
 <nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'evidence:list' %}">Personal evidence</a>
+    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
     <span aria-hidden="true">/</span>
-    <a href="{% url 'evidence:interview_pack' %}">Interview pack</a>
+    <a href="{% url 'evidence:project_explanations' %}">Project explanations</a>
     <span aria-hidden="true">/</span>
     <span>{{ item.title }}</span>
 </nav>
@@ -17,7 +17,7 @@
     <h1>{{ item.title }}</h1>
     <p>
         Prepare the short answer first, then capture the detail you need for technical
-        follow-ups. Blank sections simply stay hidden from the interview pack.
+        follow-ups. Blank sections simply stay hidden from the project explanations page.
     </p>
 </section>
 
@@ -35,7 +35,7 @@
     </div>
     <div class="evidence-form-actions">
         <button class="button" type="submit">Save interview explanation</button>
-        <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">Cancel</a>
+        <a class="button button-secondary" href="{% url 'evidence:project_explanations' %}">Cancel</a>
     </div>
 </form>
 {% endblock %}

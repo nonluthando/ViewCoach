@@ -26,8 +26,8 @@ def explanation_payload():
     }
 
 
-def test_interview_pack_requires_authentication(client):
-    response = client.get(reverse("evidence:interview_pack"))
+def test_project_explanations_require_authentication(client):
+    response = client.get(reverse("evidence:project_explanations"))
 
     assert response.status_code == 302
     assert response.url.startswith(reverse("login"))
@@ -43,11 +43,11 @@ def test_user_can_save_a_project_explanation(client, user, evidence_item):
 
     explanation = ProjectExplanation.objects.get(evidence=evidence_item)
     assert response.status_code == 302
-    assert response.url == reverse("evidence:interview_pack")
+    assert response.url == reverse("evidence:project_explanations")
     assert explanation.quick_pitch.startswith("ViewCoach")
 
 
-def test_interview_pack_shows_the_users_project_explanation(
+def test_project_explanations_show_the_users_project_explanation(
     client,
     user,
     evidence_item,
@@ -58,14 +58,14 @@ def test_interview_pack_shows_the_users_project_explanation(
     )
     client.force_login(user)
 
-    response = client.get(reverse("evidence:interview_pack"))
+    response = client.get(reverse("evidence:project_explanations"))
 
     assert response.status_code == 200
     assert evidence_item.title in response.content.decode()
     assert "A focused project explanation." in response.content.decode()
 
 
-def test_interview_pack_does_not_show_other_users_projects(
+def test_project_explanations_do_not_show_other_users_projects(
     client,
     user,
     other_user,
@@ -81,7 +81,7 @@ def test_interview_pack_does_not_show_other_users_projects(
     )
     client.force_login(user)
 
-    response = client.get(reverse("evidence:interview_pack"))
+    response = client.get(reverse("evidence:project_explanations"))
     html = response.content.decode()
 
     assert "Private project" not in html

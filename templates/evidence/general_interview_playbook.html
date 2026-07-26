@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}General interview playbook | ViewCoach{% endblock %}
+{% block body_class %}general-interview-playbook-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
+    <span aria-hidden="true">/</span>
+    <span>General interview playbook</span>
+</nav>
+
+<section class="evidence-page-header">
+    <div>
+        <p class="eyebrow">General interview playbook</p>
+        <h1>Know what to do when the interview changes direction.</h1>
+        <p>
+            Read only what you need. Open a stage, then open the exact topic you want.
+            The rest stays out of the way.
+        </p>
+    </div>
+    <a class="button button-secondary" href="{% url 'evidence:interview_pack' %}">
+        Back to Interview Hub
+    </a>
+</section>
+
+<section class="interview-clarifying-framework" aria-labelledby="clarifying-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Quick framework</p>
+            <h2 id="clarifying-heading">Ask a useful clarifying question</h2>
+        </div>
+        <span>Restate → identify → ask → proceed</span>
+    </div>
+    <div class="interview-framework-grid">
+        <article><span>1</span><h3>Restate</h3><p>Briefly repeat your understanding of the task.</p></article>
+        <article><span>2</span><h3>Identify</h3><p>Name the ambiguity that could change your approach.</p></article>
+        <article><span>3</span><h3>Ask</h3><p>Ask one specific question instead of listing every uncertainty.</p></article>
+        <article><span>4</span><h3>Proceed</h3><p>If it stays open, state a reasonable assumption and continue.</p></article>
+    </div>
+</section>
+
+<section class="interview-playbook" aria-labelledby="playbook-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Progressive guidance</p>
+            <h2 id="playbook-heading">Choose the stage you need</h2>
+        </div>
+        <span>7 stages</span>
+    </div>
+
+    <div class="interview-playbook-stage-list">
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Communication toolkit</strong><small>Clarify, think aloud, recover and disagree professionally.</small></span><span>5 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic">
+                    <summary><span><strong>When to ask clarifying questions</strong><small>Ask when missing information could materially change the answer.</small></span></summary>
+                    <div class="interview-playbook-topic-body">
+                        <h3>Ask about</h3>
+                        <ul><li>The expected outcome or definition of success.</li><li>Ambiguous inputs, users, scope or constraints.</li><li>Edge cases that produce meaningfully different behaviour.</li><li>Permitted tools or assumptions in a timed assessment.</li></ul>
+                        <h3>Useful wording</h3>
+                        <ul class="interview-script-list"><li>“My understanding is that we need to return X. Should Y also be included?”</li><li>“Does the input guarantee X, or should I handle Y as well?”</li><li>“If there is no preference, I will assume X and explain the trade-off.”</li></ul>
+                        <h3>Avoid</h3><ul><li>Asking what the prompt already states.</li><li>Listing ten questions before showing any understanding.</li><li>Continuing silently when one ambiguity could invalidate the solution.</li></ul>
+                    </div>
+                </details>
+                <details class="interview-playbook-topic">
+                    <summary><span><strong>How to think aloud without rambling</strong><small>Expose decisions, not every passing thought.</small></span></summary>
+                    <div class="interview-playbook-topic-body"><h3>What to do</h3><ul><li>State the goal, current hypothesis and next check.</li><li>Explain why you choose one option over another.</li><li>Separate facts from assumptions.</li><li>Pause while reading; silence for a few seconds is normal.</li><li>Summarise after a long investigation.</li></ul><h3>Useful wording</h3><ul class="interview-script-list"><li>“The important constraint is X, so I am choosing Y.”</li><li>“I have two possible causes. I will test the cheaper one first.”</li><li>“Let me summarise where I am before I continue.”</li></ul></div>
+                </details>
+                <details class="interview-playbook-topic">
+                    <summary><span><strong>What to do when you get stuck</strong><small>Shrink the problem and make the next useful move visible.</small></span></summary>
+                    <div class="interview-playbook-topic-body"><h3>What to do</h3><ul><li>Restate what is known and unknown.</li><li>Return to the smallest failing example.</li><li>Check assumptions and intermediate values before redesigning.</li><li>Ask for a directional hint only after showing what you tried.</li><li>Use the hint, then explain the updated reasoning yourself.</li></ul><h3>Useful wording</h3><ul class="interview-script-list"><li>“I am stuck between X and Y. I ruled out Z because…”</li><li>“I am going to reduce this to the smallest example and trace it.”</li><li>“Could you confirm whether I am looking in the right area?”</li></ul></div>
+                </details>
+                <details class="interview-playbook-topic">
+                    <summary><span><strong>How to handle an unknown answer</strong><small>Be honest, connect adjacent knowledge and explain how you would verify it.</small></span></summary>
+                    <div class="interview-playbook-topic-body"><h3>What to do</h3><ul><li>Name the exact part you do not know.</li><li>Connect the nearest relevant experience without pretending it is identical.</li><li>Explain how you would verify the answer.</li><li>Do not invent library behaviour, syntax or production facts.</li></ul><h3>Useful wording</h3><ul class="interview-script-list"><li>“I have not used that service directly, so I do not want to guess.”</li><li>“The closest experience I have is X, where the principle was Y.”</li><li>“I would verify that in the official documentation and a small test.”</li></ul></div>
+                </details>
+                <details class="interview-playbook-topic">
+                    <summary><span><strong>How to challenge an assumption politely</strong><small>Ground the concern in the shared goal and trade-off.</small></span></summary>
+                    <div class="interview-playbook-topic-body"><h3>What to do</h3><ul><li>Confirm the shared goal first.</li><li>Explain the risk rather than calling the idea wrong.</li><li>Offer an alternative and invite correction.</li><li>Change course when a missing constraint is supplied.</li></ul><h3>Useful wording</h3><ul class="interview-script-list"><li>“That could work. My concern is X because it may affect Y.”</li><li>“Would it be reasonable to compare that with Z before deciding?”</li><li>“I may be missing a constraint, but with the current information I would prefer X.”</li></ul></div>
+                </details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Before the interview</strong><small>Prepare evidence, role context and logistics.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Prepare your evidence bank</strong><small>Choose reusable examples instead of memorising dozens of answers.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Prepare a concise introduction and two or three project explanations.</li><li>Prepare STAR stories for ownership, conflict, failure, learning and collaboration.</li><li>Attach outcomes, decisions and lessons to every example.</li><li>Know which examples match the role's main requirements.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Research with a purpose</strong><small>Research only what improves your answers or questions.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Understand the product, customers, role and likely team problems.</li><li>Know why the role fits your direction.</li><li>Prepare two questions the advert cannot answer.</li><li>Confirm the format, duration, platform and expected tools.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Set up the environment</strong><small>Remove preventable technical and logistical failures.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Test the meeting link, microphone, camera, editor and connection.</li><li>Keep the job description, CV and blank notes available.</li><li>Join early enough to solve issues without arriving rushed.</li><li>For assessments, confirm repository setup and the test command.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Recruiter screen</strong><small>Show motivation, baseline fit and practical alignment.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Introduce yourself</strong><small>Connect your background, strengths and reason for this role.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Start with your current professional identity.</li><li>Select two or three experiences relevant to the role.</li><li>End with why this is the logical next step.</li><li>Keep the first version around one minute.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Clarify the opportunity</strong><small>Understand the process and whether the role matches.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Ask what the new hire should contribute first.</li><li>Confirm interview stages and assessment format.</li><li>Ask how junior developers are supported and evaluated.</li><li>Clarify location, work pattern and timing where relevant.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Discuss gaps without disqualifying yourself</strong><small>Separate missing exposure from missing ability.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Acknowledge the exact gap.</li><li>Connect adjacent experience and your learning process.</li><li>Give evidence that you have learned unfamiliar tools before.</li><li>Do not claim experience you cannot support.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Behavioural interview</strong><small>Use specific evidence to show how you act, decide and learn.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Build a strong STAR answer</strong><small>Keep context short and spend most of the answer on your actions.</small></span></summary><div class="interview-playbook-topic-body"><ul><li><strong>Situation:</strong> only the context needed.</li><li><strong>Task:</strong> your responsibility and success condition.</li><li><strong>Action:</strong> what you personally did, why and in what order.</li><li><strong>Result:</strong> outcome and evidence.</li><li><strong>Reflection:</strong> what you learned or would improve.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Handle follow-up questions</strong><small>Expect ownership, alternatives and credibility to be tested.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Explain why you chose that action.</li><li>Name alternatives and trade-offs.</li><li>State what you would do differently now.</li><li>Explain how teammates or users responded.</li><li>Keep details consistent with the original story.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Answer failure and conflict questions</strong><small>Show ownership and learning rather than perfection.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Choose a real example with a meaningful but recoverable consequence.</li><li>Own your part without blaming others.</li><li>Explain the corrective and prevention steps.</li><li>For conflict, return the discussion to the shared goal.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Technical discussion</strong><small>Demonstrate fundamentals, structure and trade-offs.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Structure a technical answer</strong><small>Define, explain, apply and qualify.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Start with a plain-language definition.</li><li>Explain the mechanism or components.</li><li>Connect it to a project or practical example.</li><li>Name a limitation or trade-off.</li><li>Check whether the interviewer wants deeper detail.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Approach a design question</strong><small>Clarify the goal before naming technologies.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Clarify users, scale, reliability, latency, security and operations.</li><li>Describe the simplest end-to-end flow first.</li><li>Identify data ownership and system boundaries.</li><li>Discuss one bottleneck at a time.</li><li>State what you would measure before optimising.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Explain project architecture</strong><small>Tell the story of a request rather than listing the stack.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Start with the problem and users.</li><li>Trace one request through the system.</li><li>Explain the data model and external dependencies.</li><li>Highlight decisions you personally made.</li><li>Finish with testing, trade-offs and scaling.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Coding or repository assessment</strong><small>Make understanding, implementation and verification visible.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Before writing code</strong><small>Confirm behaviour and establish a baseline.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Read the whole task and restate the output.</li><li>Clarify constraints that change the approach.</li><li>Run supplied tests before editing an unfamiliar repository.</li><li>Trace a small example manually.</li><li>State the approach and complexity.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>While implementing</strong><small>Work in small, explainable steps.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Reuse existing patterns and helpers.</li><li>Keep changes narrow and run focused checks early.</li><li>Name assumptions and edge cases.</li><li>Verify every AI suggestion.</li><li>Avoid unrelated refactoring during a timed task.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Before submitting</strong><small>Prove more than “the visible test passed”.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Run targeted tests and the full suite.</li><li>Check boundaries, invalid input, permissions and errors.</li><li>Review the final diff.</li><li>Confirm you can explain every changed line.</li><li>State remaining limitations honestly.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Hiring-manager or final interview</strong><small>Connect your evidence to the team's needs.</small></span><span>2 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Show role-level judgement</strong><small>Explain priorities and decisions, not only tasks.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Explain how you balance speed, correctness and scope.</li><li>Give examples of asking for help at the right time.</li><li>Show how you communicate risk and progress.</li><li>Connect growth areas to real team work.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Evaluate the environment</strong><small>Understand expectations, support and ownership.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Ask what success looks like in the first three months.</li><li>Ask how work is reviewed and feedback is given.</li><li>Ask how junior engineers gain context and ownership.</li><li>Ask what currently makes the team's work difficult.</li></ul></div></details>
+            </div>
+        </details>
+
+        <details class="interview-playbook-stage">
+            <summary><span><strong>Closing and follow-up</strong><small>End clearly and improve the next interview.</small></span><span>3 topics</span></summary>
+            <div class="interview-playbook-stage-body">
+                <details class="interview-playbook-topic"><summary><span><strong>Questions to ask the interviewer</strong><small>Ask questions that affect your understanding or decision.</small></span></summary><div class="interview-playbook-topic-body"><ul class="interview-script-list"><li>“What would you want the person in this role to improve first?”</li><li>“What distinguishes someone who does well on this team?”</li><li>“How does the team balance delivery with technical improvement?”</li><li>“What challenge is the team actively working through?”</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Close the conversation</strong><small>Reinforce interest without another long speech.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Thank the interviewer.</li><li>Briefly connect one role detail to your interest or experience.</li><li>Ask about the next step if it was not explained.</li><li>Do not introduce a completely new life story at the end.</li></ul></div></details>
+                <details class="interview-playbook-topic"><summary><span><strong>Reflect afterwards</strong><small>Capture evidence while details are fresh.</small></span></summary><div class="interview-playbook-topic-body"><ul><li>Record the questions and unclear answers.</li><li>Separate technical gaps from communication gaps.</li><li>Write improved answer points, not a script.</li><li>Record follow-ups and promised information.</li><li>Turn repeated gaps into future study or mock tasks.</li></ul></div></details>
+            </div>
+        </details>
+    </div>
+</section>
+{% endblock %}
