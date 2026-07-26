@@ -27,6 +27,21 @@ urlpatterns = [
         views.ai_prep_answer_save,
         name="ai_prep_answer_save",
     ),
+    path(
+        "ai-repository-playbook/",
+        views.ai_repository_playbook,
+        name="ai_repository_playbook",
+    ),
+    path(
+        "ai-repository-playbook/attempts/",
+        views.ai_repository_attempt_add,
+        name="ai_repository_attempt_add",
+    ),
+    path(
+        "ai-repository-playbook/attempts/<int:attempt_id>/delete/",
+        views.ai_repository_attempt_delete,
+        name="ai_repository_attempt_delete",
+    ),
     path("<int:evidence_id>/", views.evidence_detail, name="detail"),
     path("<int:evidence_id>/edit/", views.evidence_edit, name="edit"),
     path("<int:evidence_id>/delete/", views.evidence_delete, name="delete"),

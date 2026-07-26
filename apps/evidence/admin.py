@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     AIPrepAnswer,
+    AIRepositoryPracticeAttempt,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -42,6 +43,20 @@ class AIPrepAnswerAdmin(admin.ModelAdmin):
     list_display = ("user", "question_key", "supporting_evidence", "updated_at")
     search_fields = ("user__email", "question_key", "answer_notes")
     raw_id_fields = ("user", "supporting_evidence")
+
+
+@admin.register(AIRepositoryPracticeAttempt)
+class AIRepositoryPracticeAttemptAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "user",
+        "scenario_type",
+        "practiced_on",
+        "duration_minutes",
+        "full_suite_passed",
+    )
+    list_filter = ("scenario_type", "feature_completed", "full_suite_passed")
+    search_fields = ("title", "user__email", "reflection", "ai_use_note")
 
 
 @admin.register(TopicEvidenceProfile)

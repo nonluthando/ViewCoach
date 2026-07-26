@@ -12,8 +12,17 @@ from apps.questions.models import Question
 from apps.roadmaps.models import RoadmapTopic
 
 from .ai_prep import AI_ASSISTED_INTERVIEW_QUESTIONS, AI_INTERVIEW_QUESTION_BY_KEY
+from .ai_repository_playbook import (
+    AI_USE_NOTE_TEMPLATE,
+    COMMON_MISTAKES,
+    PROMPT_TEMPLATES,
+    SPEAK_ALOUD_LINES,
+    TIMED_REPOSITORY_WORKFLOW,
+    VERIFICATION_CHECKLIST,
+)
 from .forms import (
     AIPrepAnswerForm,
+    AIRepositoryPracticeAttemptForm,
     BehaviouralStoryForm,
     DecisionRecordForm,
     EvidenceItemForm,
@@ -25,6 +34,7 @@ from .forms import (
 )
 from .models import (
     AIPrepAnswer,
+    AIRepositoryPracticeAttempt,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -283,6 +293,63 @@ def ai_prep_answer_save(request, question_key):
         messages.error(request, "Check the answer notes and supporting evidence.")
 
     return redirect("evidence:ai_coding_prep")
+
+
+@login_required
+def ai_repository_playbook(request):
+    attempts = AIRepositoryPracticeAttempt.objects.filter(
+        user=request.user
+    ).order_by("-practiced_on", "-created_at")
+    completed_attempt_count = attempts.filter(
+        full_suite_passed=True,
+        feature_completed=True,
+    ).count()
+
+    return render(
+        request,
+        "evidence/ai_repository_playbook.html",
+        {
+            "workflow": TIMED_REPOSITORY_WORKFLOW,
+            "prompt_templates": PROMPT_TEMPLATES,
+            "verification_checklist": VERIFICATION_CHECKLIST,
+            "ai_use_note_template": AI_USE_NOTE_TEMPLATE,
+            "speak_aloud_lines": SPEAK_ALOUD_LINES,
+            "common_mistakes": COMMON_MISTAKES,
+            "attempt_form": AIRepositoryPracticeAttemptForm(),
+            "attempts": attempts[:10],
+            "attempt_count": attempts.count(),
+            "completed_attempt_count": completed_attempt_count,
+            "practice_target": 3,
+        },
+    )
+
+
+@login_required
+@require_POST
+def ai_repository_attempt_add(request):
+    form = AIRepositoryPracticeAttemptForm(request.POST)
+    if form.is_valid():
+        attempt = form.save(commit=False)
+        attempt.user = request.user
+        attempt.full_clean()
+        attempt.save()
+        messages.success(request, "Repository practice attempt recorded.")
+    else:
+        messages.error(request, "Check the practice details and try again.")
+    return redirect("evidence:ai_repository_playbook")
+
+
+@login_required
+@require_POST
+def ai_repository_attempt_delete(request, attempt_id):
+    attempt = get_object_or_404(
+        AIRepositoryPracticeAttempt,
+        user=request.user,
+        pk=attempt_id,
+    )
+    attempt.delete()
+    messages.success(request, "Practice attempt removed.")
+    return redirect("evidence:ai_repository_playbook")
 
 
 @login_required

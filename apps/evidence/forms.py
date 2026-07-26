@@ -2,6 +2,7 @@ from django import forms
 
 from .models import (
     AIPrepAnswer,
+    AIRepositoryPracticeAttempt,
     BehaviouralStory,
     DecisionRecord,
     EvidenceItem,
@@ -129,6 +130,43 @@ class AIPrepAnswerForm(forms.ModelForm):
         widgets = {
             "answer_notes": forms.Textarea(attrs={"rows": 6}),
         }
+
+
+class AIRepositoryPracticeAttemptForm(forms.ModelForm):
+    class Meta:
+        model = AIRepositoryPracticeAttempt
+        fields = [
+            "title",
+            "scenario_type",
+            "practiced_on",
+            "duration_minutes",
+            "tests_fixed",
+            "feature_completed",
+            "full_suite_passed",
+            "ai_use_note",
+            "reflection",
+        ]
+        labels = {
+            "title": "Practice exercise",
+            "practiced_on": "Date",
+            "duration_minutes": "Minutes used",
+            "tests_fixed": "Failing tests fixed",
+            "feature_completed": "Requested feature completed",
+            "full_suite_passed": "Full suite passed",
+            "ai_use_note": "AI-use note",
+            "reflection": "What I would improve next time",
+        }
+        widgets = {
+            "practiced_on": forms.DateInput(attrs={"type": "date"}),
+            "ai_use_note": forms.Textarea(attrs={"rows": 6}),
+            "reflection": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def clean_duration_minutes(self):
+        duration = self.cleaned_data["duration_minutes"]
+        if not 15 <= duration <= 180:
+            raise forms.ValidationError("Use a duration between 15 and 180 minutes.")
+        return duration
 
 
 class DecisionRecordForm(forms.ModelForm):

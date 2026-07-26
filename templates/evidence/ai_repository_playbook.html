@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}AI repository playbook | ViewCoach{% endblock %}
+{% block body_class %}ai-repository-playbook-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:list' %}">Personal evidence</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'evidence:interview_pack' %}">Interview pack</a>
+    <span aria-hidden="true">/</span>
+    <span>AI repository playbook</span>
+</nav>
+
+<section class="evidence-page-header">
+    <div>
+        <p class="eyebrow">AI-assisted repository assessments</p>
+        <h1>Use AI without giving away the engineering.</h1>
+        <p>
+            A practical workflow for failing tests, small features, verification,
+            pair-programming follow-ups and transparent AI-use notes.
+        </p>
+    </div>
+    <a class="button button-secondary" href="{% url 'evidence:ai_coding_prep' %}">
+        AI interview questions
+    </a>
+</section>
+
+<section class="evidence-narrative" aria-label="Practice progress">
+    <div class="evidence-narrative-grid">
+        <article>
+            <h3>Practice target</h3>
+            <p>{{ practice_target }} timed exercises</p>
+        </article>
+        <article>
+            <h3>Attempts recorded</h3>
+            <p>{{ attempt_count }}</p>
+        </article>
+        <article>
+            <h3>Completed and verified</h3>
+            <p>{{ completed_attempt_count }}</p>
+        </article>
+        <article>
+            <h3>Default format</h3>
+            <p>60 minutes: failures, feature, verification and AI note.</p>
+        </article>
+    </div>
+</section>
+
+<section class="evidence-section" aria-labelledby="timed-workflow-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Storyteller-style practice</p>
+            <h2 id="timed-workflow-heading">The 60-minute workflow</h2>
+        </div>
+        <span>{{ workflow|length }} phases</span>
+    </div>
+    <div class="evidence-record-list">
+        {% for step in workflow %}
+        <article class="evidence-record">
+            <div class="evidence-record-heading">
+                <h3>{{ step.title }}</h3>
+                <span>{{ step.minutes }} minutes</span>
+            </div>
+            <ol>
+                {% for action in step.actions %}<li>{{ action }}</li>{% endfor %}
+            </ol>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="evidence-section" aria-labelledby="prompt-playbook-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Prompting playbook</p>
+            <h2 id="prompt-playbook-heading">Prompts that preserve your judgement</h2>
+        </div>
+        <span>{{ prompt_templates|length }} templates</span>
+    </div>
+    <div class="evidence-record-list">
+        {% for template in prompt_templates %}
+        <article class="evidence-record">
+            <h3>{{ template.title }}</h3>
+            <h4>Use when</h4>
+            <p>{{ template.use_when }}</p>
+            <h4>Prompt</h4>
+            <pre><code>{{ template.prompt }}</code></pre>
+            <h4>Why it works</h4>
+            <p>{{ template.why_it_works }}</p>
+            <h4>Avoid</h4>
+            <p>{{ template.weak_prompt }}</p>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="evidence-section" aria-labelledby="verification-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Before submission</p>
+            <h2 id="verification-heading">Verification checklist</h2>
+        </div>
+        <span>{{ verification_checklist|length }} checks</span>
+    </div>
+    <ol>
+        {% for check in verification_checklist %}<li>{{ check }}</li>{% endfor %}
+    </ol>
+</section>
+
+<section class="evidence-section" aria-labelledby="ai-note-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Transparent assistance</p>
+            <h2 id="ai-note-heading">AI-use note template</h2>
+        </div>
+    </div>
+    <pre><code>{% for line in ai_use_note_template %}{{ line }}
+{% endfor %}</code></pre>
+</section>
+
+<section class="evidence-section" aria-labelledby="pairing-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Pair programming</p>
+            <h2 id="pairing-heading">Speak while you work</h2>
+        </div>
+    </div>
+    <ul>
+        {% for line in speak_aloud_lines %}<li>“{{ line }}”</li>{% endfor %}
+    </ul>
+</section>
+
+<section class="evidence-section" aria-labelledby="mistakes-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Failure modes</p>
+            <h2 id="mistakes-heading">Common AI-assisted assessment mistakes</h2>
+        </div>
+        <span>{{ common_mistakes|length }} mistakes</span>
+    </div>
+    <div class="evidence-record-list">
+        {% for item in common_mistakes %}
+        <article class="evidence-record">
+            <h3>{{ item.mistake }}</h3>
+            <h4>Why it hurts</h4>
+            <p>{{ item.why_it_hurts }}</p>
+            <h4>Better action</h4>
+            <p>{{ item.better_action }}</p>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="evidence-section" aria-labelledby="practice-log-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Deliberate practice</p>
+            <h2 id="practice-log-heading">Repository practice log</h2>
+        </div>
+    </div>
+
+    <details class="evidence-add-panel" open>
+        <summary>Record a timed attempt</summary>
+        <form method="post" action="{% url 'evidence:ai_repository_attempt_add' %}">
+            {% csrf_token %}
+            {% for field in attempt_form %}
+            <div class="form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <button class="button" type="submit">Save practice attempt</button>
+        </form>
+    </details>
+
+    {% if attempts %}
+    <div class="evidence-record-list">
+        {% for attempt in attempts %}
+        <article class="evidence-record">
+            <div class="evidence-record-heading">
+                <h3>{{ attempt.title }}</h3>
+                <span>{{ attempt.practiced_on|date:"j M Y" }}</span>
+            </div>
+            <p>
+                {{ attempt.get_scenario_type_display }} · {{ attempt.duration_minutes }} minutes ·
+                {{ attempt.outcome_label }}
+            </p>
+            <dl class="evidence-link-summary">
+                <div><dt>Tests fixed</dt><dd>{{ attempt.tests_fixed }}</dd></div>
+                <div><dt>Feature completed</dt><dd>{{ attempt.feature_completed|yesno:"Yes,No" }}</dd></div>
+                <div><dt>Full suite passed</dt><dd>{{ attempt.full_suite_passed|yesno:"Yes,No" }}</dd></div>
+            </dl>
+            {% if attempt.ai_use_note %}<h4>AI-use note</h4>{{ attempt.ai_use_note|linebreaks }}{% endif %}
+            {% if attempt.reflection %}<h4>Next improvement</h4>{{ attempt.reflection|linebreaks }}{% endif %}
+            <form method="post" action="{% url 'evidence:ai_repository_attempt_delete' attempt.pk %}">
+                {% csrf_token %}
+                <button class="evidence-remove-button" type="submit">Remove attempt</button>
+            </form>
+        </article>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.goals.models import InterviewGoal
 from apps.questions.models import Question
@@ -176,6 +177,63 @@ class AIPrepAnswer(models.Model):
         question = self.question
         label = question.question if question else self.question_key
         return f"{self.user}: {label}"
+
+
+class AIRepositoryPracticeAttempt(models.Model):
+    class ScenarioType(models.TextChoices):
+        DEBUGGING = "DEBUGGING", "Debugging failures"
+        FEATURE = "FEATURE", "Small feature"
+        MIXED = "MIXED", "Debugging and feature"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="ai_repository_practice_attempts",
+    )
+    title = models.CharField(max_length=180)
+    scenario_type = models.CharField(
+        max_length=12,
+        choices=ScenarioType.choices,
+        default=ScenarioType.MIXED,
+    )
+    practiced_on = models.DateField(default=timezone.localdate)
+    duration_minutes = models.PositiveSmallIntegerField(default=60)
+    tests_fixed = models.PositiveSmallIntegerField(default=0)
+    feature_completed = models.BooleanField(default=False)
+    full_suite_passed = models.BooleanField(default=False)
+    ai_use_note = models.TextField(blank=True)
+    reflection = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-practiced_on", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "-practiced_on"],
+                name="ai_repo_user_practice_idx",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if not 15 <= self.duration_minutes <= 180:
+            raise ValidationError(
+                {"duration_minutes": "Practice duration must be between 15 and 180 minutes."}
+            )
+
+    @property
+    def outcome_label(self):
+        if self.full_suite_passed and self.feature_completed:
+            return "Completed and verified"
+        if self.full_suite_passed:
+            return "Fixes verified"
+        if self.tests_fixed or self.feature_completed:
+            return "Partially completed"
+        return "Attempt recorded"
+
+    def __str__(self):
+        return f"{self.user}: {self.title}"
 
 
 class DecisionRecord(models.Model):
