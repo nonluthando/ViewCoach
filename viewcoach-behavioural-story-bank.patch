@@ -1,0 +1,1080 @@
+diff --git a/apps/evidence/behavioural_playbook.py b/apps/evidence/behavioural_playbook.py
+new file mode 100644
+index 0000000..3db3af9
+--- /dev/null
++++ b/apps/evidence/behavioural_playbook.py
+@@ -0,0 +1,83 @@
++BEHAVIOURAL_COMPETENCIES = (
++    {
++        "key": "ownership",
++        "label": "Ownership",
++        "aliases": ("ownership", "accountability", "responsibility"),
++        "questions": (
++            "Tell me about a time you took ownership beyond your assigned task.",
++            "Describe a problem you noticed and fixed without being asked.",
++        ),
++    },
++    {
++        "key": "problem-solving",
++        "label": "Problem solving",
++        "aliases": ("problem solving", "problem-solving", "debugging", "analysis"),
++        "questions": (
++            "Tell me about a difficult problem you had to break down.",
++            "Describe a time your first approach did not work.",
++        ),
++    },
++    {
++        "key": "teamwork",
++        "label": "Teamwork",
++        "aliases": ("teamwork", "collaboration", "team"),
++        "questions": (
++            "Tell me about a time you helped a team deliver.",
++            "Describe how you worked with someone whose approach differed from yours.",
++        ),
++    },
++    {
++        "key": "communication",
++        "label": "Communication",
++        "aliases": ("communication", "stakeholder", "documentation", "presentation"),
++        "questions": (
++            "Tell me about a time you explained something complex clearly.",
++            "Describe a communication mistake and how you corrected it.",
++        ),
++    },
++    {
++        "key": "learning-adaptability",
++        "label": "Learning and adaptability",
++        "aliases": ("learning", "adaptability", "adaptable", "growth"),
++        "questions": (
++            "Tell me about a time you had to learn something quickly.",
++            "Describe how you handled a major change in requirements or context.",
++        ),
++    },
++    {
++        "key": "conflict",
++        "label": "Conflict and disagreement",
++        "aliases": ("conflict", "disagreement", "negotiation", "challenge"),
++        "questions": (
++            "Tell me about a disagreement with a teammate.",
++            "Describe a time you challenged a decision respectfully.",
++        ),
++    },
++    {
++        "key": "failure-recovery",
++        "label": "Failure and recovery",
++        "aliases": ("failure", "recovery", "mistake", "resilience"),
++        "questions": (
++            "Tell me about a meaningful mistake or failure.",
++            "Describe a setback and what you changed afterwards.",
++        ),
++    },
++    {
++        "key": "leadership-initiative",
++        "label": "Leadership and initiative",
++        "aliases": ("leadership", "initiative", "mentoring", "influence"),
++        "questions": (
++            "Tell me about a time you led without formal authority.",
++            "Describe a time you helped someone else succeed.",
++        ),
++    },
++)
++
++BEHAVIOURAL_COMPETENCY_BY_KEY = {
++    competency["key"]: competency for competency in BEHAVIOURAL_COMPETENCIES
++}
++
++
++def story_matches_competency(story, competency):
++    competency_text = story.competencies.lower()
++    return any(alias in competency_text for alias in competency["aliases"])
+diff --git a/apps/evidence/forms.py b/apps/evidence/forms.py
+index 1591f66..d8c0f4a 100644
+--- a/apps/evidence/forms.py
++++ b/apps/evidence/forms.py
+@@ -226,6 +226,48 @@ class BehaviouralStoryForm(forms.ModelForm):
+         }
+ 
+ 
++class BehaviouralStoryBankForm(forms.ModelForm):
++    def __init__(self, *args, user=None, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.fields["evidence"].queryset = EvidenceItem.objects.filter(
++            owner=user
++        ).order_by("title")
++
++    class Meta:
++        model = BehaviouralStory
++        fields = [
++            "evidence",
++            "title",
++            "situation",
++            "task",
++            "actions",
++            "result",
++            "reflection",
++            "competencies",
++            "follow_up_questions",
++        ]
++        labels = {
++            "evidence": "Supporting evidence",
++            "actions": "Actions I personally took",
++            "competencies": "Competencies demonstrated",
++            "follow_up_questions": "Likely follow-up questions",
++        }
++        help_texts = {
++            "evidence": "Choose the real project, work, leadership or incident behind this story.",
++            "competencies": "Separate competencies with commas.",
++            "follow_up_questions": "Add one likely interviewer question per line.",
++        }
++        widgets = {
++            "situation": forms.Textarea(attrs={"rows": 4}),
++            "task": forms.Textarea(attrs={"rows": 3}),
++            "actions": forms.Textarea(attrs={"rows": 6}),
++            "result": forms.Textarea(attrs={"rows": 4}),
++            "reflection": forms.Textarea(attrs={"rows": 4}),
++            "competencies": forms.Textarea(attrs={"rows": 2}),
++            "follow_up_questions": forms.Textarea(attrs={"rows": 5}),
++        }
++
++
+ class TopicEvidenceProfileForm(forms.ModelForm):
+     class Meta:
+         model = TopicEvidenceProfile
+diff --git a/apps/evidence/models.py b/apps/evidence/models.py
+index 79213cf..05aa394 100644
+--- a/apps/evidence/models.py
++++ b/apps/evidence/models.py
+@@ -271,6 +271,15 @@ class DecisionRecord(models.Model):
+ 
+ 
+ class BehaviouralStory(models.Model):
++    INTERVIEW_READY_FIELDS = (
++        ("situation", "Situation"),
++        ("actions", "Actions"),
++        ("result", "Result"),
++        ("reflection", "Reflection"),
++        ("competencies", "Competencies"),
++        ("follow_up_questions", "Follow-up questions"),
++    )
++
+     evidence = models.ForeignKey(
+         EvidenceItem,
+         on_delete=models.CASCADE,
+@@ -294,6 +303,37 @@ class BehaviouralStory(models.Model):
+     def competency_list(self):
+         return [item.strip() for item in self.competencies.split(",") if item.strip()]
+ 
++    @property
++    def follow_up_question_list(self):
++        return [
++            item.strip()
++            for item in self.follow_up_questions.splitlines()
++            if item.strip()
++        ]
++
++    @property
++    def completed_interview_sections(self):
++        return sum(
++            bool(getattr(self, field_name).strip())
++            for field_name, _ in self.INTERVIEW_READY_FIELDS
++        )
++
++    @property
++    def total_interview_sections(self):
++        return len(self.INTERVIEW_READY_FIELDS)
++
++    @property
++    def is_interview_ready(self):
++        return self.completed_interview_sections == self.total_interview_sections
++
++    @property
++    def missing_interview_sections(self):
++        return [
++            label
++            for field_name, label in self.INTERVIEW_READY_FIELDS
++            if not getattr(self, field_name).strip()
++        ]
++
+     def __str__(self):
+         return self.title
+ 
+diff --git a/apps/evidence/tests/test_behavioural_story_bank.py b/apps/evidence/tests/test_behavioural_story_bank.py
+new file mode 100644
+index 0000000..827221e
+--- /dev/null
++++ b/apps/evidence/tests/test_behavioural_story_bank.py
+@@ -0,0 +1,173 @@
++import pytest
++from django.urls import reverse
++
++from apps.evidence.models import BehaviouralStory, EvidenceItem
++
++pytestmark = pytest.mark.django_db
++
++
++def _story(evidence, **overrides):
++    values = {
++        "title": "Recovered a failing release",
++        "situation": "A deployment failed before a deadline.",
++        "task": "Restore the release without losing recent work.",
++        "actions": "I traced the configuration mismatch and repaired the release.",
++        "result": "The release passed its checks and shipped.",
++        "reflection": "I now validate deployment configuration earlier.",
++        "competencies": "Ownership, Problem solving",
++        "follow_up_questions": "How did you isolate the failure?",
++    }
++    values.update(overrides)
++    return BehaviouralStory.objects.create(evidence=evidence, **values)
++
++
++def test_behavioural_story_readiness_tracks_missing_sections(evidence_item):
++    story = _story(
++        evidence_item,
++        result="",
++        follow_up_questions="",
++    )
++
++    assert story.completed_interview_sections == 4
++    assert story.total_interview_sections == 6
++    assert story.is_interview_ready is False
++    assert story.missing_interview_sections == ["Result", "Follow-up questions"]
++
++
++def test_behavioural_story_bank_requires_authentication(client):
++    response = client.get(reverse("evidence:behavioural_story_bank"))
++
++    assert response.status_code == 302
++    assert response.url.startswith(reverse("login"))
++
++
++def test_behavioural_story_bank_shows_progress_and_hides_other_users_stories(
++    client,
++    user,
++    evidence_item,
++    other_evidence,
++):
++    _story(evidence_item)
++    _story(
++        other_evidence,
++        title="Private employer conflict",
++        competencies="Conflict",
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("evidence:behavioural_story_bank"))
++    html = response.content.decode()
++
++    assert response.status_code == 200
++    assert "Behavioural story bank" in html
++    assert "Recovered a failing release" in html
++    assert "Private employer conflict" not in html
++    assert "2 of 8" in html
++    assert "Interview ready" in html
++    assert "Tell me about a time you took ownership" in html
++
++
++def test_user_can_create_story_from_story_bank(client, user, evidence_item):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:behavioural_story_create"),
++        {
++            "evidence": evidence_item.pk,
++            "title": "Learned Django quickly",
++            "situation": "The project stack changed.",
++            "task": "Become productive in the new stack.",
++            "actions": "I traced an existing feature and built a small vertical slice.",
++            "result": "I delivered the assigned feature.",
++            "reflection": "A working slice exposes gaps faster than passive reading.",
++            "competencies": "Learning, Adaptability",
++            "follow_up_questions": "What did you find hardest?",
++        },
++    )
++
++    assert response.status_code == 302
++    assert response.url == reverse("evidence:behavioural_story_bank")
++    assert BehaviouralStory.objects.filter(
++        evidence=evidence_item,
++        title="Learned Django quickly",
++    ).exists()
++
++
++def test_story_bank_form_rejects_another_users_evidence(
++    client,
++    user,
++    other_evidence,
++):
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:behavioural_story_create"),
++        {
++            "evidence": other_evidence.pk,
++            "title": "Unsupported private story",
++            "situation": "Private.",
++            "task": "Private.",
++            "actions": "Private.",
++            "result": "Private.",
++            "reflection": "Private.",
++            "competencies": "Ownership",
++            "follow_up_questions": "Private?",
++        },
++    )
++
++    assert response.status_code == 200
++    assert BehaviouralStory.objects.filter(title="Unsupported private story").exists() is False
++
++
++def test_user_can_edit_their_story_but_not_another_users(
++    client,
++    user,
++    evidence_item,
++    other_evidence,
++):
++    story = _story(evidence_item)
++    private_story = _story(other_evidence, title="Private story")
++    client.force_login(user)
++
++    response = client.post(
++        reverse("evidence:behavioural_story_edit", args=[story.pk]),
++        {
++            "evidence": evidence_item.pk,
++            "title": "Recovered a production release",
++            "situation": story.situation,
++            "task": story.task,
++            "actions": story.actions,
++            "result": story.result,
++            "reflection": story.reflection,
++            "competencies": story.competencies,
++            "follow_up_questions": story.follow_up_questions,
++        },
++    )
++    private_response = client.get(
++        reverse("evidence:behavioural_story_edit", args=[private_story.pk])
++    )
++
++    story.refresh_from_db()
++    assert response.status_code == 302
++    assert story.title == "Recovered a production release"
++    assert private_response.status_code == 404
++
++
++def test_story_bank_can_filter_by_competency(client, user, evidence_item):
++    _story(evidence_item, title="Owned the release", competencies="Ownership")
++    _story(
++        evidence_item,
++        title="Resolved a disagreement",
++        competencies="Conflict, Communication",
++    )
++    client.force_login(user)
++
++    response = client.get(
++        reverse("evidence:behavioural_story_bank"),
++        {"competency": "conflict"},
++    )
++    html = response.content.decode()
++
++    assert response.status_code == 200
++    assert "Resolved a disagreement" in html
++    assert "Owned the release" not in html
+diff --git a/apps/evidence/tests/test_interview_hub_and_general_playbook.py b/apps/evidence/tests/test_interview_hub_and_general_playbook.py
+index 21f5a28..edb7381 100644
+--- a/apps/evidence/tests/test_interview_hub_and_general_playbook.py
++++ b/apps/evidence/tests/test_interview_hub_and_general_playbook.py
+@@ -64,6 +64,7 @@ def test_interview_hub_exposes_preparation_areas_and_progress(client, user):
+     assert response.status_code == 200
+     assert "Interview Hub" in html
+     assert "Project explanations" in html
++    assert "Behavioural story bank" in html
+     assert "AI-assisted coding prep" in html
+     assert "AI repository playbook" in html
+     assert "General interview playbook" in html
+diff --git a/apps/evidence/urls.py b/apps/evidence/urls.py
+index 18cabf7..b53495a 100644
+--- a/apps/evidence/urls.py
++++ b/apps/evidence/urls.py
+@@ -22,6 +22,26 @@ urlpatterns = [
+         views.general_interview_playbook,
+         name="general_interview_playbook",
+     ),
++    path(
++        "interview-pack/behavioural-stories/",
++        views.behavioural_story_bank,
++        name="behavioural_story_bank",
++    ),
++    path(
++        "interview-pack/behavioural-stories/new/",
++        views.behavioural_story_create,
++        name="behavioural_story_create",
++    ),
++    path(
++        "interview-pack/behavioural-stories/<int:story_id>/edit/",
++        views.behavioural_story_edit,
++        name="behavioural_story_edit",
++    ),
++    path(
++        "interview-pack/behavioural-stories/<int:story_id>/delete/",
++        views.behavioural_story_bank_delete,
++        name="behavioural_story_bank_delete",
++    ),
+     path(
+         "projects/<int:evidence_id>/explanation/",
+         views.project_explanation_edit,
+diff --git a/apps/evidence/views.py b/apps/evidence/views.py
+index 79ec0aa..c567f5c 100644
+--- a/apps/evidence/views.py
++++ b/apps/evidence/views.py
+@@ -20,9 +20,15 @@ from .ai_repository_playbook import (
+     TIMED_REPOSITORY_WORKFLOW,
+     VERIFICATION_CHECKLIST,
+ )
++from .behavioural_playbook import (
++    BEHAVIOURAL_COMPETENCIES,
++    BEHAVIOURAL_COMPETENCY_BY_KEY,
++    story_matches_competency,
++)
+ from .forms import (
+     AIPrepAnswerForm,
+     AIRepositoryPracticeAttemptForm,
++    BehaviouralStoryBankForm,
+     BehaviouralStoryForm,
+     DecisionRecordForm,
+     EvidenceItemForm,
+@@ -231,6 +237,131 @@ def general_interview_playbook(request):
+     return render(request, "evidence/general_interview_playbook.html")
+ 
+ 
++@login_required
++def behavioural_story_bank(request):
++    all_stories = list(
++        BehaviouralStory.objects.filter(evidence__owner=request.user)
++        .select_related("evidence")
++        .order_by("-updated_at", "title")
++    )
++
++    competency_rows = []
++    covered_competency_count = 0
++    for competency in BEHAVIOURAL_COMPETENCIES:
++        matching_count = sum(
++            story_matches_competency(story, competency) for story in all_stories
++        )
++        if matching_count:
++            covered_competency_count += 1
++        competency_rows.append(
++            {
++                **competency,
++                "story_count": matching_count,
++            }
++        )
++
++    search_query = request.GET.get("q", "").strip()
++    selected_competency_key = request.GET.get("competency", "").strip()
++    stories = all_stories
++
++    if search_query:
++        lowered_query = search_query.lower()
++        stories = [
++            story
++            for story in stories
++            if lowered_query in story.title.lower()
++            or lowered_query in story.evidence.title.lower()
++            or lowered_query in story.competencies.lower()
++            or lowered_query in story.actions.lower()
++        ]
++
++    selected_competency = BEHAVIOURAL_COMPETENCY_BY_KEY.get(
++        selected_competency_key
++    )
++    if selected_competency:
++        stories = [
++            story
++            for story in stories
++            if story_matches_competency(story, selected_competency)
++        ]
++
++    ready_story_count = sum(story.is_interview_ready for story in all_stories)
++
++    return render(
++        request,
++        "evidence/behavioural_story_bank.html",
++        {
++            "stories": stories,
++            "story_count": len(all_stories),
++            "ready_story_count": ready_story_count,
++            "competency_rows": competency_rows,
++            "covered_competency_count": covered_competency_count,
++            "competency_count": len(BEHAVIOURAL_COMPETENCIES),
++            "search_query": search_query,
++            "selected_competency_key": selected_competency_key,
++            "selected_competency": selected_competency,
++        },
++    )
++
++
++@login_required
++def behavioural_story_create(request):
++    if request.method == "POST":
++        form = BehaviouralStoryBankForm(request.POST, user=request.user)
++        if form.is_valid():
++            form.save()
++            messages.success(request, "Behavioural story saved.")
++            return redirect("evidence:behavioural_story_bank")
++    else:
++        form = BehaviouralStoryBankForm(user=request.user)
++
++    return render(
++        request,
++        "evidence/behavioural_story_form.html",
++        {"form": form, "story": None, "is_editing": False},
++    )
++
++
++@login_required
++def behavioural_story_edit(request, story_id):
++    story = get_object_or_404(
++        BehaviouralStory.objects.select_related("evidence"),
++        pk=story_id,
++        evidence__owner=request.user,
++    )
++    if request.method == "POST":
++        form = BehaviouralStoryBankForm(
++            request.POST,
++            instance=story,
++            user=request.user,
++        )
++        if form.is_valid():
++            form.save()
++            messages.success(request, "Behavioural story updated.")
++            return redirect("evidence:behavioural_story_bank")
++    else:
++        form = BehaviouralStoryBankForm(instance=story, user=request.user)
++
++    return render(
++        request,
++        "evidence/behavioural_story_form.html",
++        {"form": form, "story": story, "is_editing": True},
++    )
++
++
++@login_required
++@require_POST
++def behavioural_story_bank_delete(request, story_id):
++    story = get_object_or_404(
++        BehaviouralStory,
++        pk=story_id,
++        evidence__owner=request.user,
++    )
++    story.delete()
++    messages.success(request, "Behavioural story removed.")
++    return redirect("evidence:behavioural_story_bank")
++
++
+ @login_required
+ def project_explanation_edit(request, evidence_id):
+     item = get_object_or_404(
+diff --git a/static/css/evidence.css b/static/css/evidence.css
+index 2f0542d..910347a 100644
+--- a/static/css/evidence.css
++++ b/static/css/evidence.css
+@@ -810,3 +810,238 @@
+         border-top: 1px solid var(--vc-border);
+     }
+ }
++
++.behavioural-summary-grid {
++    display: grid;
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    gap: 1px;
++    margin: 2rem 0 0;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-border);
++}
++
++.behavioural-summary-grid article {
++    padding: 1.35rem;
++    background: var(--vc-paper);
++}
++
++.behavioural-summary-grid span,
++.behavioural-competency-card > div > span {
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    font-weight: 750;
++    letter-spacing: 0.05em;
++    text-transform: uppercase;
++}
++
++.behavioural-summary-grid strong {
++    display: block;
++    margin: 0.45rem 0;
++    font-size: 2rem;
++}
++
++.behavioural-summary-grid p {
++    margin: 0;
++    color: var(--vc-muted);
++    line-height: 1.55;
++}
++
++.behavioural-coverage-section,
++.behavioural-story-section {
++    padding: 2.5rem 0;
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.behavioural-competency-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1rem;
++}
++
++.behavioural-competency-card {
++    display: flex;
++    min-height: 15rem;
++    flex-direction: column;
++    padding: 1.25rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.behavioural-competency-card.is-selected {
++    border-color: var(--vc-ink);
++}
++
++.behavioural-competency-card h3 {
++    margin: 0.4rem 0 0;
++}
++
++.behavioural-competency-card ul {
++    margin: 1rem 0;
++    padding-left: 1.1rem;
++    color: var(--vc-muted);
++}
++
++.behavioural-competency-card li {
++    margin: 0.55rem 0;
++    line-height: 1.5;
++}
++
++.behavioural-competency-card > a {
++    margin-top: auto;
++}
++
++.behavioural-story-filters {
++    display: grid;
++    grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr) auto auto;
++    gap: 1rem;
++    align-items: end;
++    margin-bottom: 1.5rem;
++    padding: 1.2rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.behavioural-story-filters .form-field {
++    margin: 0;
++}
++
++.behavioural-story-filters > a {
++    align-self: center;
++}
++
++.behavioural-story-list {
++    display: grid;
++    gap: 1rem;
++}
++
++.behavioural-story-card {
++    padding: 1.35rem;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-paper);
++}
++
++.behavioural-story-card > header,
++.behavioural-story-card > footer {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.behavioural-story-card h3 {
++    margin: 0.35rem 0 0;
++    font-size: 1.45rem;
++}
++
++.behavioural-story-status {
++    flex: 0 0 auto;
++    padding: 0.45rem 0.65rem;
++    border: 1px solid var(--vc-border);
++    color: var(--vc-muted);
++    font-size: 0.72rem;
++    font-weight: 750;
++    text-transform: uppercase;
++}
++
++.behavioural-story-status.is-ready {
++    border-color: var(--vc-border-strong);
++    color: var(--vc-ink);
++}
++
++.behavioural-story-details {
++    margin: 1.2rem 0;
++    border-top: 1px solid var(--vc-border);
++    border-bottom: 1px solid var(--vc-border);
++}
++
++.behavioural-story-details > summary {
++    cursor: pointer;
++    padding: 1rem 0;
++    font-weight: 700;
++}
++
++.behavioural-star-grid {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 1px;
++    border: 1px solid var(--vc-border);
++    background: var(--vc-border);
++}
++
++.behavioural-star-grid article {
++    padding: 1rem;
++    background: var(--vc-paper);
++}
++
++.behavioural-star-grid h4,
++.behavioural-follow-ups h4 {
++    margin: 0 0 0.6rem;
++}
++
++.behavioural-star-grid p {
++    margin-top: 0;
++    line-height: 1.55;
++}
++
++.behavioural-star-actions {
++    grid-column: 1 / -1;
++}
++
++.behavioural-follow-ups {
++    padding: 1.1rem 0;
++}
++
++.behavioural-follow-ups li {
++    margin: 0.45rem 0;
++}
++
++.behavioural-missing-sections {
++    padding: 0.8rem;
++    border-left: 3px solid var(--vc-border-strong);
++    background: var(--vc-canvas);
++}
++
++.behavioural-story-card > footer {
++    align-items: center;
++}
++
++.behavioural-empty-state {
++    padding: 2rem;
++    border: 1px dashed var(--vc-border-strong);
++    text-align: center;
++}
++
++.behavioural-empty-state h3 {
++    margin-top: 0;
++}
++
++.behavioural-story-form .evidence-field-evidence,
++.behavioural-story-form .evidence-field-title,
++.behavioural-story-form .evidence-field-situation,
++.behavioural-story-form .evidence-field-task,
++.behavioural-story-form .evidence-field-actions,
++.behavioural-story-form .evidence-field-result,
++.behavioural-story-form .evidence-field-reflection,
++.behavioural-story-form .evidence-field-competencies,
++.behavioural-story-form .evidence-field-follow_up_questions {
++    grid-column: 1 / -1;
++}
++
++@media (max-width: 48rem) {
++    .behavioural-summary-grid,
++    .behavioural-competency-grid,
++    .behavioural-story-filters,
++    .behavioural-star-grid {
++        grid-template-columns: 1fr;
++    }
++
++    .behavioural-story-card > header,
++    .behavioural-story-card > footer {
++        align-items: flex-start;
++        flex-direction: column;
++    }
++
++    .behavioural-star-actions {
++        grid-column: auto;
++    }
++}
+diff --git a/templates/evidence/behavioural_story_bank.html b/templates/evidence/behavioural_story_bank.html
+new file mode 100644
+index 0000000..44fe5a2
+--- /dev/null
++++ b/templates/evidence/behavioural_story_bank.html
+@@ -0,0 +1,165 @@
++{% extends "base.html" %}
++
++{% block title %}Behavioural story bank | ViewCoach{% endblock %}
++{% block body_class %}behavioural-story-bank-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
++    <span aria-hidden="true">/</span>
++    <span>Behavioural story bank</span>
++</nav>
++
++<section class="evidence-page-header">
++    <div>
++        <p class="eyebrow">Behavioural preparation</p>
++        <h1>Build a small set of stories you can reuse.</h1>
++        <p>
++            Tie every answer to real evidence, prepare the follow-ups and check that your
++            examples cover more than one kind of question.
++        </p>
++    </div>
++    <div class="evidence-header-actions">
++        <a class="button" href="{% url 'evidence:behavioural_story_create' %}">New STAR story</a>
++        <a class="button button-secondary" href="{% url 'evidence:general_interview_playbook' %}">General playbook</a>
++    </div>
++</section>
++
++<section class="behavioural-summary-grid" aria-label="Story-bank progress">
++    <article>
++        <span>Total stories</span>
++        <strong>{{ story_count }}</strong>
++        <p>A focused bank of five to eight varied stories is usually enough to adapt in interviews.</p>
++    </article>
++    <article>
++        <span>Interview ready</span>
++        <strong>{{ ready_story_count }}</strong>
++        <p>Ready means the result, reflection, competencies and follow-ups are captured.</p>
++    </article>
++    <article>
++        <span>Competency coverage</span>
++        <strong>{{ covered_competency_count }} of {{ competency_count }}</strong>
++        <p>Coverage reveals which question types still lack a defensible example.</p>
++    </article>
++</section>
++
++<section class="behavioural-coverage-section" aria-labelledby="coverage-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Coverage map</p>
++            <h2 id="coverage-heading">Common behavioural question areas</h2>
++        </div>
++        {% if selected_competency %}
++        <a href="{% url 'evidence:behavioural_story_bank' %}">Clear competency filter</a>
++        {% endif %}
++    </div>
++
++    <div class="behavioural-competency-grid">
++        {% for competency in competency_rows %}
++        <article class="behavioural-competency-card{% if competency.key == selected_competency_key %} is-selected{% endif %}">
++            <div>
++                <span>{{ competency.story_count }} stor{{ competency.story_count|pluralize:"y,ies" }}</span>
++                <h3>{{ competency.label }}</h3>
++            </div>
++            <ul>
++                {% for question in competency.questions %}<li>{{ question }}</li>{% endfor %}
++            </ul>
++            <a href="?competency={{ competency.key }}">Show matching stories</a>
++        </article>
++        {% endfor %}
++    </div>
++</section>
++
++<section class="behavioural-story-section" aria-labelledby="stories-heading">
++    <div class="evidence-section-heading">
++        <div>
++            <p class="eyebrow">Story bank</p>
++            <h2 id="stories-heading">
++                {% if selected_competency %}{{ selected_competency.label }} stories{% else %}Your STAR stories{% endif %}
++            </h2>
++        </div>
++        <span>{{ stories|length }} shown</span>
++    </div>
++
++    <form class="behavioural-story-filters" method="get">
++        <div class="form-field">
++            <label for="story-search">Search stories</label>
++            <input id="story-search" type="search" name="q" value="{{ search_query }}" placeholder="Title, evidence, action or competency">
++        </div>
++        <div class="form-field">
++            <label for="competency-filter">Competency</label>
++            <select id="competency-filter" name="competency">
++                <option value="">All competencies</option>
++                {% for competency in competency_rows %}
++                <option value="{{ competency.key }}"{% if competency.key == selected_competency_key %} selected{% endif %}>{{ competency.label }}</option>
++                {% endfor %}
++            </select>
++        </div>
++        <button class="button button-secondary" type="submit">Filter</button>
++        {% if search_query or selected_competency_key %}<a href="{% url 'evidence:behavioural_story_bank' %}">Reset</a>{% endif %}
++    </form>
++
++    {% if stories %}
++    <div class="behavioural-story-list">
++        {% for story in stories %}
++        <article class="behavioural-story-card">
++            <header>
++                <div>
++                    <p class="eyebrow">{{ story.evidence.get_source_type_display }} · <a href="{{ story.evidence.get_absolute_url }}">{{ story.evidence.title }}</a></p>
++                    <h3>{{ story.title }}</h3>
++                </div>
++                <div class="behavioural-story-status{% if story.is_interview_ready %} is-ready{% endif %}">
++                    {% if story.is_interview_ready %}Interview ready{% else %}{{ story.completed_interview_sections }} of {{ story.total_interview_sections }} sections{% endif %}
++                </div>
++            </header>
++
++            {% if story.competency_list %}
++            <div class="evidence-tag-row">
++                {% for competency in story.competency_list %}<span>{{ competency }}</span>{% endfor %}
++            </div>
++            {% endif %}
++
++            <details class="behavioural-story-details">
++                <summary>Review STAR answer</summary>
++                <div class="behavioural-star-grid">
++                    <article><h4>Situation</h4>{{ story.situation|linebreaks }}</article>
++                    <article><h4>Task</h4>{% if story.task %}{{ story.task|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
++                    <article class="behavioural-star-actions"><h4>Actions</h4>{{ story.actions|linebreaks }}</article>
++                    <article><h4>Result</h4>{% if story.result %}{{ story.result|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
++                    <article><h4>Reflection</h4>{% if story.reflection %}{{ story.reflection|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
++                </div>
++                {% if story.follow_up_question_list %}
++                <div class="behavioural-follow-ups">
++                    <h4>Likely follow-up questions</h4>
++                    <ul>{% for question in story.follow_up_question_list %}<li>{{ question }}</li>{% endfor %}</ul>
++                </div>
++                {% endif %}
++                {% if story.missing_interview_sections %}
++                <p class="behavioural-missing-sections"><strong>Still to prepare:</strong> {{ story.missing_interview_sections|join:", " }}</p>
++                {% endif %}
++            </details>
++
++            <footer>
++                <a class="button button-secondary" href="{% url 'evidence:behavioural_story_edit' story.pk %}">Edit story</a>
++                <form method="post" action="{% url 'evidence:behavioural_story_bank_delete' story.pk %}">
++                    {% csrf_token %}
++                    <button class="evidence-remove-button" type="submit">Remove story</button>
++                </form>
++            </footer>
++        </article>
++        {% endfor %}
++    </div>
++    {% else %}
++    <section class="behavioural-empty-state">
++        <h3>No stories match this view.</h3>
++        {% if story_count %}
++        <p>Reset the filters or add another story for this competency.</p>
++        <a class="button button-secondary" href="{% url 'evidence:behavioural_story_bank' %}">Reset filters</a>
++        {% else %}
++        <p>Start with one real example of ownership, recovery, teamwork or learning.</p>
++        <a class="button" href="{% url 'evidence:behavioural_story_create' %}">Create first STAR story</a>
++        {% endif %}
++    </section>
++    {% endif %}
++</section>
++{% endblock %}
+diff --git a/templates/evidence/behavioural_story_form.html b/templates/evidence/behavioural_story_form.html
+new file mode 100644
+index 0000000..51bd3ca
+--- /dev/null
++++ b/templates/evidence/behavioural_story_form.html
+@@ -0,0 +1,42 @@
++{% extends "base.html" %}
++
++{% block title %}{% if is_editing %}Edit STAR story{% else %}New STAR story{% endif %} | ViewCoach{% endblock %}
++{% block body_class %}evidence-form-page{% endblock %}
++
++{% block content %}
++<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
++    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
++    <span aria-hidden="true">/</span>
++    <a href="{% url 'evidence:behavioural_story_bank' %}">Behavioural story bank</a>
++    <span aria-hidden="true">/</span>
++    <span>{% if is_editing %}{{ story.title }}{% else %}New story{% endif %}</span>
++</nav>
++
++<section class="evidence-form-header">
++    <p class="eyebrow">Behavioural interview preparation</p>
++    <h1>{% if is_editing %}Strengthen the story and its follow-ups.{% else %}Build the answer from real evidence.{% endif %}</h1>
++    <p>
++        Keep the situation short. Spend most of the answer on what you personally did,
++        the result and what changed in how you work afterwards.
++    </p>
++</section>
++
++<form class="evidence-form behavioural-story-form" method="post">
++    {% csrf_token %}
++    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
++    <div class="evidence-form-grid">
++        {% for field in form %}
++        <div class="form-field evidence-field-{{ field.name }}">
++            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
++            {{ field }}
++            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
++            {{ field.errors }}
++        </div>
++        {% endfor %}
++    </div>
++    <div class="evidence-form-actions">
++        <button class="button" type="submit">{% if is_editing %}Save story changes{% else %}Save STAR story{% endif %}</button>
++        <a class="button button-secondary" href="{% url 'evidence:behavioural_story_bank' %}">Cancel</a>
++    </div>
++</form>
++{% endblock %}
+diff --git a/templates/evidence/evidence_detail.html b/templates/evidence/evidence_detail.html
+index 0ea376f..a542b60 100644
+--- a/templates/evidence/evidence_detail.html
++++ b/templates/evidence/evidence_detail.html
+@@ -104,13 +104,19 @@
+         <section class="evidence-section" aria-labelledby="stories-heading">
+             <div class="evidence-section-heading">
+                 <div><p class="eyebrow">Behavioural preparation</p><h2 id="stories-heading">STAR stories</h2></div>
+-                <span>{{ stories|length }} captured</span>
++                <div class="evidence-header-actions">
++                    <span>{{ stories|length }} captured</span>
++                    <a href="{% url 'evidence:behavioural_story_bank' %}">Open story bank</a>
++                </div>
+             </div>
+             {% if stories %}
+             <div class="evidence-record-list">
+                 {% for story in stories %}
+                 <article class="evidence-record">
+-                    <h3>{{ story.title }}</h3>
++                    <div class="evidence-record-heading">
++                        <h3>{{ story.title }}</h3>
++                        <a href="{% url 'evidence:behavioural_story_edit' story.pk %}">Edit story</a>
++                    </div>
+                     <h4>Situation</h4>{{ story.situation|linebreaks }}
+                     {% if story.task %}<h4>Task</h4>{{ story.task|linebreaks }}{% endif %}
+                     <h4>Actions</h4>{{ story.actions|linebreaks }}
+diff --git a/templates/evidence/interview_pack.html b/templates/evidence/interview_pack.html
+index 21c2d21..a2cca14 100644
+--- a/templates/evidence/interview_pack.html
++++ b/templates/evidence/interview_pack.html
+@@ -46,10 +46,10 @@
+             <p>Prepare a short pitch, full explanation, architecture, bugs and trade-offs.</p>
+             <strong>{{ explained_project_count }} of {{ project_count }} projects started</strong>
+         </a>
+-        <a class="interview-hub-card" href="{% url 'evidence:list' %}">
++        <a class="interview-hub-card" href="{% url 'evidence:behavioural_story_bank' %}">
+             <span class="interview-hub-card-kicker">Behavioural</span>
+-            <h3>STAR stories and evidence</h3>
+-            <p>Use real projects, work, leadership and incidents to support your answers.</p>
++            <h3>Behavioural story bank</h3>
++            <p>Build reusable STAR stories and check your competency coverage.</p>
+             <strong>{{ behavioural_story_count }} stories captured</strong>
+         </a>
+     </div>
