@@ -64,6 +64,7 @@ def test_interview_hub_exposes_preparation_areas_and_progress(client, user):
     assert response.status_code == 200
     assert "Interview Hub" in html
     assert "Project explanations" in html
+    assert "Behavioural story bank" in html
     assert "AI-assisted coding prep" in html
     assert "AI repository playbook" in html
     assert "General interview playbook" in html

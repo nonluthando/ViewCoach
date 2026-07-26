@@ -104,13 +104,19 @@
         <section class="evidence-section" aria-labelledby="stories-heading">
             <div class="evidence-section-heading">
                 <div><p class="eyebrow">Behavioural preparation</p><h2 id="stories-heading">STAR stories</h2></div>
-                <span>{{ stories|length }} captured</span>
+                <div class="evidence-header-actions">
+                    <span>{{ stories|length }} captured</span>
+                    <a href="{% url 'evidence:behavioural_story_bank' %}">Open story bank</a>
+                </div>
             </div>
             {% if stories %}
             <div class="evidence-record-list">
                 {% for story in stories %}
                 <article class="evidence-record">
-                    <h3>{{ story.title }}</h3>
+                    <div class="evidence-record-heading">
+                        <h3>{{ story.title }}</h3>
+                        <a href="{% url 'evidence:behavioural_story_edit' story.pk %}">Edit story</a>
+                    </div>
                     <h4>Situation</h4>{{ story.situation|linebreaks }}
                     {% if story.task %}<h4>Task</h4>{{ story.task|linebreaks }}{% endif %}
                     <h4>Actions</h4>{{ story.actions|linebreaks }}

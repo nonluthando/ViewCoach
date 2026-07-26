@@ -23,6 +23,26 @@ urlpatterns = [
         name="general_interview_playbook",
     ),
     path(
+        "interview-pack/behavioural-stories/",
+        views.behavioural_story_bank,
+        name="behavioural_story_bank",
+    ),
+    path(
+        "interview-pack/behavioural-stories/new/",
+        views.behavioural_story_create,
+        name="behavioural_story_create",
+    ),
+    path(
+        "interview-pack/behavioural-stories/<int:story_id>/edit/",
+        views.behavioural_story_edit,
+        name="behavioural_story_edit",
+    ),
+    path(
+        "interview-pack/behavioural-stories/<int:story_id>/delete/",
+        views.behavioural_story_bank_delete,
+        name="behavioural_story_bank_delete",
+    ),
+    path(
         "projects/<int:evidence_id>/explanation/",
         views.project_explanation_edit,
         name="project_explanation_edit",

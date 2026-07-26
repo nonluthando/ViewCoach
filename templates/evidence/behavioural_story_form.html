@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_editing %}Edit STAR story{% else %}New STAR story{% endif %} | ViewCoach{% endblock %}
+{% block body_class %}evidence-form-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'evidence:behavioural_story_bank' %}">Behavioural story bank</a>
+    <span aria-hidden="true">/</span>
+    <span>{% if is_editing %}{{ story.title }}{% else %}New story{% endif %}</span>
+</nav>
+
+<section class="evidence-form-header">
+    <p class="eyebrow">Behavioural interview preparation</p>
+    <h1>{% if is_editing %}Strengthen the story and its follow-ups.{% else %}Build the answer from real evidence.{% endif %}</h1>
+    <p>
+        Keep the situation short. Spend most of the answer on what you personally did,
+        the result and what changed in how you work afterwards.
+    </p>
+</section>
+
+<form class="evidence-form behavioural-story-form" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="evidence-form-grid">
+        {% for field in form %}
+        <div class="form-field evidence-field-{{ field.name }}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="evidence-form-actions">
+        <button class="button" type="submit">{% if is_editing %}Save story changes{% else %}Save STAR story{% endif %}</button>
+        <a class="button button-secondary" href="{% url 'evidence:behavioural_story_bank' %}">Cancel</a>
+    </div>
+</form>
+{% endblock %}

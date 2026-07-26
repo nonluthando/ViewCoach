@@ -810,3 +810,238 @@
         border-top: 1px solid var(--vc-border);
     }
 }
+
+.behavioural-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    margin: 2rem 0 0;
+    border: 1px solid var(--vc-border);
+    background: var(--vc-border);
+}
+
+.behavioural-summary-grid article {
+    padding: 1.35rem;
+    background: var(--vc-paper);
+}
+
+.behavioural-summary-grid span,
+.behavioural-competency-card > div > span {
+    color: var(--vc-muted);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.behavioural-summary-grid strong {
+    display: block;
+    margin: 0.45rem 0;
+    font-size: 2rem;
+}
+
+.behavioural-summary-grid p {
+    margin: 0;
+    color: var(--vc-muted);
+    line-height: 1.55;
+}
+
+.behavioural-coverage-section,
+.behavioural-story-section {
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--vc-border);
+}
+
+.behavioural-competency-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.behavioural-competency-card {
+    display: flex;
+    min-height: 15rem;
+    flex-direction: column;
+    padding: 1.25rem;
+    border: 1px solid var(--vc-border);
+    background: var(--vc-paper);
+}
+
+.behavioural-competency-card.is-selected {
+    border-color: var(--vc-ink);
+}
+
+.behavioural-competency-card h3 {
+    margin: 0.4rem 0 0;
+}
+
+.behavioural-competency-card ul {
+    margin: 1rem 0;
+    padding-left: 1.1rem;
+    color: var(--vc-muted);
+}
+
+.behavioural-competency-card li {
+    margin: 0.55rem 0;
+    line-height: 1.5;
+}
+
+.behavioural-competency-card > a {
+    margin-top: auto;
+}
+
+.behavioural-story-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr) auto auto;
+    gap: 1rem;
+    align-items: end;
+    margin-bottom: 1.5rem;
+    padding: 1.2rem;
+    border: 1px solid var(--vc-border);
+    background: var(--vc-paper);
+}
+
+.behavioural-story-filters .form-field {
+    margin: 0;
+}
+
+.behavioural-story-filters > a {
+    align-self: center;
+}
+
+.behavioural-story-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.behavioural-story-card {
+    padding: 1.35rem;
+    border: 1px solid var(--vc-border);
+    background: var(--vc-paper);
+}
+
+.behavioural-story-card > header,
+.behavioural-story-card > footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.behavioural-story-card h3 {
+    margin: 0.35rem 0 0;
+    font-size: 1.45rem;
+}
+
+.behavioural-story-status {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--vc-border);
+    color: var(--vc-muted);
+    font-size: 0.72rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}
+
+.behavioural-story-status.is-ready {
+    border-color: var(--vc-border-strong);
+    color: var(--vc-ink);
+}
+
+.behavioural-story-details {
+    margin: 1.2rem 0;
+    border-top: 1px solid var(--vc-border);
+    border-bottom: 1px solid var(--vc-border);
+}
+
+.behavioural-story-details > summary {
+    cursor: pointer;
+    padding: 1rem 0;
+    font-weight: 700;
+}
+
+.behavioural-star-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--vc-border);
+    background: var(--vc-border);
+}
+
+.behavioural-star-grid article {
+    padding: 1rem;
+    background: var(--vc-paper);
+}
+
+.behavioural-star-grid h4,
+.behavioural-follow-ups h4 {
+    margin: 0 0 0.6rem;
+}
+
+.behavioural-star-grid p {
+    margin-top: 0;
+    line-height: 1.55;
+}
+
+.behavioural-star-actions {
+    grid-column: 1 / -1;
+}
+
+.behavioural-follow-ups {
+    padding: 1.1rem 0;
+}
+
+.behavioural-follow-ups li {
+    margin: 0.45rem 0;
+}
+
+.behavioural-missing-sections {
+    padding: 0.8rem;
+    border-left: 3px solid var(--vc-border-strong);
+    background: var(--vc-canvas);
+}
+
+.behavioural-story-card > footer {
+    align-items: center;
+}
+
+.behavioural-empty-state {
+    padding: 2rem;
+    border: 1px dashed var(--vc-border-strong);
+    text-align: center;
+}
+
+.behavioural-empty-state h3 {
+    margin-top: 0;
+}
+
+.behavioural-story-form .evidence-field-evidence,
+.behavioural-story-form .evidence-field-title,
+.behavioural-story-form .evidence-field-situation,
+.behavioural-story-form .evidence-field-task,
+.behavioural-story-form .evidence-field-actions,
+.behavioural-story-form .evidence-field-result,
+.behavioural-story-form .evidence-field-reflection,
+.behavioural-story-form .evidence-field-competencies,
+.behavioural-story-form .evidence-field-follow_up_questions {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 48rem) {
+    .behavioural-summary-grid,
+    .behavioural-competency-grid,
+    .behavioural-story-filters,
+    .behavioural-star-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .behavioural-story-card > header,
+    .behavioural-story-card > footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .behavioural-star-actions {
+        grid-column: auto;
+    }
+}

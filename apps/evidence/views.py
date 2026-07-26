@@ -20,9 +20,15 @@ from .ai_repository_playbook import (
     TIMED_REPOSITORY_WORKFLOW,
     VERIFICATION_CHECKLIST,
 )
+from .behavioural_playbook import (
+    BEHAVIOURAL_COMPETENCIES,
+    BEHAVIOURAL_COMPETENCY_BY_KEY,
+    story_matches_competency,
+)
 from .forms import (
     AIPrepAnswerForm,
     AIRepositoryPracticeAttemptForm,
+    BehaviouralStoryBankForm,
     BehaviouralStoryForm,
     DecisionRecordForm,
     EvidenceItemForm,
@@ -229,6 +235,131 @@ def project_explanations(request):
 @login_required
 def general_interview_playbook(request):
     return render(request, "evidence/general_interview_playbook.html")
+
+
+@login_required
+def behavioural_story_bank(request):
+    all_stories = list(
+        BehaviouralStory.objects.filter(evidence__owner=request.user)
+        .select_related("evidence")
+        .order_by("-updated_at", "title")
+    )
+
+    competency_rows = []
+    covered_competency_count = 0
+    for competency in BEHAVIOURAL_COMPETENCIES:
+        matching_count = sum(
+            story_matches_competency(story, competency) for story in all_stories
+        )
+        if matching_count:
+            covered_competency_count += 1
+        competency_rows.append(
+            {
+                **competency,
+                "story_count": matching_count,
+            }
+        )
+
+    search_query = request.GET.get("q", "").strip()
+    selected_competency_key = request.GET.get("competency", "").strip()
+    stories = all_stories
+
+    if search_query:
+        lowered_query = search_query.lower()
+        stories = [
+            story
+            for story in stories
+            if lowered_query in story.title.lower()
+            or lowered_query in story.evidence.title.lower()
+            or lowered_query in story.competencies.lower()
+            or lowered_query in story.actions.lower()
+        ]
+
+    selected_competency = BEHAVIOURAL_COMPETENCY_BY_KEY.get(
+        selected_competency_key
+    )
+    if selected_competency:
+        stories = [
+            story
+            for story in stories
+            if story_matches_competency(story, selected_competency)
+        ]
+
+    ready_story_count = sum(story.is_interview_ready for story in all_stories)
+
+    return render(
+        request,
+        "evidence/behavioural_story_bank.html",
+        {
+            "stories": stories,
+            "story_count": len(all_stories),
+            "ready_story_count": ready_story_count,
+            "competency_rows": competency_rows,
+            "covered_competency_count": covered_competency_count,
+            "competency_count": len(BEHAVIOURAL_COMPETENCIES),
+            "search_query": search_query,
+            "selected_competency_key": selected_competency_key,
+            "selected_competency": selected_competency,
+        },
+    )
+
+
+@login_required
+def behavioural_story_create(request):
+    if request.method == "POST":
+        form = BehaviouralStoryBankForm(request.POST, user=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Behavioural story saved.")
+            return redirect("evidence:behavioural_story_bank")
+    else:
+        form = BehaviouralStoryBankForm(user=request.user)
+
+    return render(
+        request,
+        "evidence/behavioural_story_form.html",
+        {"form": form, "story": None, "is_editing": False},
+    )
+
+
+@login_required
+def behavioural_story_edit(request, story_id):
+    story = get_object_or_404(
+        BehaviouralStory.objects.select_related("evidence"),
+        pk=story_id,
+        evidence__owner=request.user,
+    )
+    if request.method == "POST":
+        form = BehaviouralStoryBankForm(
+            request.POST,
+            instance=story,
+            user=request.user,
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Behavioural story updated.")
+            return redirect("evidence:behavioural_story_bank")
+    else:
+        form = BehaviouralStoryBankForm(instance=story, user=request.user)
+
+    return render(
+        request,
+        "evidence/behavioural_story_form.html",
+        {"form": form, "story": story, "is_editing": True},
+    )
+
+
+@login_required
+@require_POST
+def behavioural_story_bank_delete(request, story_id):
+    story = get_object_or_404(
+        BehaviouralStory,
+        pk=story_id,
+        evidence__owner=request.user,
+    )
+    story.delete()
+    messages.success(request, "Behavioural story removed.")
+    return redirect("evidence:behavioural_story_bank")
 
 
 @login_required

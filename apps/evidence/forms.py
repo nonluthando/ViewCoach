@@ -226,6 +226,48 @@ class BehaviouralStoryForm(forms.ModelForm):
         }
 
 
+class BehaviouralStoryBankForm(forms.ModelForm):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["evidence"].queryset = EvidenceItem.objects.filter(
+            owner=user
+        ).order_by("title")
+
+    class Meta:
+        model = BehaviouralStory
+        fields = [
+            "evidence",
+            "title",
+            "situation",
+            "task",
+            "actions",
+            "result",
+            "reflection",
+            "competencies",
+            "follow_up_questions",
+        ]
+        labels = {
+            "evidence": "Supporting evidence",
+            "actions": "Actions I personally took",
+            "competencies": "Competencies demonstrated",
+            "follow_up_questions": "Likely follow-up questions",
+        }
+        help_texts = {
+            "evidence": "Choose the real project, work, leadership or incident behind this story.",
+            "competencies": "Separate competencies with commas.",
+            "follow_up_questions": "Add one likely interviewer question per line.",
+        }
+        widgets = {
+            "situation": forms.Textarea(attrs={"rows": 4}),
+            "task": forms.Textarea(attrs={"rows": 3}),
+            "actions": forms.Textarea(attrs={"rows": 6}),
+            "result": forms.Textarea(attrs={"rows": 4}),
+            "reflection": forms.Textarea(attrs={"rows": 4}),
+            "competencies": forms.Textarea(attrs={"rows": 2}),
+            "follow_up_questions": forms.Textarea(attrs={"rows": 5}),
+        }
+
+
 class TopicEvidenceProfileForm(forms.ModelForm):
     class Meta:
         model = TopicEvidenceProfile

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Behavioural story bank | ViewCoach{% endblock %}
+{% block body_class %}behavioural-story-bank-page{% endblock %}
+
+{% block content %}
+<nav class="evidence-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
+    <span aria-hidden="true">/</span>
+    <span>Behavioural story bank</span>
+</nav>
+
+<section class="evidence-page-header">
+    <div>
+        <p class="eyebrow">Behavioural preparation</p>
+        <h1>Build a small set of stories you can reuse.</h1>
+        <p>
+            Tie every answer to real evidence, prepare the follow-ups and check that your
+            examples cover more than one kind of question.
+        </p>
+    </div>
+    <div class="evidence-header-actions">
+        <a class="button" href="{% url 'evidence:behavioural_story_create' %}">New STAR story</a>
+        <a class="button button-secondary" href="{% url 'evidence:general_interview_playbook' %}">General playbook</a>
+    </div>
+</section>
+
+<section class="behavioural-summary-grid" aria-label="Story-bank progress">
+    <article>
+        <span>Total stories</span>
+        <strong>{{ story_count }}</strong>
+        <p>A focused bank of five to eight varied stories is usually enough to adapt in interviews.</p>
+    </article>
+    <article>
+        <span>Interview ready</span>
+        <strong>{{ ready_story_count }}</strong>
+        <p>Ready means the result, reflection, competencies and follow-ups are captured.</p>
+    </article>
+    <article>
+        <span>Competency coverage</span>
+        <strong>{{ covered_competency_count }} of {{ competency_count }}</strong>
+        <p>Coverage reveals which question types still lack a defensible example.</p>
+    </article>
+</section>
+
+<section class="behavioural-coverage-section" aria-labelledby="coverage-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Coverage map</p>
+            <h2 id="coverage-heading">Common behavioural question areas</h2>
+        </div>
+        {% if selected_competency %}
+        <a href="{% url 'evidence:behavioural_story_bank' %}">Clear competency filter</a>
+        {% endif %}
+    </div>
+
+    <div class="behavioural-competency-grid">
+        {% for competency in competency_rows %}
+        <article class="behavioural-competency-card{% if competency.key == selected_competency_key %} is-selected{% endif %}">
+            <div>
+                <span>{{ competency.story_count }} stor{{ competency.story_count|pluralize:"y,ies" }}</span>
+                <h3>{{ competency.label }}</h3>
+            </div>
+            <ul>
+                {% for question in competency.questions %}<li>{{ question }}</li>{% endfor %}
+            </ul>
+            <a href="?competency={{ competency.key }}">Show matching stories</a>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="behavioural-story-section" aria-labelledby="stories-heading">
+    <div class="evidence-section-heading">
+        <div>
+            <p class="eyebrow">Story bank</p>
+            <h2 id="stories-heading">
+                {% if selected_competency %}{{ selected_competency.label }} stories{% else %}Your STAR stories{% endif %}
+            </h2>
+        </div>
+        <span>{{ stories|length }} shown</span>
+    </div>
+
+    <form class="behavioural-story-filters" method="get">
+        <div class="form-field">
+            <label for="story-search">Search stories</label>
+            <input id="story-search" type="search" name="q" value="{{ search_query }}" placeholder="Title, evidence, action or competency">
+        </div>
+        <div class="form-field">
+            <label for="competency-filter">Competency</label>
+            <select id="competency-filter" name="competency">
+                <option value="">All competencies</option>
+                {% for competency in competency_rows %}
+                <option value="{{ competency.key }}"{% if competency.key == selected_competency_key %} selected{% endif %}>{{ competency.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="button button-secondary" type="submit">Filter</button>
+        {% if search_query or selected_competency_key %}<a href="{% url 'evidence:behavioural_story_bank' %}">Reset</a>{% endif %}
+    </form>
+
+    {% if stories %}
+    <div class="behavioural-story-list">
+        {% for story in stories %}
+        <article class="behavioural-story-card">
+            <header>
+                <div>
+                    <p class="eyebrow">{{ story.evidence.get_source_type_display }} · <a href="{{ story.evidence.get_absolute_url }}">{{ story.evidence.title }}</a></p>
+                    <h3>{{ story.title }}</h3>
+                </div>
+                <div class="behavioural-story-status{% if story.is_interview_ready %} is-ready{% endif %}">
+                    {% if story.is_interview_ready %}Interview ready{% else %}{{ story.completed_interview_sections }} of {{ story.total_interview_sections }} sections{% endif %}
+                </div>
+            </header>
+
+            {% if story.competency_list %}
+            <div class="evidence-tag-row">
+                {% for competency in story.competency_list %}<span>{{ competency }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            <details class="behavioural-story-details">
+                <summary>Review STAR answer</summary>
+                <div class="behavioural-star-grid">
+                    <article><h4>Situation</h4>{{ story.situation|linebreaks }}</article>
+                    <article><h4>Task</h4>{% if story.task %}{{ story.task|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
+                    <article class="behavioural-star-actions"><h4>Actions</h4>{{ story.actions|linebreaks }}</article>
+                    <article><h4>Result</h4>{% if story.result %}{{ story.result|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
+                    <article><h4>Reflection</h4>{% if story.reflection %}{{ story.reflection|linebreaks }}{% else %}<p class="muted">Not captured.</p>{% endif %}</article>
+                </div>
+                {% if story.follow_up_question_list %}
+                <div class="behavioural-follow-ups">
+                    <h4>Likely follow-up questions</h4>
+                    <ul>{% for question in story.follow_up_question_list %}<li>{{ question }}</li>{% endfor %}</ul>
+                </div>
+                {% endif %}
+                {% if story.missing_interview_sections %}
+                <p class="behavioural-missing-sections"><strong>Still to prepare:</strong> {{ story.missing_interview_sections|join:", " }}</p>
+                {% endif %}
+            </details>
+
+            <footer>
+                <a class="button button-secondary" href="{% url 'evidence:behavioural_story_edit' story.pk %}">Edit story</a>
+                <form method="post" action="{% url 'evidence:behavioural_story_bank_delete' story.pk %}">
+                    {% csrf_token %}
+                    <button class="evidence-remove-button" type="submit">Remove story</button>
+                </form>
+            </footer>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <section class="behavioural-empty-state">
+        <h3>No stories match this view.</h3>
+        {% if story_count %}
+        <p>Reset the filters or add another story for this competency.</p>
+        <a class="button button-secondary" href="{% url 'evidence:behavioural_story_bank' %}">Reset filters</a>
+        {% else %}
+        <p>Start with one real example of ownership, recovery, teamwork or learning.</p>
+        <a class="button" href="{% url 'evidence:behavioural_story_create' %}">Create first STAR story</a>
+        {% endif %}
+    </section>
+    {% endif %}
+</section>
+{% endblock %}

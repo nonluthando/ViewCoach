@@ -271,6 +271,15 @@ class DecisionRecord(models.Model):
 
 
 class BehaviouralStory(models.Model):
+    INTERVIEW_READY_FIELDS = (
+        ("situation", "Situation"),
+        ("actions", "Actions"),
+        ("result", "Result"),
+        ("reflection", "Reflection"),
+        ("competencies", "Competencies"),
+        ("follow_up_questions", "Follow-up questions"),
+    )
+
     evidence = models.ForeignKey(
         EvidenceItem,
         on_delete=models.CASCADE,
@@ -293,6 +302,37 @@ class BehaviouralStory(models.Model):
     @property
     def competency_list(self):
         return [item.strip() for item in self.competencies.split(",") if item.strip()]
+
+    @property
+    def follow_up_question_list(self):
+        return [
+            item.strip()
+            for item in self.follow_up_questions.splitlines()
+            if item.strip()
+        ]
+
+    @property
+    def completed_interview_sections(self):
+        return sum(
+            bool(getattr(self, field_name).strip())
+            for field_name, _ in self.INTERVIEW_READY_FIELDS
+        )
+
+    @property
+    def total_interview_sections(self):
+        return len(self.INTERVIEW_READY_FIELDS)
+
+    @property
+    def is_interview_ready(self):
+        return self.completed_interview_sections == self.total_interview_sections
+
+    @property
+    def missing_interview_sections(self):
+        return [
+            label
+            for field_name, label in self.INTERVIEW_READY_FIELDS
+            if not getattr(self, field_name).strip()
+        ]
 
     def __str__(self):
         return self.title
