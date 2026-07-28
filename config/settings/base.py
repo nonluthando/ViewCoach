@@ -3,7 +3,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-local-development-key")
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "unsafe-local-development-key",
+)
 DEBUG = False
 ALLOWED_HOSTS: list[str] = []
 
@@ -58,16 +61,28 @@ ASGI_APPLICATION = "config.asgi.application"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "MinimumLengthValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "CommonPasswordValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "NumericPasswordValidator"
+        ),
     },
 ]
 
@@ -90,3 +105,14 @@ LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "home"
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+PLANNER_USE_OPTIMISER = os.getenv(
+    "PLANNER_USE_OPTIMISER",
+    "true",
+).strip().casefold() in {"1", "true", "yes", "on"}
+PLANNER_OPTIMISER_TIME_LIMIT_SECONDS = float(
+    os.getenv(
+        "PLANNER_OPTIMISER_TIME_LIMIT_SECONDS",
+        "0.25",
+    )
+)
