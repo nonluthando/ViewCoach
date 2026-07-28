@@ -1,190 +1,576 @@
-# Adaptive Interview Preparation Coach
+# South African Technology Job Market Analysis
 
-A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
+## Overview
 
-The repository currently contains **Milestones 0 through 3.5**.
+The South African Technology Job Market Analysis project is an end-to-end analytics engineering pipeline that collects public technology vacancies directly from employer career websites.
 
-## Implemented
+The project extracts, standardises and enriches job-posting data so that it can be used to analyse:
 
-### Milestone 0 — Production foundation
+- Hiring trends
+- In-demand technical skills
+- Programming languages and frameworks
+- Cloud platforms and development tools
+- Career and experience levels
+- Employment types
+- Technical domains
+- Geographic distribution
+- Early-career opportunities
 
-- Django 5.2 foundation;
-- PostgreSQL in local, test and production environments;
-- custom email-based user model;
-- registration, login, logout and protected dashboard;
-- database-aware health endpoint;
-- pytest, Ruff and GitHub Actions CI;
-- Render blueprint draft.
+Instead of relying mainly on traditional job boards, the project collects vacancies from employer career portals. This provides an employer-direct view of the South African technology labour market and reduces duplicate observations through conservative deduplication.
 
-### Milestone 1 — Structured question library
+Graduate, internship and junior roles are retained as a dedicated early-career analytical lens within the broader technology market.
 
-- polymorphic base `Question` model;
-- technical, behavioural and repository-debugging question types;
-- type-specific create, edit and detail experiences;
-- private user-owned libraries;
-- search and filters for type, status and difficulty;
-- progressive reveal for technical questions;
-- debugging diagnosis reveal;
-- admin support, migration and authorization tests;
-- dashboard question summary.
+## Project Objectives
 
-### Milestone 1.1 — Bulk question import
+The project aims to:
 
-- pasted text, TXT, Markdown, CSV, DOCX and text-based PDF imports;
-- resumable review batches with editable generated titles;
-- per-item type overrides and duplicate detection;
-- transactional, idempotent question creation;
-- temporary source deletion after successful import;
-- imported questions marked **Needs notes**;
-- individual and bulk **Mark ready** validation.
+- Collect vacancies from major South African technology employers
+- Support multiple recruitment platforms and provider structures
+- Preserve reproducible raw job-posting snapshots
+- Standardise inconsistent job data into a common schema
+- Extract technical skills and capabilities from job descriptions
+- Classify vacancies by role, seniority, domain and employment type
+- Track repeated vacancies across collection runs
+- Produce analysis-ready datasets
+- Support dashboards and labour-market research
 
-### Milestone 2 — Review engine
+## Supported Recruitment Platforms
 
-- deterministic Again, Hard, Good and Easy scheduling;
-- due and upcoming review queues;
-- review history and dashboard summaries;
-- ownership validation around every review state.
+The current pipeline includes collectors for:
 
-### Milestones 3 and 3.1 — Learning roadmaps
+- Greenhouse
+- Lever
+- Workday
+- SAP SuccessFactors
+- Oracle HCM
+- WordPress Job Manager
 
-- 12 built-in role, skill and practice roadmaps with 419 topics;
-- per-user roadmap and topic progress;
-- topic workspaces with private notes and saved learning resources.
+The provider-adapter architecture is designed so that additional recruitment platforms and custom employer APIs can be added without rewriting the full pipeline.
 
-### Milestone 3.2 — Adaptive study planner
+## Current Capabilities
 
-- a persisted daily plan generated from a user-controlled 15-minute to 16-hour study budget;
-- deterministic priority for due reviews, active roadmap work, recent weak areas and fresh practice;
-- transparent rationales and time estimates for every recommendation;
-- task completion, plan regeneration and study-session tracking;
-- dashboard integration that gives users a clear next action;
-- compact four-item mobile navigation with an overflow menu and visible logout.
+### Multi-Provider Data Collection
 
-### Milestone 3.3 — Guided mock interviews
+The ingestion layer collects vacancies from recruitment platforms with different:
 
-- timed technical, conceptual, behavioural, debugging and mixed sessions;
-- deterministic selection that favours due and recently difficult questions;
-- saved response notes, confidence assessments, resumable sessions and debriefs.
+- API structures
+- Pagination models
+- Job-detail endpoints
+- Location formats
+- Metadata fields
+- Response formats
+- Failure behaviours
 
-### Milestone 3.4 — Interview goals and readiness
+Each provider has a dedicated adapter responsible for retrieving vacancies and converting provider-specific responses into a consistent internal representation.
 
-- multiple interview goals with one primary goal;
-- OA and interview stages, deadlines and roadmap-aware planning;
-- explainable readiness across roadmap coverage, reviews, questions, mocks and consistency.
+### Raw Snapshot Preservation
 
-### Milestone 3.5 — Personal evidence layer
+Raw provider responses are retained before transformation.
 
-- private project, work, coursework, leadership and technical-incident records;
-- reusable decision logs and behavioural stories;
-- personal evidence overlays for roadmap topics;
-- evidence links for questions and goal-specific interview framing;
-- explicit evidence readiness from knowledge-only through interview-ready.
+The pipeline stores:
 
-## Architecture decisions
+- Raw JSON or HTML snapshots
+- Source metadata
+- Collection timestamps
+- Integrity information
+- SHA-256 hashes
 
-- Modular Django monolith.
-- PostgreSQL from the beginning; no application SQLite fallback.
-- Custom user model before the first migration.
-- Server-rendered Django interface first.
-- Concrete base question plus typed child models.
-- Deterministic study logic remains separate from future AI behaviour.
+Raw files remain unchanged after collection, allowing transformations to be reproduced and audited.
 
-See [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/architecture/adaptive-study-planner.md`](docs/architecture/adaptive-study-planner.md), [`docs/architecture/personal-evidence-layer.md`](docs/architecture/personal-evidence-layer.md) and [`docs/adr/`](docs/adr/).
+### Data Cleaning and Standardisation
 
-## Local setup
+The transformation pipeline:
 
-### 1. Create a Python environment
+- Cleans raw job descriptions
+- Removes HTML formatting
+- Standardises text values
+- Normalises locations
+- Parses workplace information
+- Standardises employment metadata
+- Handles missing and ambiguous values
+- Produces a common structure across providers
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install --upgrade pip
-pip install -r requirements-dev.txt
+### Deduplication and Observation History
+
+Stable provider identifiers are used to identify repeated vacancies across collection runs.
+
+The pipeline preserves:
+
+- First-seen dates
+- Last-seen dates
+- Observation history
+- Source identifiers
+- Collection evidence
+
+Deduplication is intentionally conservative to avoid incorrectly combining unrelated vacancies.
+
+### Skills Extraction
+
+The project automatically extracts and normalises skills mentioned in job descriptions.
+
+Current skill categories include:
+
+- Programming languages
+- Frameworks and libraries
+- Databases
+- Cloud platforms
+- Development tools
+- Technical capabilities
+- Soft skills
+
+Normalisation allows employers using different terminology to be compared more consistently.
+
+For example, related terms and naming variations can be mapped to a common analytical label instead of being treated as completely separate skills.
+
+### Vacancy Classification
+
+The pipeline classifies vacancies by:
+
+- Career level
+- Functional role
+- Technical domain
+- Employment type
+- Workplace type
+- Technology relevance
+- Early-career suitability
+
+Classification evidence is retained where possible so that labels remain explainable rather than operating as unsupported black-box predictions.
+
+### Requirements Filtering
+
+The project distinguishes and structures requirements found in vacancy descriptions, supporting later analysis of:
+
+- Minimum requirements
+- Preferred requirements
+- Experience expectations
+- Education requirements
+- Technical capability requirements
+
+### Dataset Generation
+
+The pipeline produces a schema-controlled analytical dataset:
+
+```text
+data/processed/
+├── jobs.parquet
+├── job_skills.parquet
+├── job_requirements.parquet
+├── dashboard_jobs.parquet
+├── dashboard_skills.parquet
+├── quality-report.json
+├── skills-quality-report.json
+└── dashboard-quality-report.json
 ```
 
-On Windows PowerShell, activate with:
+`jobs.parquet` remains the canonical, one-row-per-vacancy source of truth.
+
+`job_skills.parquet` and `job_requirements.parquet` retain explainable extraction evidence. `dashboard_jobs.parquet` and `dashboard_skills.parquet` are validated data marts designed for Streamlit and DuckDB.
+
+The three quality reports cover canonical transformation, skills extraction and dashboard-contract validation.
+
+Parquet is used as the main analytical format because it:
+
+- Preserves column data types
+- Supports efficient storage
+- Loads faster than CSV for repeated analysis
+- Works well with Python analytics tools
+- Provides a stable contract for dashboards and later analysis
+
+## Pipeline Architecture
+
+```text
+Employer career websites
+           |
+           v
+Provider-specific collectors
+           |
+           v
+Raw JSON or HTML snapshots
+           |
+           +--> metadata
+           +--> timestamps
+           +--> SHA-256 integrity hashes
+           |
+           v
+Snapshot validation
+           |
+           v
+Cleaning and standardisation
+           |
+           v
+Skills and requirements extraction
+           |
+           v
+Vacancy classification
+           |
+           v
+Stable-key deduplication
+           |
+           v
+Observation-history tracking
+           |
+           +--> jobs.parquet
+           +--> quality-report.json
+           |
+           v
+Market analysis and dashboards
+```
+
+## Repository Structure
+
+```text
+.
+├── config/
+│   └── sources.json
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── source-test-results/
+├── docs/
+├── scripts/
+├── src/
+│   ├── ingestion/
+│   ├── transformation/
+│   ├── skills/
+│   └── analytics/
+├── tests/
+├── requirements.txt
+└── README.md
+```
+
+### `config/`
+
+Contains source definitions and provider configuration.
+
+### `data/raw/`
+
+Contains immutable provider snapshots and associated metadata.
+
+### `data/processed/`
+
+Contains the canonical analytical dataset and data-quality reports.
+
+### `src/ingestion/`
+
+Contains provider-specific collection logic.
+
+### `src/transformation/`
+
+Contains cleaning, normalisation, extraction, classification, schema and dataset-building logic.
+
+### `scripts/`
+
+Contains validation, auditing and supporting utilities.
+
+### `docs/`
+
+Contains milestone reports, technical decisions, source assessments and implementation documentation.
+
+## Setup
+
+Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+```
+
+On macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+On Windows PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-### 2. Create the local environment file
+Install the dependencies:
 
 ```bash
-cp .env.example .env
+pip install -r requirements.txt
 ```
 
-The project deliberately does not automatically load `.env`. Export the variables in your shell or configure them in your IDE. The defaults in `config.settings.local` are sufficient when using the included local PostgreSQL credentials.
+## Running the Pipeline
 
-### 3. Start PostgreSQL
+### 1. Collect Raw Job-Posting Data
+
+Run all configured sources:
 
 ```bash
-docker compose up -d postgres
+python -m src.ingestion.collect
 ```
 
-### 4. Apply migrations
+Run a specific configured source:
 
 ```bash
-python3 manage.py migrate
+python -m src.ingestion.collect --source-token takealotgroup
 ```
 
-### 5. Start Django
+Additional examples:
 
 ```bash
-python3 manage.py runserver
+python -m src.ingestion.collect --source-token discovery
+python -m src.ingestion.collect --source-token digioutsource
 ```
 
-Open `http://127.0.0.1:8000/` and visit `/questions/` after signing in.
+Collectors with page-based career sites follow result pages and retrieve individual vacancy details where required.
 
-## Tests
+Completeness checks are used to reduce the risk of silently producing truncated datasets.
 
-The committed test settings use PostgreSQL. Django creates and removes a separate test database on the configured PostgreSQL server.
+### 2. Build the Canonical Dataset
 
 ```bash
-python3 -m pytest
-ruff check .
-python3 manage.py makemigrations --check --dry-run
+python -m src.transformation.build
 ```
 
-## Create an administrator
+This stage:
+
+- Reads preserved raw snapshots
+- Validates source integrity
+- Cleans vacancy descriptions
+- Standardises fields
+- Applies classifications
+- Deduplicates repeated observations
+- Updates vacancy history
+- Writes the canonical dataset
+- Produces a data-quality report
+
+### 3. Extract Skills and Requirements
 
 ```bash
-python3 manage.py createsuperuser
+python -m src.skills.build
 ```
 
-The login identifier is the email address.
+This creates explainable job-skill and job-requirement datasets from the canonical jobs table.
 
-## Production settings
-
-Production requires:
-
-- `DJANGO_SETTINGS_MODULE=config.settings.production`;
-- `DJANGO_SECRET_KEY`;
-- `DATABASE_URL`;
-- either `RENDER_EXTERNAL_HOSTNAME` or `DJANGO_ALLOWED_HOSTS`.
-
-The included `render.yaml` is a deployment draft. Review the current Render plan and database settings before creating a Blueprint.
-
-## First-migration warning
-
-`accounts.User` is referenced by `AUTH_USER_MODEL` and is created in `accounts/0001_initial.py`. Do not run Django's default migrations before this model exists. Replacing the user model after dependent migrations have been applied is intentionally avoided.
-
-## Built-in question library
-
-ViewCoach ships with a curated starter library. After applying migrations locally, seed or refresh it with:
+### 4. Build Dashboard Data Marts
 
 ```bash
-python manage.py seed_question_bank
+python -m src.analytics.build
 ```
 
-The command is idempotent and is also run by `build.sh` during Render deployments. The curated core bank contains 100 questions: 30 technical, 50 concept, 10 debugging and 10 behavioural. Built-in questions are shared and read-only; each user stores private bookmarks, progress and notes separately.
+This stage validates job keys and joins, then writes compact dashboard datasets with employer, role, location, workplace, skills and requirement dimensions.
 
-## Built-in learning roadmaps
-
-ViewCoach also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
+All commands can also be run through uv, for example:
 
 ```bash
-python manage.py seed_roadmaps
+uv run python -m src.analytics.build
 ```
 
-The command is idempotent and is run by `build.sh` during Render deployments. The first catalogue contains 12 roadmaps and 419 topics across AI engineering, backend, full-stack, data analysis, prompt engineering, AI agents, Python, Java, Python for data analysis, system design, data structures and algorithms, and LeetCode interview practice.
+### 5. Validate Sources
+
+```bash
+python scripts/validate_sources.py
+```
+
+### 6. Run the Test Suite
+
+```bash
+pytest
+```
+
+## Important Design Decisions
+
+### Raw Data Remains Immutable
+
+Transformations never edit source snapshots.
+
+This makes the pipeline reproducible and allows cleaning or classification logic to be improved without recollecting all historical data.
+
+### No Early Destructive Filtering
+
+The canonical dataset retains broader vacancy evidence.
+
+Fields such as technology relevance and early-career suitability are represented as analytical flags rather than permanently removing records.
+
+### Early Career Is an Analytical Lens
+
+Graduate, internship and junior roles are reported separately, but they remain part of the broader South African technology market dataset.
+
+### Unknown Is Better Than Guessing
+
+Missing or ambiguous values remain unknown when there is insufficient evidence.
+
+The project avoids creating false precision simply to increase classification coverage.
+
+### Classifications Should Be Explainable
+
+Classification rules retain evidence where practical so that labels can be reviewed and audited.
+
+### Deduplication Is Conservative
+
+Stable provider job identifiers are preferred.
+
+Fuzzy matching is not used aggressively because similar job titles may still represent different vacancies.
+
+### Parquet Is the Analytical Contract
+
+Later analysis and dashboard components read the canonical Parquet dataset rather than repeating raw provider parsing.
+
+### Provider Logic Is Isolated
+
+Provider-specific behaviour is kept inside dedicated adapters.
+
+This prevents changes to one recruitment platform from unnecessarily affecting the rest of the pipeline.
+
+## Current Development Focus
+
+Current work is focused primarily on improving provider reliability.
+
+Recent improvements include:
+
+- Better SuccessFactors retry handling for transient failures
+- More resilient Workday pagination
+- Updated Oracle HCM vacancy-detail retrieval
+- Fallback mechanisms for WordPress-based career portals
+- Expanded automated tests for provider failures and incomplete responses
+- Improved technology and capability dimensions
+- Requirements filtering and classification improvements
+
+These changes are intended to improve collection success across employers using recruitment systems with different reliability and response behaviours.
+
+## Current Project Status
+
+The core data engineering pipeline is operational.
+
+Completed or substantially implemented functionality includes:
+
+- Multi-provider vacancy ingestion
+- Raw snapshot preservation
+- Data cleaning and standardisation
+- Location and metadata normalisation
+- Vacancy deduplication
+- Observation-history tracking
+- Skills extraction
+- Requirements filtering
+- Vacancy classification
+- Dataset generation
+- Data-quality reporting
+
+The remaining work focuses mainly on reliability, validation and presentation.
+
+**Estimated overall completion: 85–90%.**
+
+## Roadmap
+
+| Phase | Outcome | Status |
+|---|---|---|
+| Source assessment | Identify suitable employer career sources | Complete |
+| Raw ingestion | Collect and preserve provider snapshots | Complete |
+| Cleaning and standardisation | Produce one consistent vacancy schema | Complete |
+| Deduplication and history | Track vacancies across collection runs | Complete |
+| Vacancy classification | Classify roles, levels, domains and employment types | Complete |
+| Skills extraction | Extract and normalise technologies and capabilities | Complete |
+| Requirements filtering | Structure minimum and preferred requirements | Complete |
+| Provider hardening | Improve retries, pagination, fallbacks and compatibility | In progress |
+| Dataset refresh | Re-run affected sources and publish updated datasets | Next |
+| Dashboard data marts | Validate and publish dashboard-ready Parquet tables | Complete |
+| Market analysis | Analyse hiring, skills, levels and locations | Next |
+| Interactive dashboard | Publish visual labour-market insights | Next |
+| Employer expansion | Add more South African technology employers | Ongoing |
+
+## Planned Analysis
+
+The analytical stage is intended to answer questions such as:
+
+- Which programming languages are most frequently requested?
+- Which frameworks and cloud platforms appear most often?
+- Which technical roles have the highest vacancy counts?
+- Which employers advertise the most early-career opportunities?
+- How are technology vacancies distributed geographically?
+- Which skills commonly appear together?
+- How do minimum requirements differ by career level?
+- Which roles are most accessible to graduates?
+- How frequently are remote and hybrid roles advertised?
+- Which technical domains are growing across collection periods?
+
+## Dashboard Plans
+
+The planned interactive dashboard will include views for:
+
+- Technology demand
+- Skills frequency
+- Employer comparisons
+- Career-level distribution
+- Role and domain distribution
+- Location trends
+- Workplace-type distribution
+- Early-career opportunities
+- Requirement patterns
+- Vacancy activity over time
+
+## Limitations
+
+The dataset represents vacancies collected from configured employer career portals and should not be interpreted as a complete census of every technology vacancy in South Africa.
+
+Coverage depends on:
+
+- Employers included in the source configuration
+- Public availability of vacancy information
+- Recruitment-platform reliability
+- Collection dates
+- Provider response completeness
+- The accuracy of rule-based extraction and classification
+
+Vacancy descriptions also differ substantially in detail, which affects skills and requirements extraction.
+
+## Responsible Use
+
+The project collects only publicly advertised vacancy information.
+
+It does not:
+
+- Submit job applications
+- Collect applicant information
+- Access authenticated candidate accounts
+- Bypass platform access controls
+- Infer protected personal attributes
+- Collect private recruitment data
+- Scrape sources whose access restrictions make collection inappropriate
+
+## Technology Stack
+
+- Python
+- pandas
+- PyArrow
+- Parquet
+- Requests and HTTP clients
+- HTML parsing
+- JSON APIs
+- Provider-specific recruitment APIs
+- pytest
+- Git and GitHub
+
+## Portfolio Context
+
+This project demonstrates practical experience in:
+
+- Python development
+- Analytics engineering
+- Data ingestion
+- API integration
+- Data cleaning
+- Schema design
+- Data-quality validation
+- Rule-based classification
+- Information extraction
+- Error handling
+- Retry and fallback strategies
+- Automated testing
+- Modular software architecture
+- Labour-market analytics
+
+## Interactive Dashboard
+
+Patch 6.3 adds a Streamlit dashboard backed directly by the validated Patch 6.2 Parquet marts.
+
+```bash
+uv pip install -r requirements.txt
+uv run streamlit run streamlit_app.py
+```
+
+The dashboard includes overview, employer, skills, early-career, location, opportunity and data-quality views. Global filters are executed through parameterised DuckDB queries rather than transformation logic inside the UI.
+
+See [`docs/patch-6.3-streamlit-dashboard.md`](docs/patch-6.3-streamlit-dashboard.md) for the data requirements and deployment notes.

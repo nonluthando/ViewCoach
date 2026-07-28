@@ -1,8 +1,8 @@
-Django==5.2.16
-dj-database-url==2.3.0
-gunicorn==23.0.0
-ortools==9.15.6755
-psycopg[binary]==3.3.4
-whitenoise==6.12.0
-pypdf>=5.0,<7
-python-docx>=1.1,<2
+requests==2.32.4
+beautifulsoup4==4.13.4
+pyarrow==25.0.0
+pytest==8.4.1
+streamlit==1.60.0
+duckdb==1.5.5
+plotly==6.9.0
+pandas==2.3.3
