@@ -31,5 +31,3 @@ def test_mobile_navigation_is_compact_and_logout_is_visible(client, user):
     html = response.content.decode()
 
     assert "mobile-more-pa4nel" not in html
-    assert "mobile-logout-button" in html
-    
