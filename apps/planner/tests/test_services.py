@@ -25,21 +25,23 @@ from apps.roadmaps.models import (
 pytestmark = pytest.mark.django_db
 
 
-def _ready_question(user, title="Explain heaps"):
+def _ready_question(user, title="Explain heaps", topic="Heaps"):
     return TechnicalQuestion.objects.create(
         owner=user,
         title=title,
         prompt="Explain the data structure and its trade-offs.",
         status=Question.Status.READY_FOR_REVIEW,
-        topic="Heaps",
+        topic=topic,
         intuition="Keep the highest-priority value at the root.",
     )
 
 
-def _active_roadmap(user):
+def _active_roadmap(user, suffix=""):
+    title = "Backend Developer" if not suffix else f"Backend Developer {suffix}"
+    slug_suffix = f"-{suffix}" if suffix else ""
     roadmap = Roadmap.objects.create(
-        title="Backend Developer",
-        slug="backend-developer-test",
+        title=title,
+        slug=f"backend-developer-test{slug_suffix}",
         kind=Roadmap.Kind.ROLE,
         position=1,
     )
@@ -82,15 +84,59 @@ def test_due_reviews_receive_highest_priority(user):
 
     first = plan.recommendations.first()
     assert first.kind == StudyRecommendation.Kind.REVIEW
-    assert first.question_id == question.id
+    assert first.question_id == question.pk
     assert first.priority_score == 100
     assert plan_summary(plan=plan)["estimated_minutes"] <= 30
+
+
+def test_short_budget_with_due_reviews_stays_review_only(user):
+    now = timezone.now()
+    _ready_question(user)
+    TechnicalQuestion.objects.create(
+        is_system=True,
+        system_key="short-budget-practice",
+        title="Two Sum",
+        prompt="Return matching indices.",
+        topic="Arrays",
+    )
+    _active_roadmap(user)
+
+    plan = generate_daily_plan(
+        user=user,
+        time_budget_minutes=20,
+        now=now,
+    )
+
+    kinds = set(plan.recommendations.values_list("kind", flat=True))
+    assert kinds == {StudyRecommendation.Kind.REVIEW}
+
+
+def test_due_reviews_are_grouped_by_topic(user):
+    now = timezone.now()
+    _ready_question(user, title="Heap operations", topic="Heaps")
+    _ready_question(user, title="Heap construction", topic="Heaps")
+    _ready_question(user, title="Graph traversal", topic="Graphs")
+
+    plan = generate_daily_plan(
+        user=user,
+        time_budget_minutes=60,
+        now=now,
+    )
+
+    review_recommendations = list(
+        plan.recommendations.filter(kind=StudyRecommendation.Kind.REVIEW)
+    )
+    assert len(review_recommendations) == 2
+    review_titles = {item.title for item in review_recommendations}
+    assert any("Heaps" in title for title in review_titles)
+    assert any("Graphs" in title for title in review_titles)
+    assert sum(item.estimated_minutes for item in review_recommendations) == 9
 
 
 def test_plan_continues_next_active_roadmap_topic(user):
     _, first_topic, _ = _active_roadmap(user)
 
-    plan = generate_daily_plan(user=user, time_budget_minutes=30)
+    plan = generate_daily_plan(user=user, time_budget_minutes=60)
 
     recommendation = plan.recommendations.get(
         kind=StudyRecommendation.Kind.ROADMAP
@@ -109,7 +155,7 @@ def test_completed_roadmap_topic_is_skipped(user):
         completed_at=timezone.now(),
     )
 
-    plan = generate_daily_plan(user=user, time_budget_minutes=30)
+    plan = generate_daily_plan(user=user, time_budget_minutes=60)
 
     recommendation = plan.recommendations.get(
         kind=StudyRecommendation.Kind.ROADMAP
@@ -117,7 +163,7 @@ def test_completed_roadmap_topic_is_skipped(user):
     assert recommendation.topic == second_topic
 
 
-def test_large_budget_schedules_multiple_roadmap_topics(user):
+def test_large_budget_caps_topics_and_deepens_existing_blocks(user):
     roadmap, _, _ = _active_roadmap(user)
     section = roadmap.sections.get()
     for position in range(3, 9):
@@ -130,12 +176,50 @@ def test_large_budget_schedules_multiple_roadmap_topics(user):
 
     plan = generate_daily_plan(user=user, time_budget_minutes=720)
 
-    roadmap_recommendations = plan.recommendations.filter(
-        kind=StudyRecommendation.Kind.ROADMAP
+    roadmap_recommendations = list(
+        plan.recommendations.filter(kind=StudyRecommendation.Kind.ROADMAP)
     )
-    assert roadmap_recommendations.count() == 8
+    assert len(roadmap_recommendations) == 2
+    assert all(
+        recommendation.estimated_minutes >= 45
+        for recommendation in roadmap_recommendations
+    )
+    assert any(
+        recommendation.estimated_minutes > 45
+        for recommendation in roadmap_recommendations
+    )
     assert plan.time_budget_minutes == 720
     assert plan_summary(plan=plan)["estimated_minutes"] <= 720
+
+
+def test_large_budget_selects_at_most_four_roadmaps(user):
+    for index in range(5):
+        _active_roadmap(user, suffix=str(index))
+
+    plan = generate_daily_plan(user=user, time_budget_minutes=720)
+    roadmap_recommendations = list(
+        plan.recommendations.filter(
+            kind=StudyRecommendation.Kind.ROADMAP
+        ).select_related("topic__section__roadmap")
+    )
+    roadmap_ids = {
+        recommendation.topic.section.roadmap_id
+        for recommendation in roadmap_recommendations
+    }
+    topic_count_by_roadmap = {
+        roadmap_id: sum(
+            recommendation.topic.section.roadmap_id == roadmap_id
+            for recommendation in roadmap_recommendations
+        )
+        for roadmap_id in roadmap_ids
+    }
+
+    assert len(roadmap_ids) == 4
+    assert all(count <= 2 for count in topic_count_by_roadmap.values())
+    assert all(
+        recommendation.estimated_minutes >= 45
+        for recommendation in roadmap_recommendations
+    )
 
 
 def test_recent_hard_review_becomes_weak_area_recommendation(user):
@@ -161,7 +245,7 @@ def test_recent_hard_review_becomes_weak_area_recommendation(user):
     recommendation = plan.recommendations.get(
         kind=StudyRecommendation.Kind.WEAK_AREA
     )
-    assert recommendation.question_id == question.id
+    assert recommendation.question_id == question.pk
     assert "Hard" in recommendation.rationale
 
 
@@ -180,7 +264,7 @@ def test_fresh_built_in_question_is_used_for_practice(user):
     recommendation = plan.recommendations.get(
         kind=StudyRecommendation.Kind.PRACTICE
     )
-    assert recommendation.question_id == question.id
+    assert recommendation.question_id == question.pk
 
 
 def test_empty_account_gets_question_library_starting_task(user):
