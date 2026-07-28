@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Interview | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="section-hub-header">
+    <p class="eyebrow">Interview</p>
+    <h1>Prepare for the actual process.</h1>
+    <p>Set the target, understand your readiness, practise under pressure and use the debrief to decide what needs another attempt.</p>
+</section>
+
+<section class="section-hub-grid section-hub-grid-three" aria-label="Interview tools">
+    <a class="section-hub-card section-hub-card-featured" href="{% url 'goals:list' %}">
+        <span class="section-hub-kicker">Target</span>
+        <h2>Interview goals</h2>
+        <p>Track the role, company, stages, deadlines, linked roadmaps and readiness signals.</p>
+        <strong>Open interview goals <span aria-hidden="true">→</span></strong>
+    </a>
+    <a class="section-hub-card" href="{% url 'evidence:interview_pack' %}">
+        <span class="section-hub-kicker">Prepare</span>
+        <h2>Interview Hub</h2>
+        <p>Bring together project explanations, behavioural stories, technical playbooks and interview technique.</p>
+        <strong>Open Interview Hub <span aria-hidden="true">→</span></strong>
+    </a>
+    <a class="section-hub-card" href="{% url 'interviews:list' %}">
+        <span class="section-hub-kicker">Perform</span>
+        <h2>Mock interviews</h2>
+        <p>Run timed technical, conceptual, behavioural, debugging or mixed sessions.</p>
+        <strong>Open mock interviews <span aria-hidden="true">→</span></strong>
+    </a>
+</section>
+
+<section class="section-hub-guidance">
+    <p class="eyebrow">In the room</p>
+    <h2>Use the general interview playbook when you need technique, not more content.</h2>
+    <p>Review clarifying questions, thinking aloud, getting unstuck and closing the interview.</p>
+    <a class="section-hub-text-link" href="{% url 'evidence:general_interview_playbook' %}">
+        Open the general interview playbook <span aria-hidden="true">→</span>
+    </a>
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+<details class="app-account-menu app-account-menu-{{ placement }}">
+    <summary class="app-account-trigger" aria-label="Open account menu">
+        <span class="{% if placement == 'mobile' %}mobile-account-avatar{% else %}app-account-avatar{% endif %}" aria-hidden="true">
+            {{ user.email|first|upper }}
+        </span>
+        {% if placement == "desktop" %}
+            <span class="app-account-copy">
+                <strong>Signed in</strong>
+                <span>{{ user.email }}</span>
+            </span>
+            <svg class="app-account-chevron" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="m7 10 5 5 5-5"></path>
+            </svg>
+        {% endif %}
+    </summary>
+    <div class="app-account-panel">
+        <div class="app-account-panel-heading">
+            <strong>Account</strong>
+            <span>{{ user.email }}</span>
+        </div>
+        <a href="{% url 'questions:import_history' %}">Imports</a>
+        <span class="app-account-disabled">Help centre <small>Coming soon</small></span>
+        <span class="app-account-disabled">Settings <small>Coming soon</small></span>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Log out</button>
+        </form>
+    </div>
+</details>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Learn | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="section-hub-header">
+    <p class="eyebrow">Learn</p>
+    <h1>Build knowledge with structure.</h1>
+    <p>Follow focused roadmaps, work through topic objectives and keep your learning notes and resources in one place.</p>
+</section>
+
+<section class="section-hub-grid" aria-label="Learning tools">
+    <a class="section-hub-card section-hub-card-featured" href="{% url 'roadmaps:list' %}">
+        <span class="section-hub-kicker">Start here</span>
+        <h2>Roadmaps</h2>
+        <p>Choose a role, skill or practice path and continue from the next unfinished topic.</p>
+        <strong>Open learning roadmaps <span aria-hidden="true">→</span></strong>
+    </a>
+    <a class="section-hub-card" href="{% url 'planner:today' %}">
+        <span class="section-hub-kicker">Today</span>
+        <h2>Your learning block</h2>
+        <p>See which roadmap work ViewCoach selected for today and why it matters now.</p>
+        <strong>Open today’s plan <span aria-hidden="true">→</span></strong>
+    </a>
+</section>
+
+<section class="section-hub-guidance">
+    <p class="eyebrow">How this section works</p>
+    <h2>Learn first, then test recall elsewhere.</h2>
+    <p>Use roadmaps for new concepts, progression, notes and resources. Use Prepare for questions, review and interview drills.</p>
+</section>
+{% endblock %}

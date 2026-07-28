@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Prepare | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="section-hub-header">
+    <p class="eyebrow">Prepare</p>
+    <h1>Turn knowledge into interview-ready answers.</h1>
+    <p>Practise recall, technical reasoning, behavioural evidence, project explanations and repository work without mixing everything into one queue.</p>
+</section>
+
+<section class="section-hub-section" aria-labelledby="prepare-practice-heading">
+    <div class="section-hub-section-heading">
+        <p class="eyebrow">Questions and recall</p>
+        <h2 id="prepare-practice-heading">Practise what you need to explain</h2>
+    </div>
+    <div class="section-hub-grid">
+        <a class="section-hub-card section-hub-card-featured" href="{% url 'questions:list' %}">
+            <span class="section-hub-kicker">Question bank</span>
+            <h3>Prepare structured answers</h3>
+            <p>Work on technical, concept, behavioural and repository-debugging questions.</p>
+            <strong>Open question bank <span aria-hidden="true">→</span></strong>
+        </a>
+        <a class="section-hub-card" href="{% url 'reviews:queue' %}">
+            <span class="section-hub-kicker">Review</span>
+            <h3>Recall what is due</h3>
+            <p>Attempt the answer first, reveal your notes and rate the retrieval honestly.</p>
+            <strong>Open review queue <span aria-hidden="true">→</span></strong>
+        </a>
+    </div>
+</section>
+
+<section class="section-hub-section" aria-labelledby="prepare-evidence-heading">
+    <div class="section-hub-section-heading">
+        <p class="eyebrow">Evidence and explanation</p>
+        <h2 id="prepare-evidence-heading">Build answers you can defend</h2>
+    </div>
+    <div class="section-hub-grid section-hub-grid-three">
+        <a class="section-hub-card" href="{% url 'evidence:list' %}">
+            <span class="section-hub-kicker">Evidence</span>
+            <h3>Personal evidence</h3>
+            <p>Capture projects, work, coursework, decisions, incidents and leadership examples.</p>
+            <strong>Open evidence <span aria-hidden="true">→</span></strong>
+        </a>
+        <a class="section-hub-card" href="{% url 'evidence:behavioural_story_bank' %}">
+            <span class="section-hub-kicker">Behavioural</span>
+            <h3>Story bank</h3>
+            <p>Prepare reusable STAR stories and check competency coverage.</p>
+            <strong>Open story bank <span aria-hidden="true">→</span></strong>
+        </a>
+        <a class="section-hub-card" href="{% url 'evidence:project_explanations' %}">
+            <span class="section-hub-kicker">Projects</span>
+            <h3>Project explanations</h3>
+            <p>Prepare your pitch, architecture, trade-offs, bugs and lessons learned.</p>
+            <strong>Open project prep <span aria-hidden="true">→</span></strong>
+        </a>
+    </div>
+</section>
+
+<section class="section-hub-section" aria-labelledby="prepare-ai-heading">
+    <div class="section-hub-section-heading">
+        <p class="eyebrow">Technical workflow</p>
+        <h2 id="prepare-ai-heading">Explain how you use AI and work in repositories</h2>
+    </div>
+    <div class="section-hub-grid">
+        <a class="section-hub-card" href="{% url 'evidence:ai_coding_prep' %}">
+            <span class="section-hub-kicker">AI-assisted coding</span>
+            <h3>Prompting and verification</h3>
+            <p>Prepare answers about iteration, debugging, safety, ownership and validation.</p>
+            <strong>Open AI coding prep <span aria-hidden="true">→</span></strong>
+        </a>
+        <a class="section-hub-card" href="{% url 'evidence:ai_repository_playbook' %}">
+            <span class="section-hub-kicker">Repository work</span>
+            <h3>Repository playbook</h3>
+            <p>Practise reading tests, making focused changes and verifying the full result.</p>
+            <strong>Open repository prep <span aria-hidden="true">→</span></strong>
+        </a>
+    </div>
+</section>
+{% endblock %}

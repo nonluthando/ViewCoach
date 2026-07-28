@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{% static 'css/interviews.css' %}">
     <link rel="stylesheet" href="{% static 'css/goals.css' %}">
     <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
+    <link rel="stylesheet" href="{% static 'css/navigation.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
@@ -20,102 +21,17 @@
         <aside class="app-sidebar" aria-label="Application navigation">
             <a class="app-brand" href="{% url 'dashboard' %}">ViewCoach</a>
 
-            <nav class="app-navigation" aria-label="Primary navigation">
-                <a class="app-nav-link {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}"
-                   href="{% url 'dashboard' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
-                    </span>
-                    <span>Dashboard</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
-                   href="{% url 'planner:today' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
-                    </span>
-                    <span>Today’s plan</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'goals' %}is-active{% endif %}"
-                   href="{% url 'goals:list' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3"></path><path d="M22 12h-3"></path></svg>
-                    </span>
-                    <span>Interview goals</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.url_name == 'interview_pack' or request.resolver_match.url_name == 'project_explanations' or request.resolver_match.url_name == 'project_explanation_edit' or request.resolver_match.url_name == 'ai_coding_prep' or request.resolver_match.url_name == 'ai_repository_playbook' or request.resolver_match.url_name == 'general_interview_playbook' %}is-active{% endif %}"
-                   href="{% url 'evidence:interview_pack' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path><path d="M7 2v3"></path><path d="M17 2v3"></path></svg>
-                    </span>
-                    <span>Interview Hub</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'evidence' and request.resolver_match.url_name != 'interview_pack' and request.resolver_match.url_name != 'project_explanations' and request.resolver_match.url_name != 'project_explanation_edit' and request.resolver_match.url_name != 'ai_coding_prep' and request.resolver_match.url_name != 'ai_repository_playbook' and request.resolver_match.url_name != 'general_interview_playbook' %}is-active{% endif %}"
-                   href="{% url 'evidence:list' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
-                    </span>
-                    <span>Personal evidence</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
-                   href="{% url 'reviews:queue' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
-                    </span>
-                    <span>Review</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'interviews' %}is-active{% endif %}"
-                   href="{% url 'interviews:list' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
-                    </span>
-                    <span>Mock interviews</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'roadmaps' %}is-active{% endif %}"
-                   href="{% url 'roadmaps:list' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M4 19V5l5-2 6 2 5-2v14l-5 2-6-2z"></path><path d="M9 3v14"></path><path d="M15 5v14"></path></svg>
-                    </span>
-                    <span>Roadmaps</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.namespace == 'questions' %}is-active{% endif %}"
-                   href="{% url 'questions:list' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
-                    </span>
-                    <span>Question bank</span>
-                </a>
-                <a class="app-nav-link {% if request.resolver_match.url_name == 'import_history' %}is-active{% endif %}"
-                   href="{% url 'questions:import_history' %}">
-                    <span class="app-nav-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M4 19h16"></path></svg>
-                    </span>
-                    <span>Imports</span>
-                </a>
-            </nav>
+            {% include "includes/app_primary_navigation.html" %}
 
             <div class="app-sidebar-footer">
-                <div class="app-account">
-                    <span class="app-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
-                    <span class="app-account-copy">
-                        <strong>Signed in</strong>
-                        <span>{{ user.email }}</span>
-                    </span>
-                </div>
-                <form class="app-logout-form" method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button class="app-logout-button" type="submit">Log out</button>
-                </form>
+                {% include "includes/app_account_menu.html" with placement="desktop" %}
             </div>
         </aside>
 
         <header class="app-mobile-header">
             <a class="app-mobile-brand" href="{% url 'dashboard' %}">ViewCoach</a>
             <div class="app-mobile-header-actions">
-                <span class="mobile-account-avatar" aria-hidden="true">{{ user.email|first|upper }}</span>
-                <form class="mobile-logout-form" method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button class="mobile-logout-button" type="submit">Log out</button>
-                </form>
+                {% include "includes/app_account_menu.html" with placement="mobile" %}
             </div>
         </header>
 
@@ -144,46 +60,7 @@
     </main>
 
 {% if user.is_authenticated %}
-        <nav class="app-mobile-navigation" aria-label="Mobile navigation">
-            <a class="mobile-nav-link {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}"
-               href="{% url 'dashboard' %}">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4z"></path></svg>
-                <span>Home</span>
-            </a>
-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'planner' %}is-active{% endif %}"
-               href="{% url 'planner:today' %}">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
-                <span>Plan</span>
-            </a>
-            <a class="mobile-nav-link {% if request.resolver_match.namespace == 'reviews' %}is-active{% endif %}"
-               href="{% url 'reviews:queue' %}">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 6v5h-5"></path><path d="M4 18v-5h5"></path><path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 11"></path><path d="M17.9 15a7 7 0 0 1-11.6 2.6L4 13"></path></svg>
-                <span>Review</span>
-            </a>
-            <details class="mobile-more-menu">
-                <summary class="mobile-nav-link {% if request.resolver_match.namespace == 'goals' or request.resolver_match.namespace == 'evidence' or request.resolver_match.namespace == 'interviews' or request.resolver_match.namespace == 'roadmaps' or request.resolver_match.namespace == 'questions' %}is-active{% endif %}">
-                    <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>
-                    <span>More</span>
-                </summary>
-                <div class="mobile-more-panel">
-                    <div class="mobile-more-heading">
-                        <strong>More from ViewCoach</strong>
-                        <span>{{ user.email }}</span>
-                    </div>
-                    <a href="{% url 'goals:list' %}">Interview goals</a>
-                    <a href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
-                    <a href="{% url 'evidence:list' %}">Personal evidence</a>
-                    <a href="{% url 'interviews:list' %}">Mock interviews</a>
-                    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
-                    <a href="{% url 'questions:list' %}">Question bank</a>
-                    <a href="{% url 'questions:import_history' %}">Imports</a>
-                    <form method="post" action="{% url 'logout' %}">
-                        {% csrf_token %}
-                        <button type="submit">Log out</button>
-                    </form>
-                </div>
-            </details>
-        </nav>
+        {% include "includes/app_mobile_navigation.html" %}
     </div>
 {% endif %}
 </body>

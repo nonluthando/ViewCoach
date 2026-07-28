@@ -1,0 +1,24 @@
+{% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
+<nav class="app-mobile-navigation" aria-label="Mobile navigation">
+    <a class="mobile-nav-link {% if url_name == 'dashboard' or namespace == 'planner' %}is-active{% endif %}"
+       href="{% url 'dashboard' %}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
+        <span>Today</span>
+    </a>
+    <a class="mobile-nav-link {% if url_name == 'learn' or namespace == 'roadmaps' %}is-active{% endif %}"
+       href="{% url 'learn' %}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
+        <span>Learn</span>
+    </a>
+    <a class="mobile-nav-link {% if url_name == 'prepare' or namespace == 'questions' or namespace == 'reviews' %}is-active{% elif namespace == 'evidence' and url_name != 'interview_pack' and url_name != 'general_interview_playbook' %}is-active{% endif %}"
+       href="{% url 'prepare' %}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
+        <span>Prepare</span>
+    </a>
+    <a class="mobile-nav-link {% if url_name == 'interview' or namespace == 'goals' or namespace == 'interviews' or url_name == 'interview_pack' or url_name == 'general_interview_playbook' %}is-active{% endif %}"
+       href="{% url 'interview' %}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
+        <span>Interview</span>
+    </a>
+</nav>
+{% endwith %}

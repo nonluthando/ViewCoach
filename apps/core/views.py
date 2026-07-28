@@ -49,6 +49,21 @@ def dashboard(request):
     )
 
 
+@login_required
+def learn(request):
+    return render(request, "core/learn.html")
+
+
+@login_required
+def prepare(request):
+    return render(request, "core/prepare.html")
+
+
+@login_required
+def interview(request):
+    return render(request, "core/interview.html")
+
+
 def health_check(request):
     try:
         with connection.cursor() as cursor:
