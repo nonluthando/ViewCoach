@@ -3,6 +3,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .candidate_builders import (
+    _ordered_active_roadmap_enrolments,
     build_plan_candidates,
     recommendation_payloads_from_selection,
 )
@@ -11,6 +12,15 @@ from .selection import select_plan_candidates
 
 
 DEFAULT_TIME_BUDGET_MINUTES = 60
+
+
+def _active_roadmap_enrolment(*, user, goal=None):
+    """Compatibility wrapper for existing goal-planner integrations."""
+    enrolments = _ordered_active_roadmap_enrolments(
+        user=user,
+        goal=goal,
+    )
+    return enrolments[0] if enrolments else None
 
 
 def _payloads_and_selection(
