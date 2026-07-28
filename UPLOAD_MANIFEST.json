@@ -1,0 +1,31 @@
+{
+  "replace_existing": [
+    "apps/planner/candidates.py",
+    "apps/planner/scoring.py",
+    "apps/planner/heuristic.py",
+    "apps/planner/explanations.py",
+    "apps/planner/models.py",
+    "apps/planner/services.py",
+    "config/settings/base.py",
+    "requirements.txt",
+    ".env.example"
+  ],
+  "add_new": [
+    "apps/planner/candidate_builders.py",
+    "apps/planner/optimisation.py",
+    "apps/planner/selection.py",
+    "apps/planner/migrations/0002_studyplan_selection_metadata.py",
+    "apps/planner/tests/test_candidates.py",
+    "apps/planner/tests/test_scoring.py",
+    "apps/planner/tests/test_heuristic.py",
+    "apps/planner/tests/test_optimisation.py",
+    "apps/planner/tests/test_selection.py",
+    "apps/planner/tests/test_candidate_builders.py",
+    "apps/planner/tests/test_services_selection.py"
+  ],
+  "commit_message": "feat: integrate optimised candidate-based daily planning",
+  "validation": {
+    "python_files_compiled": 18,
+    "full_django_tests_run": false
+  }
+}
