@@ -1,4 +1,4 @@
-"""Deterministic candidate scoring for the planner."""
+"""Deterministic, explainable candidate scoring."""
 
 from __future__ import annotations
 
@@ -66,6 +66,9 @@ def _deadline_component(deadline_days):
 
 
 def score_candidate(candidate):
+    if not isinstance(candidate, PlanCandidate):
+        raise TypeError("candidate must be a PlanCandidate.")
+
     components = [
         ScoreComponent(
             key="kind_base",

@@ -1,9 +1,4 @@
-"""Planner candidate domain objects.
-
-Candidates are deliberately independent from Django models. Database-facing
-services can build these immutable objects, then hand them to either the
-heuristic selector or a future OR-Tools selector.
-"""
+"""Immutable planner candidate domain objects."""
 
 from __future__ import annotations
 

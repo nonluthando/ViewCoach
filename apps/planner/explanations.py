@@ -1,8 +1,8 @@
-"""Human-readable planner explanations."""
+"""Human-readable explanations for planner selections."""
 
 from __future__ import annotations
 
-from .heuristic import CandidateRejection, SelectionResult
+from .heuristic import CandidateRejection
 from .scoring import ScoredCandidate
 
 
@@ -24,7 +24,7 @@ def candidate_explanation(scored_candidate, *, max_reasons=3):
     if candidate.rationale.strip():
         explanations.append(candidate.rationale.strip())
 
-    return " ".join(explanations)
+    return " ".join(dict.fromkeys(explanations))
 
 
 def rejection_explanation(rejection):
@@ -34,9 +34,6 @@ def rejection_explanation(rejection):
 
 
 def selection_summary(result):
-    if not isinstance(result, SelectionResult):
-        raise TypeError("result must be a SelectionResult.")
-
     selected_count = len(result.selected)
     task_label = "task" if selected_count == 1 else "tasks"
     return (
@@ -47,9 +44,6 @@ def selection_summary(result):
 
 
 def selected_candidate_explanations(result):
-    if not isinstance(result, SelectionResult):
-        raise TypeError("result must be a SelectionResult.")
-
     return tuple(
         {
             "candidate_id": item.candidate.candidate_id,

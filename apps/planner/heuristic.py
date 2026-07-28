@@ -1,16 +1,11 @@
-"""Constraint-aware deterministic fallback selector.
-
-The heuristic keeps the same candidate boundary that the later CP-SAT
-implementation will consume. It therefore remains a safe fallback when the
-optimiser is unavailable or cannot find a solution quickly.
-"""
+"""Constraint-aware deterministic fallback selector."""
 
 from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .candidates import CandidateKind, PlanCandidate
+from .candidates import CandidateKind
 from .policies import DailyPlanPolicy
 from .scoring import ScoredCandidate, ranked_candidates
 
@@ -27,7 +22,7 @@ class SelectionResult:
     rejected: tuple[CandidateRejection, ...]
     time_budget_minutes: int
     used_minutes: int
-    status: str = "HEURISTIC"
+    status: str = "FALLBACK"
 
     @property
     def unused_minutes(self):
@@ -42,7 +37,10 @@ class _SelectionState:
     def __init__(self, *, time_budget_minutes):
         self.time_budget_minutes = time_budget_minutes
         self.used_minutes = 0
+        self.review_minutes = 0
+        self.practice_minutes = 0
         self.question_ids = set()
+        self.topic_ids = set()
         self.roadmap_ids = set()
         self.topic_count_by_roadmap = defaultdict(int)
         self.practice_blocks = 0
@@ -65,6 +63,16 @@ def _constraint_failure(*, candidate, state, policy):
     if state.question_ids.intersection(candidate.question_ids):
         return "duplicates a selected question"
 
+    if state.topic_ids.intersection(candidate.topic_ids):
+        return "duplicates a selected topic"
+
+    if candidate.kind == CandidateKind.REVIEW:
+        if (
+            state.review_minutes + candidate.estimated_minutes
+            > policy.review_target_minutes
+        ):
+            return "review allocation reached"
+
     if candidate.kind == CandidateKind.ROADMAP:
         is_new_roadmap = candidate.roadmap_id not in state.roadmap_ids
         if is_new_roadmap and len(state.roadmap_ids) >= policy.max_roadmaps:
@@ -76,6 +84,13 @@ def _constraint_failure(*, candidate, state, policy):
             > policy.max_topics_per_roadmap
         ):
             return "topic limit reached for this roadmap"
+
+    if candidate.kind in {CandidateKind.PRACTICE, CandidateKind.WEAK_AREA}:
+        if (
+            state.practice_minutes + candidate.estimated_minutes
+            > policy.practice_target_minutes
+        ):
+            return "practice allocation reached"
 
     if (
         candidate.kind == CandidateKind.PRACTICE
@@ -97,14 +112,19 @@ def _select(*, scored_candidate, state):
     state.selected_ids.add(candidate.candidate_id)
     state.used_minutes += candidate.estimated_minutes
     state.question_ids.update(candidate.question_ids)
+    state.topic_ids.update(candidate.topic_ids)
 
-    if candidate.kind == CandidateKind.ROADMAP:
+    if candidate.kind == CandidateKind.REVIEW:
+        state.review_minutes += candidate.estimated_minutes
+    elif candidate.kind == CandidateKind.ROADMAP:
         state.roadmap_ids.add(candidate.roadmap_id)
         state.topic_count_by_roadmap[candidate.roadmap_id] += candidate.topic_count
     elif candidate.kind == CandidateKind.PRACTICE:
         state.practice_blocks += 1
+        state.practice_minutes += candidate.estimated_minutes
     elif candidate.kind == CandidateKind.WEAK_AREA:
         state.weak_area_blocks += 1
+        state.practice_minutes += candidate.estimated_minutes
 
     state.last_context_key = candidate.effective_context_key
 

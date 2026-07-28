@@ -12,6 +12,11 @@ class StudyPlan(models.Model):
         ACTIVE = "ACTIVE", "Active"
         COMPLETED = "COMPLETED", "Completed"
 
+    class SelectionStatus(models.TextChoices):
+        OPTIMAL = "OPTIMAL", "Optimal"
+        FEASIBLE = "FEASIBLE", "Feasible"
+        FALLBACK = "FALLBACK", "Fallback"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -23,6 +28,17 @@ class StudyPlan(models.Model):
         max_length=12,
         choices=Status.choices,
         default=Status.ACTIVE,
+    )
+    selection_status = models.CharField(
+        max_length=16,
+        choices=SelectionStatus.choices,
+        default=SelectionStatus.FALLBACK,
+    )
+    selection_objective = models.FloatField(null=True, blank=True)
+    selection_best_bound = models.FloatField(null=True, blank=True)
+    selection_solve_time_ms = models.PositiveIntegerField(
+        null=True,
+        blank=True,
     )
     generated_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -118,7 +134,9 @@ class StudyRecommendation(models.Model):
             self.Kind.WEAK_AREA: "Revisit question",
             self.Kind.PRACTICE: "Open practice question",
             self.Kind.LIBRARY: (
-                "Open question" if self.question_id else "Open question library"
+                "Open question"
+                if self.question_id
+                else "Open question library"
             ),
         }
         return labels[self.kind]
@@ -156,7 +174,9 @@ class StudySession(models.Model):
     )
     started_at = models.DateTimeField(default=timezone.now)
     ended_at = models.DateTimeField(null=True, blank=True)
-    completed_recommendation_count = models.PositiveSmallIntegerField(default=0)
+    completed_recommendation_count = models.PositiveSmallIntegerField(
+        default=0
+    )
 
     class Meta:
         ordering = ["-started_at", "-pk"]
@@ -171,7 +191,10 @@ class StudySession(models.Model):
     @property
     def duration_minutes(self):
         end_time = self.ended_at or timezone.now()
-        elapsed_seconds = max(0, (end_time - self.started_at).total_seconds())
+        elapsed_seconds = max(
+            0,
+            (end_time - self.started_at).total_seconds(),
+        )
         return max(1, round(elapsed_seconds / 60))
 
     def __str__(self):
