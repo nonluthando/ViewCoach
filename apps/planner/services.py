@@ -11,12 +11,18 @@ from apps.reviews.services import due_review_states
 from apps.roadmaps.models import RoadmapTopic, UserRoadmap, UserTopicProgress
 
 from .models import StudyPlan, StudyRecommendation, StudySession
+from .policies import (
+    MAX_REVIEW_GROUPS,
+    PRACTICE_BLOCK_MAX_MINUTES,
+    PRACTICE_BLOCK_MINUTES,
+    REVIEW_MINUTES_PER_QUESTION,
+    ROADMAP_BLOCK_MAX_MINUTES,
+    ROADMAP_BLOCK_MINUTES,
+    WEAK_AREA_BLOCK_MINUTES,
+    plan_policy_for_budget,
+)
 
 DEFAULT_TIME_BUDGET_MINUTES = 60
-REVIEW_MINUTES_PER_QUESTION = 3
-ROADMAP_TOPIC_MINUTES = 25
-WEAK_AREA_MINUTES = 10
-PRACTICE_MINUTES = 20
 LIBRARY_MINUTES = 15
 
 
@@ -131,7 +137,6 @@ def _unfinished_roadmap_topics(*, user, enrolment, excluded_topic_ids=None):
         available.order_by(*topic_ordering),
         key=lambda topic: (0 if topic.pk in in_progress_ids else 1),
     )
-
 
 def _next_roadmap_topic(*, user, enrolment, excluded_topic_ids=None):
     topics = _unfinished_roadmap_topics(
@@ -249,6 +254,136 @@ def _practice_question(*, user, topic, excluded_question_ids, plan_date, goal=No
     return questions.get(pk=candidate_ids[selected_index])
 
 
+def _review_group_identity(question):
+    if question.question_type == Question.Type.TECHNICAL:
+        topic = getattr(question.specific, "topic", "").strip()
+        if topic:
+            return f"technical:{topic.casefold()}", topic
+
+    labels = {
+        Question.Type.TECHNICAL: "Technical concepts",
+        Question.Type.CONCEPT: "Concept questions",
+        Question.Type.BEHAVIOURAL: "Behavioural questions",
+        Question.Type.DEBUG: "Debugging and repository tasks",
+    }
+    label = labels.get(question.question_type, "Interview questions")
+    return question.question_type, label
+
+
+def _group_due_review_states(*, due_states, max_questions):
+    groups = {}
+    for state in due_states[:max_questions]:
+        key, label = _review_group_identity(state.question)
+        if key not in groups:
+            groups[key] = {"label": label, "states": []}
+        groups[key]["states"].append(state)
+    return list(groups.values())[:MAX_REVIEW_GROUPS]
+
+
+def _review_payloads(*, due_states, review_target_minutes):
+    if not due_states or review_target_minutes <= 0:
+        return [], set(), 0
+
+    max_questions = max(1, review_target_minutes // REVIEW_MINUTES_PER_QUESTION)
+    groups = _group_due_review_states(
+        due_states=due_states,
+        max_questions=max_questions,
+    )
+    payloads = []
+    selected_question_ids = set()
+    minutes_left = review_target_minutes
+
+    for group in groups:
+        if minutes_left <= 0:
+            break
+        states = group["states"]
+        estimated_minutes = min(
+            minutes_left,
+            max(1, len(states) * REVIEW_MINUTES_PER_QUESTION),
+        )
+        question_count = len(states)
+        question_label = "question" if question_count == 1 else "questions"
+        payloads.append(
+            {
+                "kind": StudyRecommendation.Kind.REVIEW,
+                "title": f"Review: {group['label']} — {question_count} {question_label}",
+                "description": (
+                    "Complete this related review group before switching domains. "
+                    f"Allow roughly {REVIEW_MINUTES_PER_QUESTION} minutes per question."
+                ),
+                "rationale": (
+                    "Due reviews are time-sensitive and grouped to reduce context switching."
+                ),
+                "estimated_minutes": estimated_minutes,
+                "priority_score": 100,
+                "question": states[0].question,
+            }
+        )
+        selected_question_ids.update(state.question_id for state in states)
+        minutes_left -= estimated_minutes
+
+    used_minutes = review_target_minutes - minutes_left
+    return payloads, selected_question_ids, used_minutes
+
+
+def _roadmap_payload(*, enrolment, topic, goal, plan_date):
+    deadline_note = ""
+    priority_score = 80
+    goal_deadline = goal.next_deadline if goal else None
+    target_date = goal_deadline or enrolment.target_date
+    if target_date:
+        days_remaining = (target_date - plan_date).days
+        if 0 <= days_remaining <= 14:
+            priority_score += 10
+            deadline_note = f" Your next stage is {days_remaining} days away."
+    if goal is not None:
+        deadline_note += f" This supports your primary goal: {goal.title}."
+
+    return {
+        "kind": StudyRecommendation.Kind.ROADMAP,
+        "title": f"Learn: {topic.title}",
+        "description": (
+            f"Spend one focused block moving the {enrolment.roadmap.title} roadmap forward."
+        ),
+        "rationale": (
+            "This is a coherent learning block, not a quick topic skim."
+            f"{deadline_note}"
+        ),
+        "estimated_minutes": ROADMAP_BLOCK_MINUTES,
+        "priority_score": priority_score,
+        "topic": topic,
+    }
+
+
+def _add_roadmap_depth(*, roadmap_payloads, available_minutes):
+    depth_minutes_left = available_minutes
+    while depth_minutes_left >= PRACTICE_BLOCK_MINUTES:
+        extended_any_block = False
+        for payload in roadmap_payloads:
+            room = ROADMAP_BLOCK_MAX_MINUTES - payload["estimated_minutes"]
+            if room < PRACTICE_BLOCK_MINUTES:
+                continue
+            increment = min(PRACTICE_BLOCK_MINUTES, room, depth_minutes_left)
+            payload["estimated_minutes"] += increment
+            depth_minutes_left -= increment
+            extended_any_block = True
+            if depth_minutes_left < PRACTICE_BLOCK_MINUTES:
+                break
+        if not extended_any_block:
+            break
+    return available_minutes - depth_minutes_left
+
+
+def _next_practice_block_minutes(*, minutes_left, slots_left):
+    if minutes_left < PRACTICE_BLOCK_MINUTES or slots_left <= 0:
+        return 0
+    minutes_needed_for_later_slots = PRACTICE_BLOCK_MINUTES * (slots_left - 1)
+    return min(
+        PRACTICE_BLOCK_MAX_MINUTES,
+        max(PRACTICE_BLOCK_MINUTES, minutes_left - minutes_needed_for_later_slots),
+    )
+
+
 def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
     remaining_minutes = time_budget_minutes
     payloads = []
@@ -256,106 +391,67 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
     goal = _primary_goal(user=user)
 
     due_states = list(due_review_states(user=user, now=now))
-    due_count = len(due_states)
-    if due_count:
-        review_capacity = max(1, remaining_minutes // REVIEW_MINUTES_PER_QUESTION)
-        planned_review_count = min(due_count, review_capacity)
-        estimated_minutes = planned_review_count * REVIEW_MINUTES_PER_QUESTION
-        first_question = due_states[0].question
-        selected_question_ids.update(
-            state.question_id for state in due_states[:planned_review_count]
-        )
-        if planned_review_count < due_count:
-            review_title = (
-                f"Review {planned_review_count} of {due_count} due questions"
-            )
-        else:
-            review_title = f"Review {planned_review_count} due question"
-            if planned_review_count != 1:
-                review_title += "s"
-        payloads.append(
-            {
-                "kind": StudyRecommendation.Kind.REVIEW,
-                "title": review_title,
-                "description": (
-                    "Begin with the material whose review window has arrived. "
-                    f"Allow roughly {REVIEW_MINUTES_PER_QUESTION} minutes per question."
-                ),
-                "rationale": (
-                    "Due reviews are time-sensitive, so they receive the highest priority."
-                ),
-                "estimated_minutes": estimated_minutes,
-                "priority_score": 100,
-                "question": first_question,
-            }
-        )
-        remaining_minutes = max(0, remaining_minutes - estimated_minutes)
+    policy = plan_policy_for_budget(
+        time_budget_minutes=time_budget_minutes,
+        due_count=len(due_states),
+    )
+    review_payloads, review_question_ids, review_minutes = _review_payloads(
+        due_states=due_states,
+        review_target_minutes=policy.review_target_minutes,
+    )
+    payloads.extend(review_payloads)
+    selected_question_ids.update(review_question_ids)
+    remaining_minutes = max(0, remaining_minutes - review_minutes)
 
     enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
+    selected_enrolments = enrolments[: policy.max_roadmaps]
     first_selected_topic = None
-    if remaining_minutes >= 15 and enrolments:
-        if time_budget_minutes <= 60:
-            roadmap_allocation = min(ROADMAP_TOPIC_MINUTES, remaining_minutes)
-        else:
-            roadmap_allocation = min(
-                remaining_minutes,
-                max(ROADMAP_TOPIC_MINUTES, time_budget_minutes // 2),
-            )
-        roadmap_limit = min(12, max(1, roadmap_allocation // 15))
-        roadmap_topics = _ordered_roadmap_topics(
+    roadmap_payloads = []
+    learning_minutes_left = max(
+        0,
+        remaining_minutes - policy.practice_target_minutes,
+    )
+    topic_queues = {
+        enrolment.roadmap_id: _unfinished_roadmap_topics(
             user=user,
-            enrolments=enrolments,
-            limit=roadmap_limit,
+            enrolment=enrolment,
         )
-        roadmap_minutes_left = roadmap_allocation
+        for enrolment in selected_enrolments
+    }
 
-        for topic in roadmap_topics:
-            if remaining_minutes < 15 or roadmap_minutes_left < 15:
+    for _ in range(policy.max_topics_per_roadmap):
+        for enrolment in selected_enrolments:
+            if learning_minutes_left < ROADMAP_BLOCK_MINUTES:
                 break
-            estimated_minutes = min(
-                ROADMAP_TOPIC_MINUTES,
-                remaining_minutes,
-                roadmap_minutes_left,
+            topic_queue = topic_queues[enrolment.roadmap_id]
+            if not topic_queue:
+                continue
+            topic = topic_queue.pop(0)
+            roadmap_payload = _roadmap_payload(
+                enrolment=enrolment,
+                topic=topic,
+                goal=goal,
+                plan_date=plan_date,
             )
-            enrolment = next(
-                item
-                for item in enrolments
-                if item.roadmap_id == topic.section.roadmap_id
-            )
-            deadline_note = ""
-            priority_score = 80
-            goal_deadline = goal.next_deadline if goal else None
-            target_date = goal_deadline or enrolment.target_date
-            if target_date:
-                days_remaining = (target_date - plan_date).days
-                if 0 <= days_remaining <= 14:
-                    priority_score += 10
-                    deadline_note = f" Your next stage is {days_remaining} days away."
-            if goal is not None:
-                deadline_note += f" This supports your primary goal: {goal.title}."
-
-            payloads.append(
-                {
-                    "kind": StudyRecommendation.Kind.ROADMAP,
-                    "title": f"Continue: {topic.title}",
-                    "description": (
-                        f"Move the {enrolment.roadmap.title} roadmap forward "
-                        "with one focused topic."
-                    ),
-                    "rationale": (
-                        "This is one of the next unfinished topics across your "
-                        f"active roadmaps.{deadline_note}"
-                    ),
-                    "estimated_minutes": estimated_minutes,
-                    "priority_score": priority_score,
-                    "topic": topic,
-                }
-            )
+            roadmap_payloads.append(roadmap_payload)
             first_selected_topic = first_selected_topic or topic
-            remaining_minutes -= estimated_minutes
-            roadmap_minutes_left -= estimated_minutes
+            learning_minutes_left -= ROADMAP_BLOCK_MINUTES
+            remaining_minutes -= ROADMAP_BLOCK_MINUTES
+        if learning_minutes_left < ROADMAP_BLOCK_MINUTES:
+            break
 
-    weak_limit = min(10, remaining_minutes // WEAK_AREA_MINUTES)
+    depth_minutes = _add_roadmap_depth(
+        roadmap_payloads=roadmap_payloads,
+        available_minutes=learning_minutes_left,
+    )
+    remaining_minutes -= depth_minutes
+    payloads.extend(roadmap_payloads)
+
+    practice_minutes_left = min(policy.practice_target_minutes, remaining_minutes)
+    weak_limit = min(
+        policy.max_weak_area_blocks,
+        practice_minutes_left // WEAK_AREA_BLOCK_MINUTES,
+    )
     weak_questions = _recent_weak_questions(
         user=user,
         excluded_question_ids=selected_question_ids,
@@ -363,7 +459,7 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
         limit=weak_limit,
     )
     for weak_question, weak_attempt in weak_questions:
-        if remaining_minutes < WEAK_AREA_MINUTES:
+        if practice_minutes_left < WEAK_AREA_BLOCK_MINUTES:
             break
         payloads.append(
             {
@@ -375,18 +471,22 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
                 ),
                 "rationale": (
                     f"Your recent recall was rated {weak_attempt.get_rating_display()}, "
-                    "so this is a useful place for a short reset."
+                    "so this is a useful focused reset."
                 ),
-                "estimated_minutes": WEAK_AREA_MINUTES,
+                "estimated_minutes": WEAK_AREA_BLOCK_MINUTES,
                 "priority_score": 70,
                 "question": weak_question,
             }
         )
         selected_question_ids.add(weak_question.pk)
-        remaining_minutes -= WEAK_AREA_MINUTES
+        practice_minutes_left -= WEAK_AREA_BLOCK_MINUTES
+        remaining_minutes -= WEAK_AREA_BLOCK_MINUTES
 
     practice_count = 0
-    while remaining_minutes >= 15 and practice_count < 28:
+    while (
+        practice_minutes_left >= PRACTICE_BLOCK_MINUTES
+        and practice_count < policy.max_practice_blocks
+    ):
         practice_question = _practice_question(
             user=user,
             topic=first_selected_topic,
@@ -396,7 +496,11 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
         )
         if practice_question is None:
             break
-        estimated_minutes = min(PRACTICE_MINUTES, remaining_minutes)
+        slots_left = policy.max_practice_blocks - practice_count
+        estimated_minutes = _next_practice_block_minutes(
+            minutes_left=practice_minutes_left,
+            slots_left=slots_left,
+        )
         payloads.append(
             {
                 "kind": StudyRecommendation.Kind.PRACTICE,
@@ -416,6 +520,7 @@ def _recommendation_payloads(*, user, time_budget_minutes, plan_date, now):
             }
         )
         selected_question_ids.add(practice_question.pk)
+        practice_minutes_left -= estimated_minutes
         remaining_minutes -= estimated_minutes
         practice_count += 1
 
