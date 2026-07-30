@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:16-alpine
-        env:
+       postgres:
+       image: pgvector/pgvector:pg16
+         env:
           POSTGRES_DB: adaptive_interview_coach
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
