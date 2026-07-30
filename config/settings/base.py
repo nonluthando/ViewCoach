@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "apps.core.apps.CoreConfig",
     "apps.accounts.apps.AccountsConfig",
     "apps.questions.apps.QuestionsConfig",
@@ -26,6 +27,7 @@ INSTALLED_APPS = [
     "apps.interviews.apps.InterviewsConfig",
     "apps.goals.apps.GoalsConfig",
     "apps.evidence.apps.EvidenceConfig",
+    "apps.knowledge.apps.KnowledgeConfig",
 ]
 
 MIDDLEWARE = [
@@ -97,22 +99,70 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_ROOT = BASE_DIR / "media"
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_AUTO_FIELD = (
+    "django.db.models.BigAutoField"
+)
 AUTH_USER_MODEL = "accounts.User"
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "home"
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend"
+)
 
 PLANNER_USE_OPTIMISER = os.getenv(
     "PLANNER_USE_OPTIMISER",
     "true",
-).strip().casefold() in {"1", "true", "yes", "on"}
+).strip().casefold() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 PLANNER_OPTIMISER_TIME_LIMIT_SECONDS = float(
     os.getenv(
         "PLANNER_OPTIMISER_TIME_LIMIT_SECONDS",
+        "0.25",
+    )
+)
+
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY",
+    "",
+)
+RAG_EMBEDDING_MODEL = os.getenv(
+    "RAG_EMBEDDING_MODEL",
+    "gemini-embedding-001",
+)
+RAG_EMBEDDING_DIMENSIONS = int(
+    os.getenv(
+        "RAG_EMBEDDING_DIMENSIONS",
+        "1536",
+    )
+)
+RAG_CHUNK_MAX_CHARACTERS = int(
+    os.getenv(
+        "RAG_CHUNK_MAX_CHARACTERS",
+        "2400",
+    )
+)
+RAG_CHUNK_OVERLAP_CHARACTERS = int(
+    os.getenv(
+        "RAG_CHUNK_OVERLAP_CHARACTERS",
+        "300",
+    )
+)
+RAG_RETRIEVAL_LIMIT = int(
+    os.getenv(
+        "RAG_RETRIEVAL_LIMIT",
+        "6",
+    )
+)
+RAG_MINIMUM_SIMILARITY = float(
+    os.getenv(
+        "RAG_MINIMUM_SIMILARITY",
         "0.25",
     )
 )
