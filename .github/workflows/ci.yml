@@ -41,7 +41,7 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Check for missing migration
-        run: python manage.py makemigrations --merge
+        run: python manage.py makemigrations
     
 
       - name: Run Django deployment checks
