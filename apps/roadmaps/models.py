@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Roadmap(models.Model):
@@ -178,3 +179,121 @@ class UserTopicResource(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user}: {self.topic} — {self.title}"
+
+
+class YouTubePlaylistRoadmap(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="youtube_playlist_roadmaps",
+    )
+    roadmap = models.OneToOneField(
+        Roadmap,
+        on_delete=models.CASCADE,
+        related_name="youtube_playlist",
+    )
+    playlist_id = models.CharField(max_length=100)
+    source_url = models.URLField(max_length=500)
+    channel_title = models.CharField(max_length=200, blank=True)
+    thumbnail_url = models.URLField(max_length=500, blank=True)
+    video_count = models.PositiveIntegerField(default=0)
+    available_video_count = models.PositiveIntegerField(default=0)
+    unavailable_video_count = models.PositiveIntegerField(default=0)
+    total_duration_seconds = models.PositiveIntegerField(default=0)
+    last_synced_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "playlist_id"],
+                name="unique_user_youtube_playlist",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "last_synced_at"],
+                name="yt_playlist_user_sync_idx",
+            ),
+        ]
+
+    @property
+    def total_duration_display(self):
+        hours, remainder = divmod(self.total_duration_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}h {minutes}m"
+        if minutes:
+            return f"{minutes}m"
+        return f"{seconds}s"
+
+    def __str__(self):
+        return f"{self.user}: {self.roadmap.title}"
+
+
+class YouTubePlaylistVideo(models.Model):
+    playlist = models.ForeignKey(
+        YouTubePlaylistRoadmap,
+        on_delete=models.CASCADE,
+        related_name="videos",
+    )
+    topic = models.OneToOneField(
+        RoadmapTopic,
+        on_delete=models.SET_NULL,
+        related_name="youtube_video",
+        null=True,
+        blank=True,
+    )
+    playlist_item_id = models.CharField(max_length=120)
+    video_id = models.CharField(max_length=100)
+    title = models.CharField(max_length=300)
+    channel_title = models.CharField(max_length=200, blank=True)
+    thumbnail_url = models.URLField(max_length=500, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    position = models.PositiveIntegerField(default=0)
+    available = models.BooleanField(default=True)
+    embeddable = models.BooleanField(default=True)
+    made_for_kids = models.BooleanField(null=True, blank=True)
+    in_playlist = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["playlist", "playlist_item_id"],
+                name="unique_youtube_playlist_item",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["playlist", "position"],
+                name="yt_video_playlist_pos_idx",
+            ),
+            models.Index(
+                fields=["video_id"],
+                name="yt_video_id_idx",
+            ),
+        ]
+
+    @property
+    def watch_url(self):
+        return f"https://www.youtube.com/watch?v={self.video_id}"
+
+    @property
+    def embed_url(self):
+        return f"https://www.youtube-nocookie.com/embed/{self.video_id}"
+
+    @property
+    def duration_display(self):
+        hours, remainder = divmod(self.duration_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes}:{seconds:02d}"
+
+    def __str__(self):
+        return f"{self.playlist.roadmap.title}: {self.title}"
