@@ -1,0 +1,49 @@
+<section class="youtube-player-panel" aria-labelledby="youtube-video-heading">
+    <div class="youtube-player-heading">
+        <div>
+            <p class="eyebrow">YouTube lesson · {{ video.duration_display }}</p>
+            <h2 id="youtube-video-heading">Watch the course video</h2>
+        </div>
+        <a href="{{ video.watch_url }}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
+    </div>
+
+    {% if video.available and video.embeddable %}
+        <div class="youtube-player-frame">
+            <iframe
+                src="{{ video.embed_url }}"
+                title="{{ video.title }}"
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+            </iframe>
+        </div>
+    {% else %}
+        <div class="youtube-unavailable-player">
+            {% if video.thumbnail_url %}<img src="{{ video.thumbnail_url }}" alt="">{% endif %}
+            <div>
+                <strong>{% if video.available %}Embedding is disabled for this video.{% else %}This video is currently unavailable.{% endif %}</strong>
+                <p>{% if video.available %}You can still watch it on YouTube and return to mark it complete.{% else %}The uploader may have made it private, deleted it or restricted access.{% endif %}</p>
+                {% if video.available %}<a class="button button-secondary" href="{{ video.watch_url }}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>{% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="youtube-player-actions">
+        <p>Completion is manual. Playing the video does not automatically mark it watched.</p>
+        {% if current_status == "COMPLETED" %}
+            {% if next_topic %}
+                <a class="button" href="{% url 'roadmaps:topic_detail' roadmap.slug next_topic.pk %}">Go to next video</a>
+            {% else %}
+                <a class="button" href="{% url 'roadmaps:detail' roadmap.slug %}">Back to roadmap</a>
+            {% endif %}
+        {% else %}
+            <form method="post" action="{% url 'roadmaps:complete_youtube_video' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <button class="button" type="submit">
+                    Mark watched{% if next_topic %} and continue{% endif %}
+                </button>
+            </form>
+        {% endif %}
+    </div>
+</section>

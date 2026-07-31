@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Import YouTube Playlist | ViewCoach{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>Import YouTube playlist</span>
+</nav>
+
+<section class="youtube-import-hero">
+    <div>
+        <p class="eyebrow">YouTube course roadmap</p>
+        <h1>Turn a playlist into a trackable roadmap.</h1>
+        <p class="lead">Paste a public or accessible YouTube playlist. ViewCoach will preserve the video order, show durations and let you work through each video inside its topic workspace.</p>
+    </div>
+</section>
+
+<div class="youtube-import-layout">
+    <section class="youtube-import-panel">
+        <form method="post">
+            {% csrf_token %}
+            <label for="{{ form.playlist_url.id_for_label }}">YouTube playlist link</label>
+            {{ form.playlist_url }}
+            {% if form.playlist_url.errors %}
+                <div class="youtube-form-errors">
+                    {% for error in form.playlist_url.errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            <p class="youtube-field-help">Private playlists, Watch Later and inaccessible videos cannot be imported.</p>
+            <button class="button" type="submit">Preview playlist</button>
+        </form>
+    </section>
+
+    <aside class="youtube-import-explainer">
+        <p class="eyebrow">What ViewCoach creates</p>
+        <ol>
+            <li><strong>One skill roadmap</strong><span>Named after the playlist.</span></li>
+            <li><strong>One topic per available video</strong><span>Kept in the original playlist order.</span></li>
+            <li><strong>A video workspace</strong><span>Embedded player, notes, progress and next-video navigation.</span></li>
+        </ol>
+    </aside>
+</div>
+{% endblock %}

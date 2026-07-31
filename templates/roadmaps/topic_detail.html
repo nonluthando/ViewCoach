@@ -26,6 +26,10 @@
 
 <div class="topic-workspace-layout">
     <main class="topic-workspace-main">
+        {% if topic.youtube_video %}
+            {% include "roadmaps/_youtube_video_player.html" with video=topic.youtube_video %}
+        {% endif %}
+
         <section class="topic-workspace-panel" aria-labelledby="topic-notes-heading">
             <div class="topic-panel-heading">
                 <div>
