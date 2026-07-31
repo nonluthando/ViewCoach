@@ -74,5 +74,15 @@
             </div>
         {% endif %}
     </section>
+
+    <section class="app-nav-section">
+        <a class="app-nav-link {% if namespace == 'knowledge' %}is-active{% endif %}"
+           href="{% url 'knowledge:help_assistant' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3z"></path><path d="M9 9a3 3 0 1 1 5.3 1.9c-.9.7-1.3 1.1-1.3 2.1"></path><path d="M13 16h.01"></path></svg>
+            </span>
+            <span>Help Assistant</span>
+        </a>
+    </section>
 </nav>
 {% endwith %}
