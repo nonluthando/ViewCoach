@@ -41,7 +41,7 @@ def _summary_from_markdown(markdown):
 class Command(BaseCommand):
     help = (
         "Load trusted Markdown documents, split them into chunks, "
-        "and create OpenAI embeddings."
+        "and create Gemini embeddings."
     )
 
     def add_arguments(self, parser):
