@@ -3,6 +3,7 @@
 {% block title %}{{ roadmap.title }} Roadmap | ViewCoach{% endblock %}
 
 {% block content %}
+{% with youtube_playlist=roadmap.youtube_playlist %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
     <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
     <span aria-hidden="true">/</span>
@@ -11,9 +12,20 @@
 
 <section class="roadmap-detail-header">
     <div class="roadmap-detail-copy">
-        <p class="eyebrow">{{ roadmap.get_kind_display }}</p>
+        <p class="eyebrow">{% if youtube_playlist %}YouTube course{% else %}{{ roadmap.get_kind_display }}{% endif %}</p>
         <h1>{{ roadmap.title }}</h1>
         <p class="lead">{{ roadmap.description }}</p>
+        {% if youtube_playlist %}
+            <div class="youtube-source-actions">
+                <a class="youtube-source-link" href="{{ youtube_playlist.source_url }}" target="_blank" rel="noopener noreferrer">
+                    View original playlist on YouTube
+                </a>
+                <form method="post" action="{% url 'roadmaps:delete_youtube_roadmap' roadmap.slug %}">
+                    {% csrf_token %}
+                    <button class="youtube-remove-roadmap" type="submit">Remove imported roadmap</button>
+                </form>
+            </div>
+        {% endif %}
     </div>
     <div class="roadmap-detail-progress">
         <span class="roadmap-detail-percentage">{{ progress.percentage }}%</span>
@@ -33,8 +45,16 @@
 </section>
 
 <div class="roadmap-summary-strip">
-    <span><strong>{{ sections|length }}</strong> sections</span>
-    <span><strong>{{ progress.total_count }}</strong> topics</span>
+    {% if youtube_playlist %}
+        <span><strong>{{ youtube_playlist.available_video_count }}</strong> videos</span>
+        <span><strong>{{ youtube_playlist.total_duration_display }}</strong> total video length</span>
+        {% if youtube_playlist.unavailable_video_count %}
+            <span><strong>{{ youtube_playlist.unavailable_video_count }}</strong> unavailable</span>
+        {% endif %}
+    {% else %}
+        <span><strong>{{ sections|length }}</strong> sections</span>
+        <span><strong>{{ progress.total_count }}</strong> topics</span>
+    {% endif %}
     <span><strong>{{ progress.in_progress_count }}</strong> currently learning</span>
 </div>
 
@@ -85,4 +105,5 @@
         </details>
     {% endfor %}
 </section>
+{% endwith %}
 {% endblock %}

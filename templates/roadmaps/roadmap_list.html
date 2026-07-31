@@ -4,9 +4,16 @@
 
 {% block content %}
 <section class="page-header roadmap-page-header">
-    <p class="eyebrow">Learning roadmaps</p>
-    <h1>Choose what you are building towards.</h1>
-    <p class="lead">Follow a structured path, learn each topic however you prefer, and keep your progress in one place.</p>
+    <div class="roadmap-page-heading-row">
+        <div>
+            <p class="eyebrow">Learning roadmaps</p>
+            <h1>Choose what you are building towards.</h1>
+            <p class="lead">Follow a structured path, learn each topic however you prefer, and keep your progress in one place.</p>
+        </div>
+        <a class="button youtube-import-button" href="{% url 'roadmaps:youtube_import' %}">
+            Import YouTube playlist
+        </a>
+    </div>
 </section>
 
 {% for group in roadmap_groups %}
@@ -55,6 +62,7 @@
     <div class="empty-state empty-state-wide">
         <h2>No roadmaps are published yet</h2>
         <p>Run the roadmap seed command to create the built-in catalogue.</p>
+        <a class="button" href="{% url 'roadmaps:youtube_import' %}">Import a YouTube course</a>
     </div>
 {% endfor %}
 {% endblock %}

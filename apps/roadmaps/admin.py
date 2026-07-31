@@ -65,3 +65,6 @@ class UserTopicResourceAdmin(admin.ModelAdmin):
     list_filter = ("topic__section__roadmap",)
     search_fields = ("title", "url", "user__email", "topic__title")
     raw_id_fields = ("user", "topic")
+
+
+from . import youtube_admin  # noqa: E402,F401
