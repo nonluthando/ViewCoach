@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from pgvector.django import VectorField
@@ -127,3 +128,60 @@ class KnowledgeIngestionRun(models.Model):
 
     def __str__(self):
         return f"{self.source_label} · {self.status}"
+
+
+
+class KnowledgeQueryLog(models.Model):
+    class Status(models.TextChoices):
+        ANSWERED = "ANSWERED", "Answered"
+        NO_EVIDENCE = "NO_EVIDENCE", "No evidence"
+        ERROR = "ERROR", "Error"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="knowledge_query_logs",
+    )
+    question = models.TextField()
+    answer = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+    )
+    generation_model = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    retrieved_chunk_ids = models.JSONField(
+        default=list,
+        blank=True,
+    )
+    citations = models.JSONField(
+        default=list,
+        blank=True,
+    )
+    top_similarity = models.FloatField(
+        null=True,
+        blank=True,
+    )
+    latency_ms = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["status", "created_at"],
+                name="know_q_status_created_idx",
+            ),
+            models.Index(
+                fields=["user", "created_at"],
+                name="know_q_user_created_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.status}: {self.question[:60]}"

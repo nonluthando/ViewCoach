@@ -4,6 +4,7 @@ from .models import (
     KnowledgeChunk,
     KnowledgeDocument,
     KnowledgeIngestionRun,
+    KnowledgeQueryLog,
 )
 
 
@@ -118,4 +119,56 @@ class KnowledgeIngestionRunAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+
+
+@admin.register(KnowledgeQueryLog)
+class KnowledgeQueryLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "short_question",
+        "user",
+        "status",
+        "generation_model",
+        "top_similarity",
+        "latency_ms",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "generation_model",
+        "created_at",
+    )
+    search_fields = (
+        "question",
+        "answer",
+        "user__email",
+        "error_message",
+    )
+    readonly_fields = (
+        "user",
+        "question",
+        "answer",
+        "status",
+        "generation_model",
+        "retrieved_chunk_ids",
+        "citations",
+        "top_similarity",
+        "latency_ms",
+        "error_message",
+        "created_at",
+    )
+    list_select_related = ("user",)
+
+    @admin.display(description="Question")
+    def short_question(self, obj):
+        return obj.question[:80]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
