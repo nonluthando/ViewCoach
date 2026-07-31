@@ -166,3 +166,27 @@ RAG_MINIMUM_SIMILARITY = float(
         "0.25",
     )
 )
+
+
+RAG_GENERATION_MODEL = os.getenv(
+    "RAG_GENERATION_MODEL",
+    "gemini-3.5-flash-lite",
+)
+RAG_MAX_OUTPUT_TOKENS = int(
+    os.getenv(
+        "RAG_MAX_OUTPUT_TOKENS",
+        "700",
+    )
+)
+RAG_MAX_REQUESTS_PER_WINDOW = int(
+    os.getenv(
+        "RAG_MAX_REQUESTS_PER_WINDOW",
+        "10",
+    )
+)
+RAG_RATE_LIMIT_WINDOW_SECONDS = int(
+    os.getenv(
+        "RAG_RATE_LIMIT_WINDOW_SECONDS",
+        "600",
+    )
+)

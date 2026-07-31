@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Help Assistant | ViewCoach{% endblock %}
+{% block body_class %}knowledge-page{% endblock %}
+{% block main_class %}knowledge-main{% endblock %}
+
+{% block content %}
+<section class="knowledge-shell">
+    <header class="knowledge-header">
+        <p class="eyebrow">Grounded help</p>
+        <h1>Help Assistant</h1>
+        <p class="lead">
+            Ask how ViewCoach works or get guidance on graduate and junior
+            screening interviews. Answers come only from trusted ViewCoach
+            documentation.
+        </p>
+    </header>
+
+    <div class="knowledge-layout">
+        <section class="knowledge-question-card" aria-labelledby="ask-heading">
+            <div class="knowledge-section-heading">
+                <div>
+                    <p class="knowledge-kicker">Ask one focused question</p>
+                    <h2 id="ask-heading">What can I help you understand?</h2>
+                </div>
+                <span class="knowledge-trust-badge">Trusted sources only</span>
+            </div>
+
+            <form method="post" class="knowledge-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="knowledge-error" role="alert">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="form-field">
+                    {{ form.question.label_tag }}
+                    {{ form.question }}
+                    {% if form.question.help_text %}
+                        <p class="help-text">{{ form.question.help_text }}</p>
+                    {% endif %}
+                    {{ form.question.errors }}
+                </div>
+
+                <div class="knowledge-form-footer">
+                    <p>
+                        This version does not read your private evidence,
+                        CV, goals, or interview history.
+                    </p>
+                    <button class="button" type="submit">Ask ViewCoach</button>
+                </div>
+            </form>
+        </section>
+
+        <aside class="knowledge-example-card" aria-labelledby="examples-heading">
+            <p class="knowledge-kicker">Good questions</p>
+            <h2 id="examples-heading">Try asking</h2>
+            <ul>
+                <li>Why did the planner choose this task?</li>
+                <li>How should I structure a STAR answer?</li>
+                <li>What happens during a technical screening call?</li>
+                <li>How does ViewCoach calculate readiness?</li>
+            </ul>
+        </aside>
+    </div>
+
+    {% if result %}
+        <section class="knowledge-result" aria-live="polite">
+            {% if result.supported %}
+                <div class="knowledge-answer-card">
+                    <div class="knowledge-answer-heading">
+                        <div>
+                            <p class="knowledge-kicker">Grounded answer</p>
+                            <h2>ViewCoach response</h2>
+                        </div>
+                        <span class="knowledge-status knowledge-status-supported">
+                            Sources verified
+                        </span>
+                    </div>
+                    <div class="knowledge-answer-copy">
+                        {{ result.answer|linebreaksbr }}
+                    </div>
+                </div>
+
+                <section class="knowledge-sources" aria-labelledby="sources-heading">
+                    <div class="knowledge-section-heading">
+                        <div>
+                            <p class="knowledge-kicker">Evidence</p>
+                            <h2 id="sources-heading">Sources used</h2>
+                        </div>
+                    </div>
+                    <div class="knowledge-source-grid">
+                        {% for source in result.sources %}
+                            <article class="knowledge-source-card">
+                                <p class="knowledge-source-number">Source {{ source.number }}</p>
+                                <h3>{{ source.citation_label }}</h3>
+                                <p>{{ source.excerpt }}</p>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% else %}
+                <div class="knowledge-answer-card knowledge-answer-unsupported">
+                    <div class="knowledge-answer-heading">
+                        <div>
+                            <p class="knowledge-kicker">Not enough evidence</p>
+                            <h2>I could not verify an answer</h2>
+                        </div>
+                        <span class="knowledge-status">No trusted match</span>
+                    </div>
+                    <p class="knowledge-answer-copy">{{ result.answer }}</p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+</section>
+{% endblock %}
