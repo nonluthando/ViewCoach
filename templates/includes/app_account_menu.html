@@ -19,7 +19,7 @@
             <span>{{ user.email }}</span>
         </div>
         <a href="{% url 'questions:import_history' %}">Imports</a>
-        <a href="{% url 'knowledge:help_assistant' %}">Help Assistant</a>
+        <a href="{% url 'knowledge:help_assistant' %}">Help centre</a>
         <span class="app-account-disabled">Settings <small>Coming soon</small></span>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
