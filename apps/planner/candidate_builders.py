@@ -119,8 +119,6 @@ def _unfinished_roadmap_topics(*, user, enrolment):
     topic_ordering = (
         "section__position",
         "position",
-        "section__title",
-        "title",
         "pk",
     )
     topics = RoadmapTopic.objects.filter(
@@ -142,13 +140,7 @@ def _unfinished_roadmap_topics(*, user, enrolment):
     )
 
     available = topics.exclude(pk__in=completed_topic_ids)
-    return (
-        sorted(
-            available.order_by(*topic_ordering),
-            key=lambda topic: 0 if topic.pk in in_progress_ids else 1,
-        ),
-        in_progress_ids,
-    )
+    return list(available.order_by(*topic_ordering)), in_progress_ids
 
 
 def _question_context(question):
@@ -265,7 +257,7 @@ def _build_roadmap_candidates(
             user=user,
             enrolment=enrolment,
         )
-        candidate_topics = topics[: policy.max_topics_per_roadmap]
+        candidate_topics = topics[:1]
 
         goal_deadline = goal.next_deadline if goal is not None else None
         target_date = goal_deadline or enrolment.target_date

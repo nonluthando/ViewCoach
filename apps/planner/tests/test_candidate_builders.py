@@ -1,19 +1,15 @@
 import pytest
 from django.utils import timezone
 
-from apps.planner.candidate_builders import (
-    build_plan_candidates,
-    recommendation_payloads_from_selection,
-)
+from apps.planner.candidate_builders import build_plan_candidates
 from apps.planner.candidates import CandidateKind
-from apps.planner.models import StudyRecommendation
-from apps.planner.selection import select_plan_candidates
 from apps.questions.models import Question, TechnicalQuestion
 from apps.roadmaps.models import (
     Roadmap,
     RoadmapSection,
     RoadmapTopic,
     UserRoadmap,
+    UserTopicProgress,
 )
 
 pytestmark = pytest.mark.django_db
@@ -92,10 +88,9 @@ def test_due_reviews_become_coherent_topic_groups(user):
     assert any("Heaps" in candidate.title for candidate in review_candidates)
     assert any("Graphs" in candidate.title for candidate in review_candidates)
 
-
-def test_large_budget_deepens_selected_roadmap_blocks(user):
+def test_large_budget_only_offers_first_unfinished_roadmap_topic(user):
     now = timezone.now()
-    _roadmap(user, topic_count=8)
+    _, topics = _roadmap(user, topic_count=8)
 
     build = build_plan_candidates(
         user=user,
@@ -103,21 +98,40 @@ def test_large_budget_deepens_selected_roadmap_blocks(user):
         plan_date=timezone.localdate(now),
         now=now,
     )
-    selection = select_plan_candidates(
-        candidates=build.candidates,
-        policy=build.policy,
-        time_budget_minutes=720,
-        use_optimiser=False,
-    )
-    payloads = recommendation_payloads_from_selection(
-        build_result=build,
-        selection_result=selection,
-        time_budget_minutes=720,
-    )
-    roadmap_payloads = [
-        payload for payload in payloads if payload["kind"] == StudyRecommendation.Kind.ROADMAP
+
+    roadmap_candidates = [
+        candidate
+        for candidate in build.candidates
+        if candidate.kind == CandidateKind.ROADMAP
     ]
 
-    assert len(roadmap_payloads) == 2
-    assert all(payload["estimated_minutes"] >= 45 for payload in roadmap_payloads)
-    assert any(payload["estimated_minutes"] > 45 for payload in roadmap_payloads)
+    assert len(roadmap_candidates) == 1
+    assert roadmap_candidates[0].topic_ids == (topics[0].pk,)
+
+
+def test_completing_first_topic_unlocks_second_topic(user):
+    now = timezone.now()
+    _, topics = _roadmap(user, topic_count=3)
+
+    UserTopicProgress.objects.create(
+        user=user,
+        topic=topics[0],
+        status=UserTopicProgress.Status.COMPLETED,
+        completed_at=now,
+    )
+
+    build = build_plan_candidates(
+        user=user,
+        time_budget_minutes=60,
+        plan_date=timezone.localdate(now),
+        now=now,
+    )
+
+    roadmap_candidates = [
+        candidate
+        for candidate in build.candidates
+        if candidate.kind == CandidateKind.ROADMAP
+    ]
+
+    assert len(roadmap_candidates) == 1
+    assert roadmap_candidates[0].topic_ids == (topics[1].pk,)
