@@ -1,81 +1,93 @@
 {% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
 <nav class="app-navigation" aria-label="Primary navigation">
-    <section class="app-nav-section">
-        <a class="app-nav-link {% if url_name == 'dashboard' or namespace == 'planner' %}is-active{% endif %}"
+    <section class="app-nav-group" aria-labelledby="nav-overview-label">
+        <p class="app-nav-label" id="nav-overview-label">Overview</p>
+        <a class="app-nav-link {% if url_name == 'dashboard' %}is-active{% endif %}"
            href="{% url 'dashboard' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4z"></path><path d="M14 4h6v6h-6z"></path><path d="M4 14h6v6H4z"></path><path d="M14 14h6v6h-6z"></path></svg>
+            </span>
+            <span>Dashboard</span>
+        </a>
+        <a class="app-nav-link {% if namespace == 'planner' %}is-active{% endif %}"
+           href="{% url 'planner:today' %}">
             <span class="app-nav-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
             </span>
-            <span>Today</span>
+            <span>Today’s plan</span>
         </a>
-        {% if url_name == "dashboard" or namespace == "planner" %}
-            <div class="app-nav-children" aria-label="Today">
-                <a class="{% if url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">Overview</a>
-                <a class="{% if namespace == 'planner' %}is-active{% endif %}" href="{% url 'planner:today' %}">Study plan</a>
-            </div>
-        {% endif %}
     </section>
 
-    <section class="app-nav-section">
-        <a class="app-nav-link {% if url_name == 'learn' or namespace == 'roadmaps' %}is-active{% endif %}"
-           href="{% url 'learn' %}">
+    <section class="app-nav-group" aria-labelledby="nav-learn-label">
+        <p class="app-nav-label" id="nav-learn-label">Learn</p>
+        <a class="app-nav-link {% if namespace == 'roadmaps' and url_name != 'youtube_list' and url_name != 'youtube_detail' and url_name != 'youtube_video_detail' and url_name != 'youtube_import' and url_name != 'youtube_import_confirm' %}is-active{% endif %}"
+           href="{% url 'roadmaps:list' %}">
             <span class="app-nav-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
             </span>
-            <span>Learn</span>
+            <span>ViewCoach roadmaps</span>
         </a>
-        {% if url_name == "learn" or namespace == "roadmaps" %}
-            <div class="app-nav-children" aria-label="Learn">
-                <a class="{% if url_name == 'learn' %}is-active{% endif %}" href="{% url 'learn' %}">Learning home</a>
-                <a class="{% if namespace == 'roadmaps' %}is-active{% endif %}" href="{% url 'roadmaps:list' %}">Roadmaps</a>
-            </div>
-        {% endif %}
-    </section>
-
-    <section class="app-nav-section">
-        <a class="app-nav-link {% if url_name == 'prepare' or namespace == 'questions' or namespace == 'reviews' %}is-active{% elif namespace == 'evidence' and url_name != 'interview_pack' and url_name != 'general_interview_playbook' %}is-active{% endif %}"
-           href="{% url 'prepare' %}">
+        <a class="app-nav-link {% if namespace == 'roadmaps' and url_name == 'youtube_list' or namespace == 'roadmaps' and url_name == 'youtube_detail' or namespace == 'roadmaps' and url_name == 'youtube_video_detail' or namespace == 'roadmaps' and url_name == 'youtube_import' or namespace == 'roadmaps' and url_name == 'youtube_import_confirm' %}is-active{% endif %}"
+           href="{% url 'roadmaps:youtube_list' %}">
             <span class="app-nav-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg>
+                <svg viewBox="0 0 24 24"><path d="M3 7.5A3.5 3.5 0 0 1 6.5 4h11A3.5 3.5 0 0 1 21 7.5v9a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 16.5z"></path><path d="m10 9 5 3-5 3z"></path></svg>
             </span>
-            <span>Prepare</span>
+            <span>YouTube roadmaps</span>
         </a>
-        {% if url_name == "prepare" or namespace == "questions" or namespace == "reviews" %}
-            <div class="app-nav-children" aria-label="Prepare">
-                <a class="{% if url_name == 'prepare' %}is-active{% endif %}" href="{% url 'prepare' %}">Preparation home</a>
-                <a class="{% if namespace == 'questions' %}is-active{% endif %}" href="{% url 'questions:list' %}">Question bank</a>
-                <a class="{% if namespace == 'reviews' %}is-active{% endif %}" href="{% url 'reviews:queue' %}">Review</a>
-                <a href="{% url 'evidence:list' %}">Personal evidence</a>
-            </div>
-        {% elif namespace == "evidence" and url_name != "interview_pack" and url_name != "general_interview_playbook" %}
-            <div class="app-nav-children" aria-label="Prepare">
-                <a href="{% url 'prepare' %}">Preparation home</a>
-                <a href="{% url 'questions:list' %}">Question bank</a>
-                <a href="{% url 'reviews:queue' %}">Review</a>
-                <a class="is-active" href="{% url 'evidence:list' %}">Personal evidence</a>
-            </div>
-        {% endif %}
     </section>
 
-    <section class="app-nav-section">
-        <a class="app-nav-link {% if url_name == 'interview' or namespace == 'goals' or namespace == 'interviews' or url_name == 'interview_pack' or url_name == 'general_interview_playbook' %}is-active{% endif %}"
-           href="{% url 'interview' %}">
+    <section class="app-nav-group" aria-labelledby="nav-prepare-label">
+        <p class="app-nav-label" id="nav-prepare-label">Prepare</p>
+        <a class="app-nav-link {% if namespace == 'questions' %}is-active{% endif %}"
+           href="{% url 'questions:list' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h6"></path><path d="M8 16h4"></path></svg>
+            </span>
+            <span>Question bank</span>
+        </a>
+        <a class="app-nav-link {% if namespace == 'reviews' %}is-active{% endif %}"
+           href="{% url 'reviews:queue' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"></path><path d="M4 4v5h5"></path><path d="M12 8v4l3 2"></path></svg>
+            </span>
+            <span>Review queue</span>
+        </a>
+        <a class="app-nav-link {% if namespace == 'evidence' and url_name != 'interview_pack' and url_name != 'general_interview_playbook' %}is-active{% endif %}"
+           href="{% url 'evidence:list' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
+            </span>
+            <span>Personal evidence</span>
+        </a>
+    </section>
+
+    <section class="app-nav-group" aria-labelledby="nav-interview-label">
+        <p class="app-nav-label" id="nav-interview-label">Interview</p>
+        <a class="app-nav-link {% if url_name == 'interview_pack' or url_name == 'general_interview_playbook' %}is-active{% endif %}"
+           href="{% url 'evidence:interview_pack' %}">
             <span class="app-nav-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"></path><path d="M8 9h8"></path><path d="M8 13h5"></path></svg>
             </span>
-            <span>Interview</span>
+            <span>Interview Hub</span>
         </a>
-        {% if url_name == "interview" or namespace == "goals" or namespace == "interviews" or url_name == "interview_pack" or url_name == "general_interview_playbook" %}
-            <div class="app-nav-children" aria-label="Interview">
-                <a class="{% if url_name == 'interview' %}is-active{% endif %}" href="{% url 'interview' %}">Interview home</a>
-                <a class="{% if namespace == 'goals' %}is-active{% endif %}" href="{% url 'goals:list' %}">Goals</a>
-                <a class="{% if url_name == 'interview_pack' or url_name == 'general_interview_playbook' %}is-active{% endif %}" href="{% url 'evidence:interview_pack' %}">Interview Hub</a>
-                <a class="{% if namespace == 'interviews' %}is-active{% endif %}" href="{% url 'interviews:list' %}">Mock interviews</a>
-            </div>
-        {% endif %}
+        <a class="app-nav-link {% if namespace == 'interviews' %}is-active{% endif %}"
+           href="{% url 'interviews:list' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path></svg>
+            </span>
+            <span>Mock interviews</span>
+        </a>
+        <a class="app-nav-link {% if namespace == 'goals' %}is-active{% endif %}"
+           href="{% url 'goals:list' %}">
+            <span class="app-nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="m15 9 4-4"></path></svg>
+            </span>
+            <span>Goals</span>
+        </a>
     </section>
 
-    <section class="app-nav-section">
+    <section class="app-nav-group" aria-labelledby="nav-support-label">
+        <p class="app-nav-label" id="nav-support-label">Support</p>
         <a class="app-nav-link {% if namespace == 'knowledge' %}is-active{% endif %}"
            href="{% url 'knowledge:help_assistant' %}">
             <span class="app-nav-icon" aria-hidden="true">

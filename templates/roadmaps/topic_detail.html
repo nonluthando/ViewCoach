@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}{{ topic.title }} | {{ roadmap.title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
     <span aria-hidden="true">/</span>
     <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
     <span aria-hidden="true">/</span>
@@ -26,10 +27,6 @@
 
 <div class="topic-workspace-layout">
     <main class="topic-workspace-main">
-        {% if topic.youtube_video %}
-            {% include "roadmaps/_youtube_video_player.html" with video=topic.youtube_video %}
-        {% endif %}
-
         <section class="topic-workspace-panel" aria-labelledby="topic-notes-heading">
             <div class="topic-panel-heading">
                 <div>

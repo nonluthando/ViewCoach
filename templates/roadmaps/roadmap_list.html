@@ -1,68 +1,75 @@
 {% extends "base.html" %}
 
-{% block title %}Roadmaps | ViewCoach{% endblock %}
+{% block title %}ViewCoach Roadmaps | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
 
 {% block content %}
-<section class="page-header roadmap-page-header">
-    <div class="roadmap-page-heading-row">
+<section class="source-page-shell">
+    <header class="source-page-header">
         <div>
-            <p class="eyebrow">Learning roadmaps</p>
-            <h1>Choose what you are building towards.</h1>
-            <p class="lead">Follow a structured path, learn each topic however you prefer, and keep your progress in one place.</p>
+            <p class="source-page-kicker">Curated curriculum</p>
+            <h1>ViewCoach roadmaps</h1>
+            <p>Structured paths for roles, technical skills and interview practice. These roadmaps are maintained by ViewCoach and shared across users.</p>
         </div>
-        <a class="button youtube-import-button" href="{% url 'roadmaps:youtube_import' %}">
-            Import YouTube playlist
+        <a class="button button-secondary" href="{% url 'roadmaps:youtube_list' %}">Open YouTube roadmaps</a>
+    </header>
+
+    <nav class="source-switcher" aria-label="Roadmap source">
+        <a class="is-active" href="{% url 'roadmaps:list' %}" aria-current="page">
+            <span class="source-switcher-icon is-viewcoach" aria-hidden="true">V</span>
+            <span><strong>ViewCoach</strong><small>Built-in curriculum</small></span>
         </a>
-    </div>
-</section>
+        <a href="{% url 'roadmaps:youtube_list' %}">
+            <span class="source-switcher-icon is-youtube" aria-hidden="true">▶</span>
+            <span><strong>YouTube</strong><small>Imported playlists</small></span>
+        </a>
+    </nav>
 
-{% for group in roadmap_groups %}
-    <section class="roadmap-group">
-        <div class="roadmap-group-heading">
-            <div>
-                <p class="eyebrow">{{ group.label }}</p>
-                <h2>
-                    {% if group.kind == "ROLE" %}Prepare for a role
-                    {% elif group.kind == "SKILL" %}Build a focused skill
-                    {% else %}Turn knowledge into practice
-                    {% endif %}
-                </h2>
+    {% for group in roadmap_groups %}
+        <section class="roadmap-group source-roadmap-group">
+            <div class="roadmap-group-heading">
+                <div>
+                    <p class="source-page-kicker">{{ group.label }}</p>
+                    <h2>
+                        {% if group.kind == "ROLE" %}Prepare for a role
+                        {% elif group.kind == "SKILL" %}Build a focused skill
+                        {% else %}Turn knowledge into practice
+                        {% endif %}
+                    </h2>
+                </div>
+                <span>{{ group.items|length }} roadmap{{ group.items|length|pluralize }}</span>
             </div>
-            <span>{{ group.items|length }} roadmap{{ group.items|length|pluralize }}</span>
-        </div>
 
-        <div class="roadmap-catalogue">
-            {% for item in group.items %}
-                <article class="roadmap-card">
-                    <div class="roadmap-card-main">
-                        <div class="roadmap-card-meta">
+            <div class="source-roadmap-grid">
+                {% for item in group.items %}
+                    <article class="source-roadmap-card">
+                        <div class="source-roadmap-card-topline">
+                            <span class="source-badge is-viewcoach">ViewCoach</span>
                             <span>{{ item.topic_count }} topics</span>
-                            {% if item.enrolment %}<span>{{ item.enrolment.get_status_display }}</span>{% else %}<span>Not started</span>{% endif %}
                         </div>
                         <h3><a href="{% url 'roadmaps:detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
                         <p>{{ item.roadmap.description }}</p>
-                    </div>
-                    <div class="roadmap-card-progress">
-                        <div class="roadmap-progress-copy">
+                        <div class="source-roadmap-progress-copy">
+                            <span>{% if item.enrolment %}{{ item.enrolment.get_status_display }}{% else %}Not started{% endif %}</span>
                             <strong>{{ item.percentage }}%</strong>
-                            <span>{{ item.completed_count }} of {{ item.topic_count }} complete</span>
                         </div>
-                        <div class="roadmap-progress-track" role="progressbar" aria-label="Roadmap progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
+                        <div class="source-roadmap-progress" role="progressbar" aria-label="{{ item.roadmap.title }} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
                             <span style="width: {{ item.percentage }}%"></span>
                         </div>
-                        <a class="roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
-                            {% if item.enrolment %}Continue roadmap{% else %}View roadmap{% endif %}
+                        <a class="source-roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+                            {% if item.enrolment %}Continue roadmap{% else %}Explore roadmap{% endif %}
+                            <span aria-hidden="true">→</span>
                         </a>
-                    </div>
-                </article>
-            {% endfor %}
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% empty %}
+        <div class="source-empty-state">
+            <span class="source-switcher-icon is-viewcoach" aria-hidden="true">V</span>
+            <h2>No ViewCoach roadmaps are published yet</h2>
+            <p>Run the roadmap seed command to create the built-in curriculum.</p>
         </div>
-    </section>
-{% empty %}
-    <div class="empty-state empty-state-wide">
-        <h2>No roadmaps are published yet</h2>
-        <p>Run the roadmap seed command to create the built-in catalogue.</p>
-        <a class="button" href="{% url 'roadmaps:youtube_import' %}">Import a YouTube course</a>
-    </div>
-{% endfor %}
+    {% endfor %}
+</section>
 {% endblock %}

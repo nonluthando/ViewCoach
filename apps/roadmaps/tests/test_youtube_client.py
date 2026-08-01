@@ -27,9 +27,7 @@ def test_extract_playlist_id(value, expected):
 
 def test_extract_playlist_id_rejects_non_youtube_host():
     with pytest.raises(ValueError, match="YouTube"):
-        extract_playlist_id(
-            "https://example.com/playlist?list=PL1234567890ABC"
-        )
+        extract_playlist_id("https://example.com/playlist?list=PL1234567890ABC")
 
 
 @pytest.mark.parametrize(

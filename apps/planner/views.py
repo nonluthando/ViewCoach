@@ -23,9 +23,7 @@ def today_plan(request):
     plan = _today_plan_for_user(request.user)
     summary = plan_summary(plan=plan)
     active_session = plan.sessions.filter(ended_at__isnull=True).first()
-    form = StudyPlanPreferencesForm(
-        initial={"time_budget_hours": plan.time_budget_minutes / 60}
-    )
+    form = StudyPlanPreferencesForm(initial={"time_budget_hours": plan.time_budget_minutes / 60})
     return render(
         request,
         "planner/today.html",

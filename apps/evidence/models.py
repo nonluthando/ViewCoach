@@ -305,17 +305,12 @@ class BehaviouralStory(models.Model):
 
     @property
     def follow_up_question_list(self):
-        return [
-            item.strip()
-            for item in self.follow_up_questions.splitlines()
-            if item.strip()
-        ]
+        return [item.strip() for item in self.follow_up_questions.splitlines() if item.strip()]
 
     @property
     def completed_interview_sections(self):
         return sum(
-            bool(getattr(self, field_name).strip())
-            for field_name, _ in self.INTERVIEW_READY_FIELDS
+            bool(getattr(self, field_name).strip()) for field_name, _ in self.INTERVIEW_READY_FIELDS
         )
 
     @property

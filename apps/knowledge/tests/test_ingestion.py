@@ -5,7 +5,6 @@ from apps.knowledge.ingestion import ingest_document
 from apps.knowledge.models import KnowledgeDocument
 from apps.knowledge.tests.fakes import FakeEmbeddingProvider
 
-
 pytestmark = pytest.mark.django_db
 
 
@@ -19,10 +18,7 @@ def test_ingestion_replaces_chunks_and_stores_embeddings():
         title="Planner guide",
         slug="planner-guide",
         source_path="knowledge_docs/product/planner.md",
-        body_markdown=(
-            "# Planner\n\n"
-            + "The planner chooses focused work. " * 30
-        ),
+        body_markdown=("# Planner\n\n" + "The planner chooses focused work. " * 30),
         status=KnowledgeDocument.Status.PUBLISHED,
     )
     provider = FakeEmbeddingProvider()
@@ -37,9 +33,7 @@ def test_ingestion_replaces_chunks_and_stores_embeddings():
     assert result.chunks_created > 1
     assert document.chunk_count == result.chunks_created
     assert document.embedding_model == provider.model
-    assert document.chunks.filter(
-        embedding__isnull=False
-    ).count() == result.chunks_created
+    assert document.chunks.filter(embedding__isnull=False).count() == result.chunks_created
 
 
 @override_settings(

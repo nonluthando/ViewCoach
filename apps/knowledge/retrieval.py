@@ -23,9 +23,7 @@ class RetrievedKnowledge:
     @property
     def citation_label(self):
         if self.heading:
-            return (
-                f"{self.document_title} — {self.heading}"
-            )
+            return f"{self.document_title} — {self.heading}"
         return self.document_title
 
 
@@ -38,29 +36,17 @@ def retrieve_knowledge(
 ):
     cleaned_query = query.strip()
     if not cleaned_query:
-        raise ValueError(
-            "A retrieval query cannot be empty."
-        )
+        raise ValueError("A retrieval query cannot be empty.")
 
-    result_limit = (
-        limit or settings.RAG_RETRIEVAL_LIMIT
-    )
+    result_limit = limit or settings.RAG_RETRIEVAL_LIMIT
     if result_limit < 1 or result_limit > 20:
-        raise ValueError(
-            "Retrieval limit must be between 1 and 20."
-        )
+        raise ValueError("Retrieval limit must be between 1 and 20.")
 
     threshold = (
-        settings.RAG_MINIMUM_SIMILARITY
-        if minimum_similarity is None
-        else float(minimum_similarity)
+        settings.RAG_MINIMUM_SIMILARITY if minimum_similarity is None else float(minimum_similarity)
     )
-    provider = (
-        embedder or GeminiEmbeddingProvider()
-    )
-    query_embedding = provider.embed_query(
-        cleaned_query
-    )
+    provider = embedder or GeminiEmbeddingProvider()
+    query_embedding = provider.embed_query(cleaned_query)
 
     candidate_limit = max(
         result_limit * 3,
@@ -68,9 +54,7 @@ def retrieve_knowledge(
     )
     candidates = (
         KnowledgeChunk.objects.filter(
-            document__status=(
-                KnowledgeDocument.Status.PUBLISHED
-            ),
+            document__status=(KnowledgeDocument.Status.PUBLISHED),
             embedding__isnull=False,
         )
         .select_related("document")
@@ -100,9 +84,7 @@ def retrieve_knowledge(
                 category=chunk.document.category,
                 heading=chunk.heading,
                 content=chunk.content,
-                source_path=(
-                    chunk.document.source_path
-                ),
+                source_path=(chunk.document.source_path),
                 similarity=similarity,
             )
         )
@@ -120,10 +102,7 @@ def build_grounding_context(results):
         sections.append(
             "\n".join(
                 [
-                    (
-                        f"[Source {index}] "
-                        f"{result.citation_label}"
-                    ),
+                    (f"[Source {index}] {result.citation_label}"),
                     f"Path: {result.source_path}",
                     result.content,
                 ]

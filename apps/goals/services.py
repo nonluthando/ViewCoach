@@ -60,11 +60,15 @@ def set_primary_goal(*, goal):
 
 @transaction.atomic
 def ensure_primary_goal(*, goal):
-    has_primary = InterviewGoal.objects.filter(
-        user=goal.user,
-        status=InterviewGoal.Status.ACTIVE,
-        is_primary=True,
-    ).exclude(pk=goal.pk).exists()
+    has_primary = (
+        InterviewGoal.objects.filter(
+            user=goal.user,
+            status=InterviewGoal.Status.ACTIVE,
+            is_primary=True,
+        )
+        .exclude(pk=goal.pk)
+        .exists()
+    )
     if goal.is_primary or not has_primary:
         return set_primary_goal(goal=goal)
     return goal
@@ -120,11 +124,15 @@ def complete_stage(*, stage, now=None):
         stage.is_current = False
         stage.save(update_fields=["completed_at", "is_current", "updated_at"])
 
-    next_stage = stage.goal.stages.filter(completed_at__isnull=True).order_by(
-        "scheduled_for",
-        "position",
-        "pk",
-    ).first()
+    next_stage = (
+        stage.goal.stages.filter(completed_at__isnull=True)
+        .order_by(
+            "scheduled_for",
+            "position",
+            "pk",
+        )
+        .first()
+    )
     if next_stage is not None:
         set_current_stage(stage=next_stage)
     sync_goal_roadmaps(goal=stage.goal)
@@ -371,9 +379,7 @@ def readiness_report(*, goal, now=None):
         label = "Getting started"
 
     strong = [component for component in components.values() if component["score"] >= 70]
-    needs_attention = [
-        component for component in components.values() if component["score"] < 60
-    ]
+    needs_attention = [component for component in components.values() if component["score"] < 60]
 
     deadline = goal.next_deadline
     days_remaining = None

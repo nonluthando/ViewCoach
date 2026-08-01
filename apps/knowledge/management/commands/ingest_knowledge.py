@@ -11,7 +11,6 @@ from apps.knowledge.models import (
     KnowledgeIngestionRun,
 )
 
-
 CATEGORY_BY_FOLDER = {
     "product": KnowledgeDocument.Category.PRODUCT,
     "interview-prep": KnowledgeDocument.Category.INTERVIEW_PREP,
@@ -39,10 +38,7 @@ def _summary_from_markdown(markdown):
 
 
 class Command(BaseCommand):
-    help = (
-        "Load trusted Markdown documents, split them into chunks, "
-        "and create Gemini embeddings."
-    )
+    help = "Load trusted Markdown documents, split them into chunks, and create Gemini embeddings."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -69,10 +65,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--prune",
             action="store_true",
-            help=(
-                "Archive database documents from this directory "
-                "that no longer exist on disk."
-            ),
+            help=("Archive database documents from this directory that no longer exist on disk."),
         )
 
     def handle(self, *args, **options):
@@ -82,15 +75,11 @@ class Command(BaseCommand):
         source_root = source_root.resolve()
 
         if not source_root.exists() or not source_root.is_dir():
-            raise CommandError(
-                f"Knowledge directory does not exist: {source_root}"
-            )
+            raise CommandError(f"Knowledge directory does not exist: {source_root}")
 
         markdown_files = sorted(source_root.rglob("*.md"))
         if not markdown_files:
-            raise CommandError(
-                f"No Markdown files found in {source_root}"
-            )
+            raise CommandError(f"No Markdown files found in {source_root}")
 
         run = KnowledgeIngestionRun.objects.create(
             source_label=str(source_root),
@@ -101,9 +90,7 @@ class Command(BaseCommand):
         try:
             for file_path in markdown_files:
                 markdown = file_path.read_text(encoding="utf-8")
-                relative_path = file_path.relative_to(
-                    settings.BASE_DIR
-                ).as_posix()
+                relative_path = file_path.relative_to(settings.BASE_DIR).as_posix()
                 seen_source_paths.add(relative_path)
 
                 folder_name = (
@@ -122,35 +109,27 @@ class Command(BaseCommand):
                 )
                 slug = slugify(file_path.stem)
 
-                document, _ = (
-                    KnowledgeDocument.objects.update_or_create(
-                        source_path=relative_path,
-                        defaults={
-                            "title": title,
-                            "slug": slug,
-                            "category": category,
-                            "summary": _summary_from_markdown(markdown),
-                            "body_markdown": markdown,
-                            "status": (
-                                KnowledgeDocument.Status.DRAFT
-                                if options["draft"]
-                                else KnowledgeDocument.Status.PUBLISHED
-                            ),
-                            "published_at": (
-                                None
-                                if options["draft"]
-                                else timezone.now()
-                            ),
-                        },
-                    )
+                document, _ = KnowledgeDocument.objects.update_or_create(
+                    source_path=relative_path,
+                    defaults={
+                        "title": title,
+                        "slug": slug,
+                        "category": category,
+                        "summary": _summary_from_markdown(markdown),
+                        "body_markdown": markdown,
+                        "status": (
+                            KnowledgeDocument.Status.DRAFT
+                            if options["draft"]
+                            else KnowledgeDocument.Status.PUBLISHED
+                        ),
+                        "published_at": (None if options["draft"] else timezone.now()),
+                    },
                 )
 
                 result = ingest_document(
                     document=document,
                     force=options["force"],
-                    create_embeddings=not options[
-                        "skip_embeddings"
-                    ],
+                    create_embeddings=not options["skip_embeddings"],
                 )
                 if result.skipped:
                     run.documents_skipped += 1
@@ -158,21 +137,13 @@ class Command(BaseCommand):
                 else:
                     run.documents_ingested += 1
                     run.chunks_created += result.chunks_created
-                    outcome = (
-                        f"{result.chunks_created} chunks"
-                    )
+                    outcome = f"{result.chunks_created} chunks"
 
-                self.stdout.write(
-                    f"{relative_path}: {outcome}"
-                )
+                self.stdout.write(f"{relative_path}: {outcome}")
 
             if options["prune"]:
                 KnowledgeDocument.objects.filter(
-                    source_path__startswith=(
-                        source_root.relative_to(
-                            settings.BASE_DIR
-                        ).as_posix()
-                    ),
+                    source_path__startswith=(source_root.relative_to(settings.BASE_DIR).as_posix()),
                 ).exclude(
                     source_path__in=seen_source_paths,
                 ).update(

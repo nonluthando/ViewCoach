@@ -122,7 +122,6 @@ class KnowledgeIngestionRunAdmin(admin.ModelAdmin):
         return False
 
 
-
 @admin.register(KnowledgeQueryLog)
 class KnowledgeQueryLogAdmin(admin.ModelAdmin):
     list_display = (

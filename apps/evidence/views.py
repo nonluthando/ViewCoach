@@ -64,8 +64,7 @@ def _owned_item(user, evidence_id):
 def _accessible_topic(user, topic_id):
     return get_object_or_404(
         RoadmapTopic.objects.select_related("section", "section__roadmap").filter(
-            Q(section__roadmap__is_system=True)
-            | Q(section__roadmap__created_by=user)
+            Q(section__roadmap__is_system=True) | Q(section__roadmap__created_by=user)
         ),
         pk=topic_id,
         section__roadmap__is_published=True,
@@ -151,9 +150,7 @@ def evidence_detail(request, evidence_id):
             "item": item,
             "decisions": item.decisions.all(),
             "stories": item.behavioural_stories.all(),
-            "topic_links": item.topic_links.select_related(
-                "profile__topic__section__roadmap"
-            ),
+            "topic_links": item.topic_links.select_related("profile__topic__section__roadmap"),
             "question_links": item.question_links.select_related("question"),
             "goal_links": item.goal_links.select_related("goal"),
             "decision_form": DecisionRecordForm(),
@@ -164,9 +161,7 @@ def evidence_detail(request, evidence_id):
 
 @login_required
 def interview_pack(request):
-    projects = _owned_evidence(request.user).filter(
-        source_type=EvidenceItem.SourceType.PROJECT
-    )
+    projects = _owned_evidence(request.user).filter(source_type=EvidenceItem.SourceType.PROJECT)
     project_count = projects.count()
     explained_project_count = ProjectExplanation.objects.filter(
         evidence__owner=request.user,
@@ -175,9 +170,7 @@ def interview_pack(request):
         evidence__owner=request.user,
     ).count()
     prepared_ai_count = (
-        AIPrepAnswer.objects.filter(user=request.user)
-        .exclude(answer_notes="")
-        .count()
+        AIPrepAnswer.objects.filter(user=request.user).exclude(answer_notes="").count()
     )
     completed_repository_attempt_count = AIRepositoryPracticeAttempt.objects.filter(
         user=request.user,
@@ -248,9 +241,7 @@ def behavioural_story_bank(request):
     competency_rows = []
     covered_competency_count = 0
     for competency in BEHAVIOURAL_COMPETENCIES:
-        matching_count = sum(
-            story_matches_competency(story, competency) for story in all_stories
-        )
+        matching_count = sum(story_matches_competency(story, competency) for story in all_stories)
         if matching_count:
             covered_competency_count += 1
         competency_rows.append(
@@ -275,14 +266,10 @@ def behavioural_story_bank(request):
             or lowered_query in story.actions.lower()
         ]
 
-    selected_competency = BEHAVIOURAL_COMPETENCY_BY_KEY.get(
-        selected_competency_key
-    )
+    selected_competency = BEHAVIOURAL_COMPETENCY_BY_KEY.get(selected_competency_key)
     if selected_competency:
         stories = [
-            story
-            for story in stories
-            if story_matches_competency(story, selected_competency)
+            story for story in stories if story_matches_competency(story, selected_competency)
         ]
 
     ready_story_count = sum(story.is_interview_ready for story in all_stories)
@@ -420,12 +407,9 @@ def ai_coding_prep(request):
         )
 
     groups = [
-        {"category": category, "cards": cards}
-        for category, cards in groups_by_category.items()
+        {"category": category, "cards": cards} for category, cards in groups_by_category.items()
     ]
-    follow_up_count = sum(
-        len(question.follow_ups) for question in AI_ASSISTED_INTERVIEW_QUESTIONS
-    )
+    follow_up_count = sum(len(question.follow_ups) for question in AI_ASSISTED_INTERVIEW_QUESTIONS)
 
     return render(
         request,
@@ -477,9 +461,9 @@ def ai_prep_answer_save(request, question_key):
 
 @login_required
 def ai_repository_playbook(request):
-    attempts = AIRepositoryPracticeAttempt.objects.filter(
-        user=request.user
-    ).order_by("-practiced_on", "-created_at")
+    attempts = AIRepositoryPracticeAttempt.objects.filter(user=request.user).order_by(
+        "-practiced_on", "-created_at"
+    )
     completed_attempt_count = attempts.filter(
         full_suite_passed=True,
         feature_completed=True,

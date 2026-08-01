@@ -20,10 +20,7 @@ def retrieved(slug):
 
 
 def test_evaluation_cases_have_unique_names():
-    names = [
-        case.name
-        for case in RETRIEVAL_EVALUATION_CASES
-    ]
+    names = [case.name for case in RETRIEVAL_EVALUATION_CASES]
 
     assert len(names) == len(set(names))
 

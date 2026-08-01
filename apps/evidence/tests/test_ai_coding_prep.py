@@ -9,9 +9,7 @@ pytestmark = pytest.mark.django_db
 
 
 def test_ai_coding_prep_contains_heavy_question_and_follow_up_coverage():
-    follow_up_count = sum(
-        len(question.follow_ups) for question in AI_ASSISTED_INTERVIEW_QUESTIONS
-    )
+    follow_up_count = sum(len(question.follow_ups) for question in AI_ASSISTED_INTERVIEW_QUESTIONS)
 
     assert len(AI_ASSISTED_INTERVIEW_QUESTIONS) >= 15
     assert follow_up_count >= 100
@@ -160,4 +158,3 @@ def test_ai_prep_answer_can_link_work_or_incident_evidence(user):
     )
 
     answer.full_clean()
-

@@ -229,9 +229,7 @@ class BehaviouralStoryForm(forms.ModelForm):
 class BehaviouralStoryBankForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["evidence"].queryset = EvidenceItem.objects.filter(
-            owner=user
-        ).order_by("title")
+        self.fields["evidence"].queryset = EvidenceItem.objects.filter(owner=user).order_by("title")
 
     class Meta:
         model = BehaviouralStory

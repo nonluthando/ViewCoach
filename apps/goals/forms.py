@@ -16,17 +16,14 @@ class InterviewGoalForm(forms.ModelForm):
         max_value=6300,
         label="Weekly study time",
         help_text=(
-            "Enter your total available study time for the week. "
-            "Example: 600 minutes = 10 hours."
+            "Enter your total available study time for the week. Example: 600 minutes = 10 hours."
         ),
         error_messages={
             "invalid": "Enter your weekly study time as a whole number of minutes.",
             "min_value": "Weekly study time cannot be negative.",
             "max_value": "Weekly study time cannot exceed 6300 minutes (105 hours).",
         },
-        widget=forms.NumberInput(
-            attrs={"min": 0, "max": 6300, "step": 1, "inputmode": "numeric"}
-        ),
+        widget=forms.NumberInput(attrs={"min": 0, "max": 6300, "step": 1, "inputmode": "numeric"}),
     )
 
     class Meta:

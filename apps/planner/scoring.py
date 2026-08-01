@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from .candidates import CandidateKind, PlanCandidate
 
-
 BASE_SCORE_BY_KIND = {
     CandidateKind.REVIEW: 100,
     CandidateKind.ROADMAP: 80,

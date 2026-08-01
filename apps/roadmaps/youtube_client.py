@@ -4,14 +4,13 @@ import html
 import json
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from django.conf import settings
-
 
 YOUTUBE_API_ROOT = "https://www.googleapis.com/youtube/v3"
 PLAYLIST_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{10,100}$")
@@ -180,9 +179,7 @@ def _batches(values: list[str], size: int) -> Iterable[list[str]]:
 class YouTubeDataClient:
     def __init__(self, *, api_key: str | None = None, timeout: int = 15):
         self.api_key = (
-            api_key
-            or getattr(settings, "YOUTUBE_API_KEY", "")
-            or os.getenv("YOUTUBE_API_KEY", "")
+            api_key or getattr(settings, "YOUTUBE_API_KEY", "") or os.getenv("YOUTUBE_API_KEY", "")
         )
         self.timeout = timeout
         self.max_videos = int(
@@ -215,10 +212,7 @@ class YouTubeDataClient:
             message = "YouTube could not return that playlist."
             try:
                 payload = json.loads(exc.read().decode("utf-8"))
-                message = (
-                    payload.get("error", {}).get("message")
-                    or message
-                )
+                message = payload.get("error", {}).get("message") or message
             except (ValueError, UnicodeDecodeError):
                 pass
             if exc.code in {403, 404}:
@@ -244,9 +238,7 @@ class YouTubeDataClient:
 
         playlist_resource = playlist_items[0]
         playlist_snippet = playlist_resource.get("snippet") or {}
-        declared_count = (
-            playlist_resource.get("contentDetails") or {}
-        ).get("itemCount", 0)
+        declared_count = (playlist_resource.get("contentDetails") or {}).get("itemCount", 0)
         if declared_count and declared_count > self.max_videos:
             raise YouTubePlaylistTooLarge(
                 f"This playlist has {declared_count} videos. "
@@ -277,9 +269,8 @@ class YouTubeDataClient:
         for item in raw_items:
             snippet = item.get("snippet") or {}
             content_details = item.get("contentDetails") or {}
-            video_id = (
-                content_details.get("videoId")
-                or (snippet.get("resourceId") or {}).get("videoId")
+            video_id = content_details.get("videoId") or (snippet.get("resourceId") or {}).get(
+                "videoId"
             )
             if video_id and video_id not in video_ids:
                 video_ids.append(video_id)
@@ -312,12 +303,12 @@ class YouTubeDataClient:
             detail_content = (detail or {}).get("contentDetails") or {}
 
             privacy_status = (
-                detail_status.get("privacyStatus")
-                or item_status.get("privacyStatus")
-                or ""
+                detail_status.get("privacyStatus") or item_status.get("privacyStatus") or ""
             )
             upload_status = detail_status.get("uploadStatus", "processed")
-            available = bool(detail) and privacy_status != "private" and upload_status == "processed"
+            available = (
+                bool(detail) and privacy_status != "private" and upload_status == "processed"
+            )
             embeddable = available and bool(detail_status.get("embeddable", False))
             made_for_kids = detail_status.get("madeForKids")
             duration_seconds = 0
@@ -326,9 +317,7 @@ class YouTubeDataClient:
                 duration_seconds = parse_iso8601_duration(duration_value)
 
             title = html.unescape(
-                detail_snippet.get("title")
-                or snippet.get("title")
-                or "Unavailable video"
+                detail_snippet.get("title") or snippet.get("title") or "Unavailable video"
             ).strip()
             if title in {"Private video", "Deleted video"}:
                 available = False
@@ -346,8 +335,7 @@ class YouTubeDataClient:
                         or ""
                     ),
                     thumbnail_url=_best_thumbnail(
-                        detail_snippet.get("thumbnails")
-                        or snippet.get("thumbnails")
+                        detail_snippet.get("thumbnails") or snippet.get("thumbnails")
                     ),
                     duration_seconds=duration_seconds,
                     position=int(position),
@@ -361,17 +349,9 @@ class YouTubeDataClient:
         return PlaylistPreview(
             playlist_id=playlist_id,
             source_url=f"https://www.youtube.com/playlist?list={playlist_id}",
-            title=html.unescape(
-                playlist_snippet.get("title") or "YouTube playlist"
-            ).strip(),
-            description=html.unescape(
-                playlist_snippet.get("description") or ""
-            ).strip(),
-            channel_title=html.unescape(
-                playlist_snippet.get("channelTitle") or ""
-            ).strip(),
-            thumbnail_url=_best_thumbnail(
-                playlist_snippet.get("thumbnails")
-            ),
+            title=html.unescape(playlist_snippet.get("title") or "YouTube playlist").strip(),
+            description=html.unescape(playlist_snippet.get("description") or "").strip(),
+            channel_title=html.unescape(playlist_snippet.get("channelTitle") or "").strip(),
+            thumbnail_url=_best_thumbnail(playlist_snippet.get("thumbnails")),
             videos=tuple(videos),
         )

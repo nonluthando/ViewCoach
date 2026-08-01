@@ -93,9 +93,7 @@ def plan_policy_for_budget(*, time_budget_minutes, due_count):
         time_budget_minutes=budget,
         review_target_minutes=review_target,
         max_roadmaps=roadmap_limit_that_fits,
-        max_topics_per_roadmap=(
-            MAX_TOPICS_PER_ROADMAP if budget >= 240 else 1
-        ),
+        max_topics_per_roadmap=(MAX_TOPICS_PER_ROADMAP if budget >= 240 else 1),
         practice_target_minutes=practice_target,
         max_practice_blocks=max_practice_blocks,
         max_weak_area_blocks=2 if budget >= 240 else 1,

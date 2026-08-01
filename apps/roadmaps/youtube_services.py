@@ -21,7 +21,7 @@ def _unique_roadmap_slug(*, title, playlist_id):
     suffix = 2
     while Roadmap.objects.filter(slug=candidate).exists():
         ending = f"-{suffix}"
-        candidate = f"{base[:160-len(identifier)-len(ending)-1]}-{identifier}{ending}"
+        candidate = f"{base[: 160 - len(identifier) - len(ending) - 1]}-{identifier}{ending}"
         suffix += 1
     return candidate
 
@@ -34,7 +34,7 @@ def _unique_topic_slug(*, section, video):
     suffix = 2
     while RoadmapTopic.objects.filter(section=section, slug=candidate).exists():
         ending = f"-{suffix}"
-        candidate = f"{base[:180-len(ending)]}{ending}"
+        candidate = f"{base[: 180 - len(ending)]}{ending}"
         suffix += 1
     return candidate
 
@@ -49,11 +49,7 @@ def _topic_description(video: PlaylistVideoPreview):
 
 
 def _roadmap_description(preview: PlaylistPreview):
-    source = (
-        f" by {preview.channel_title}"
-        if preview.channel_title
-        else ""
-    )
+    source = f" by {preview.channel_title}" if preview.channel_title else ""
     return (
         f"Imported from a YouTube playlist{source}. "
         f"{preview.available_video_count} available videos, "
@@ -95,6 +91,7 @@ def create_youtube_roadmap(*, user, preview: PlaylistPreview):
         ),
         description=_roadmap_description(preview),
         kind=Roadmap.Kind.SKILL,
+        source=Roadmap.Source.YOUTUBE,
         position=1000,
         is_system=False,
         is_published=True,
@@ -104,9 +101,7 @@ def create_youtube_roadmap(*, user, preview: PlaylistPreview):
         roadmap=roadmap,
         title="Playlist videos",
         slug="playlist-videos",
-        description=(
-            "Work through the videos in their original YouTube playlist order."
-        ),
+        description=("Work through the videos in their original YouTube playlist order."),
         position=0,
     )
     source = YouTubePlaylistRoadmap.objects.create(
@@ -124,11 +119,7 @@ def create_youtube_roadmap(*, user, preview: PlaylistPreview):
     )
 
     for video in preview.videos:
-        topic = (
-            _create_topic(section=section, video=video)
-            if video.available
-            else None
-        )
+        topic = _create_topic(section=section, video=video) if video.available else None
         YouTubePlaylistVideo.objects.create(
             playlist=source,
             topic=topic,
@@ -163,8 +154,7 @@ def sync_youtube_roadmap(*, source: YouTubePlaylistRoadmap, preview: PlaylistPre
         )
 
     existing_by_item_id = {
-        video.playlist_item_id: video
-        for video in source.videos.select_related("topic")
+        video.playlist_item_id: video for video in source.videos.select_related("topic")
     }
     seen_item_ids = set()
 
@@ -172,11 +162,7 @@ def sync_youtube_roadmap(*, source: YouTubePlaylistRoadmap, preview: PlaylistPre
         seen_item_ids.add(video.playlist_item_id)
         stored = existing_by_item_id.get(video.playlist_item_id)
         if stored is None:
-            topic = (
-                _create_topic(section=section, video=video)
-                if video.available
-                else None
-            )
+            topic = _create_topic(section=section, video=video) if video.available else None
             YouTubePlaylistVideo.objects.create(
                 playlist=source,
                 topic=topic,
@@ -204,9 +190,7 @@ def sync_youtube_roadmap(*, source: YouTubePlaylistRoadmap, preview: PlaylistPre
                 if video.available
                 else "This video is currently unavailable on YouTube."
             )
-            stored.topic.save(
-                update_fields=["title", "position", "description"]
-            )
+            stored.topic.save(update_fields=["title", "position", "description"])
 
         stored.video_id = video.video_id
         stored.title = video.title[:300]
@@ -234,14 +218,13 @@ def sync_youtube_roadmap(*, source: YouTubePlaylistRoadmap, preview: PlaylistPre
             ]
         )
         if stored.topic is not None:
-            stored.topic.description = (
-                "This video was removed from the source YouTube playlist."
-            )
+            stored.topic.description = "This video was removed from the source YouTube playlist."
             stored.topic.save(update_fields=["description"])
 
     source.roadmap.title = preview.title[:140]
     source.roadmap.description = _roadmap_description(preview)
-    source.roadmap.save(update_fields=["title", "description", "updated_at"])
+    source.roadmap.source = Roadmap.Source.YOUTUBE
+    source.roadmap.save(update_fields=["title", "description", "source", "updated_at"])
 
     source.source_url = preview.source_url
     source.channel_title = preview.channel_title[:200]

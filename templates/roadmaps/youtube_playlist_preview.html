@@ -1,20 +1,19 @@
 {% extends "base.html" %}
 
 {% block title %}Preview {{ preview.title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page youtube-library-page{% endblock %}
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <a href="{% url 'roadmaps:youtube_list' %}">YouTube roadmaps</a>
     <span aria-hidden="true">/</span>
-    <a href="{% url 'roadmaps:youtube_import' %}">Import YouTube playlist</a>
+    <a href="{% url 'roadmaps:youtube_import' %}">Import playlist</a>
     <span aria-hidden="true">/</span>
     <span>Preview</span>
 </nav>
 
 <section class="youtube-preview-header">
-    {% if preview.thumbnail_url %}
-        <img src="{{ preview.thumbnail_url }}" alt="">
-    {% endif %}
+    {% if preview.thumbnail_url %}<img src="{{ preview.thumbnail_url }}" alt="">{% endif %}
     <div>
         <p class="eyebrow">Playlist preview</p>
         <h1>{{ preview.title }}</h1>
@@ -22,9 +21,7 @@
         <div class="youtube-preview-stats">
             <span><strong>{{ preview.available_video_count }}</strong> available videos</span>
             <span><strong>{{ preview.total_duration_display }}</strong> total video length</span>
-            {% if preview.unavailable_video_count %}
-                <span><strong>{{ preview.unavailable_video_count }}</strong> unavailable</span>
-            {% endif %}
+            {% if preview.unavailable_video_count %}<span><strong>{{ preview.unavailable_video_count }}</strong> unavailable</span>{% endif %}
         </div>
     </div>
 </section>
@@ -32,17 +29,17 @@
 {% if existing %}
     <div class="youtube-existing-notice">
         <div>
-            <strong>This playlist is already in ViewCoach.</strong>
-            <p>Open the existing roadmap instead of creating a duplicate.</p>
+            <strong>This playlist is already in your YouTube roadmaps.</strong>
+            <p>Open the existing imported roadmap instead of creating a duplicate.</p>
         </div>
-        <a class="button" href="{% url 'roadmaps:detail' existing.roadmap.slug %}">Open roadmap</a>
+        <a class="button" href="{% url 'roadmaps:youtube_detail' existing.roadmap.slug %}">Open YouTube roadmap</a>
     </div>
 {% elif preview.available_video_count %}
     <form class="youtube-preview-actions" method="post" action="{% url 'roadmaps:youtube_import_confirm' %}">
         {% csrf_token %}
         <input type="hidden" name="playlist_url" value="{{ playlist_url }}">
         <a class="button button-secondary" href="{% url 'roadmaps:youtube_import' %}">Use another playlist</a>
-        <button class="button" type="submit">Create roadmap</button>
+        <button class="button" type="submit">Create YouTube roadmap</button>
     </form>
 {% else %}
     <div class="youtube-existing-notice">
@@ -70,15 +67,13 @@
                         {{ video.duration_display }}{% if video.channel_title %} · {{ video.channel_title }}{% endif %}
                         {% if not video.embeddable %} · Opens on YouTube{% endif %}
                     {% else %}
-                        Unavailable and will not become a roadmap topic
+                        Unavailable and will not become a learning item
                     {% endif %}
                 </span>
             </div>
         </article>
     {% empty %}
-        <div class="topic-empty-state">
-            <strong>No videos were returned.</strong>
-        </div>
+        <div class="topic-empty-state"><strong>No videos were returned.</strong></div>
     {% endfor %}
 </section>
 {% endblock %}

@@ -16,7 +16,6 @@ from apps.roadmaps.models import (
     UserRoadmap,
 )
 
-
 pytestmark = pytest.mark.django_db
 
 
@@ -85,16 +84,11 @@ def test_due_reviews_become_coherent_topic_groups(user):
         now=now,
     )
     review_candidates = [
-        candidate
-        for candidate in build.candidates
-        if candidate.kind == CandidateKind.REVIEW
+        candidate for candidate in build.candidates if candidate.kind == CandidateKind.REVIEW
     ]
 
     assert len(review_candidates) == 2
-    assert sum(
-        candidate.estimated_minutes
-        for candidate in review_candidates
-    ) == 9
+    assert sum(candidate.estimated_minutes for candidate in review_candidates) == 9
     assert any("Heaps" in candidate.title for candidate in review_candidates)
     assert any("Graphs" in candidate.title for candidate in review_candidates)
 
@@ -121,17 +115,9 @@ def test_large_budget_deepens_selected_roadmap_blocks(user):
         time_budget_minutes=720,
     )
     roadmap_payloads = [
-        payload
-        for payload in payloads
-        if payload["kind"] == StudyRecommendation.Kind.ROADMAP
+        payload for payload in payloads if payload["kind"] == StudyRecommendation.Kind.ROADMAP
     ]
 
     assert len(roadmap_payloads) == 2
-    assert all(
-        payload["estimated_minutes"] >= 45
-        for payload in roadmap_payloads
-    )
-    assert any(
-        payload["estimated_minutes"] > 45
-        for payload in roadmap_payloads
-    )
+    assert all(payload["estimated_minutes"] >= 45 for payload in roadmap_payloads)
+    assert any(payload["estimated_minutes"] > 45 for payload in roadmap_payloads)

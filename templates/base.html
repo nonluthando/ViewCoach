@@ -16,22 +16,42 @@
     <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
     <link rel="stylesheet" href="{% static 'css/navigation.css' %}">
     <link rel="stylesheet" href="{% static 'css/knowledge.css' %}">
+    <link rel="stylesheet" href="{% static 'css/design-system-v2.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard-v2.css' %}">
+    <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
     <div class="app-shell">
         <aside class="app-sidebar" aria-label="Application navigation">
-            <a class="app-brand" href="{% url 'dashboard' %}">ViewCoach</a>
+            <a class="app-brand" href="{% url 'dashboard' %}">
+                <span class="app-brand-mark" aria-hidden="true">V</span>
+                <span>ViewCoach</span>
+            </a>
 
             {% include "includes/app_primary_navigation.html" %}
 
             <div class="app-sidebar-footer">
-                {% include "includes/app_account_menu.html" with placement="desktop" %}
+                <p>Focused preparation, without the guesswork.</p>
+                <a href="{% url 'knowledge:help_assistant' %}">Ask the Help Assistant</a>
             </div>
         </aside>
 
+        <header class="app-topbar">
+            <div class="app-topbar-copy">
+                <span>Interview preparation workspace</span>
+                <strong>Build skills. Practise recall. Track readiness.</strong>
+            </div>
+            <div class="app-topbar-actions">
+                {% include "includes/app_account_menu.html" with placement="desktop" %}
+            </div>
+        </header>
+
         <header class="app-mobile-header">
-            <a class="app-mobile-brand" href="{% url 'dashboard' %}">ViewCoach</a>
+            <a class="app-mobile-brand" href="{% url 'dashboard' %}">
+                <span class="app-brand-mark" aria-hidden="true">V</span>
+                <span>ViewCoach</span>
+            </a>
             <div class="app-mobile-header-actions">
                 {% include "includes/app_account_menu.html" with placement="mobile" %}
             </div>

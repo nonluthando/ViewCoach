@@ -48,12 +48,8 @@ RETRIEVAL_EVALUATION_CASES = (
 
 
 def score_retrieval_case(case, results):
-    retrieved_slugs = tuple(
-        result.document_slug
-        for result in results
-    )
+    retrieved_slugs = tuple(result.document_slug for result in results)
     matched = any(
-        expected_slug in retrieved_slugs
-        for expected_slug in case.expected_document_slugs
+        expected_slug in retrieved_slugs for expected_slug in case.expected_document_slugs
     )
     return matched, retrieved_slugs

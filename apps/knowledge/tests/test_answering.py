@@ -1,8 +1,8 @@
 import pytest
 
 from apps.knowledge.answering import (
-    AnswerGenerationError,
     REFUSAL_ANSWER,
+    AnswerGenerationError,
     answer_question,
 )
 from apps.knowledge.models import KnowledgeQueryLog
@@ -41,9 +41,7 @@ def result(
 
 @pytest.mark.django_db
 def test_answer_is_logged_with_deterministic_source():
-    generator = FakeGenerator(
-        "Due review work is prioritised first. [Source 1]"
-    )
+    generator = FakeGenerator("Due review work is prioritised first. [Source 1]")
 
     grounded = answer_question(
         question="Why was this task selected?",
@@ -69,9 +67,7 @@ def test_no_retrieval_results_returns_refusal():
 
     assert grounded.supported is False
     assert grounded.answer == REFUSAL_ANSWER
-    assert KnowledgeQueryLog.objects.get().status == (
-        KnowledgeQueryLog.Status.NO_EVIDENCE
-    )
+    assert KnowledgeQueryLog.objects.get().status == (KnowledgeQueryLog.Status.NO_EVIDENCE)
 
 
 @pytest.mark.django_db
@@ -92,9 +88,7 @@ def test_invalid_model_citation_fails_closed_and_logs_error():
         answer_question(
             question="Why was this selected?",
             retriever=lambda **kwargs: (result(),),
-            generator=FakeGenerator(
-                "This cites a missing source. [Source 9]"
-            ),
+            generator=FakeGenerator("This cites a missing source. [Source 9]"),
         )
 
     log = KnowledgeQueryLog.objects.get()

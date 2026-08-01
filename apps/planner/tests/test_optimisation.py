@@ -4,7 +4,6 @@ from apps.planner.candidates import CandidateKind, PlanCandidate
 from apps.planner.optimisation import optimise_candidates
 from apps.planner.policies import plan_policy_for_budget
 
-
 pytest.importorskip("ortools")
 
 
@@ -34,12 +33,7 @@ def test_cp_sat_respects_time_and_roadmap_constraints():
 
     assert result.status in {"OPTIMAL", "FEASIBLE"}
     assert result.used_minutes <= 180
-    assert len(
-        {
-            item.candidate.roadmap_id
-            for item in result.selected
-        }
-    ) <= policy.max_roadmaps
+    assert len({item.candidate.roadmap_id for item in result.selected}) <= policy.max_roadmaps
 
 
 def test_cp_sat_prevents_duplicate_question_selection():
