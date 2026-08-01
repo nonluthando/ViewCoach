@@ -1,0 +1,137 @@
+diff --git a/apps/planner/candidate_builders.py b/apps/planner/candidate_builders.py
+index 825c20e..ba4d246 100644
+--- a/apps/planner/candidate_builders.py
++++ b/apps/planner/candidate_builders.py
+@@ -2,8 +2,6 @@ def _unfinished_roadmap_topics(*, user, enrolment):
+     topic_ordering = (
+         "section__position",
+         "position",
+-        "section__title",
+-        "title",
+         "pk",
+     )
+     topics = RoadmapTopic.objects.filter(
+@@ -25,13 +23,7 @@ def _unfinished_roadmap_topics(*, user, enrolment):
+     )
+ 
+     available = topics.exclude(pk__in=completed_topic_ids)
+-    return (
+-        sorted(
+-            available.order_by(*topic_ordering),
+-            key=lambda topic: 0 if topic.pk in in_progress_ids else 1,
+-        ),
+-        in_progress_ids,
+-    )
++    return list(available.order_by(*topic_ordering)), in_progress_ids
+ 
+ 
+ def _build_roadmap_candidates(
+@@ -57,6 +49,6 @@ def _build_roadmap_candidates(
+             user=user,
+             enrolment=enrolment,
+         )
+-        candidate_topics = topics[: policy.max_topics_per_roadmap]
++        candidate_topics = topics[:1]
+ 
+         goal_deadline = goal.next_deadline if goal is not None else None
+diff --git a/apps/planner/tests/test_candidate_builders.py b/apps/planner/tests/test_candidate_builders.py
+index 8bcf644..5311f5e 100644
+--- a/apps/planner/tests/test_candidate_builders.py
++++ b/apps/planner/tests/test_candidate_builders.py
+@@ -1,19 +1,15 @@
+ import pytest
+ from django.utils import timezone
+ 
+-from apps.planner.candidate_builders import (
+-    build_plan_candidates,
+-    recommendation_payloads_from_selection,
+-)
++from apps.planner.candidate_builders import build_plan_candidates
+ from apps.planner.candidates import CandidateKind
+-from apps.planner.models import StudyRecommendation
+-from apps.planner.selection import select_plan_candidates
+ from apps.questions.models import Question, TechnicalQuestion
+ from apps.roadmaps.models import (
+     Roadmap,
+     RoadmapSection,
+     RoadmapTopic,
+     UserRoadmap,
++    UserTopicProgress,
+ )
+ 
+ pytestmark = pytest.mark.django_db
+@@ -93,9 +89,9 @@ def test_due_reviews_become_coherent_topic_groups(user):
+     assert any("Graphs" in candidate.title for candidate in review_candidates)
+ 
+ 
+-def test_large_budget_deepens_selected_roadmap_blocks(user):
++def test_large_budget_only_offers_first_unfinished_roadmap_topic(user):
+     now = timezone.now()
+-    _roadmap(user, topic_count=8)
++    _, topics = _roadmap(user, topic_count=8)
+ 
+     build = build_plan_candidates(
+         user=user,
+@@ -103,21 +99,33 @@ def test_large_budget_deepens_selected_roadmap_blocks(user):
+         plan_date=timezone.localdate(now),
+         now=now,
+     )
+-    selection = select_plan_candidates(
+-        candidates=build.candidates,
+-        policy=build.policy,
+-        time_budget_minutes=720,
+-        use_optimiser=False,
++    roadmap_candidates = [
++        candidate for candidate in build.candidates if candidate.kind == CandidateKind.ROADMAP
++    ]
++
++    assert len(roadmap_candidates) == 1
++    assert roadmap_candidates[0].topic_ids == (topics[0].pk,)
++
++
++def test_completing_first_topic_unlocks_second_topic(user):
++    now = timezone.now()
++    _, topics = _roadmap(user, topic_count=3)
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topics[0],
++        status=UserTopicProgress.Status.COMPLETED,
++        completed_at=now,
+     )
+-    payloads = recommendation_payloads_from_selection(
+-        build_result=build,
+-        selection_result=selection,
+-        time_budget_minutes=720,
++
++    build = build_plan_candidates(
++        user=user,
++        time_budget_minutes=60,
++        plan_date=timezone.localdate(now),
++        now=now,
+     )
+-    roadmap_payloads = [
+-        payload for payload in payloads if payload["kind"] == StudyRecommendation.Kind.ROADMAP
++    roadmap_candidates = [
++        candidate for candidate in build.candidates if candidate.kind == CandidateKind.ROADMAP
+     ]
+ 
+-    assert len(roadmap_payloads) == 2
+-    assert all(payload["estimated_minutes"] >= 45 for payload in roadmap_payloads)
+-    assert any(payload["estimated_minutes"] > 45 for payload in roadmap_payloads)
++    assert len(roadmap_candidates) == 1
++    assert roadmap_candidates[0].topic_ids == (topics[1].pk,)
+diff --git a/static/css/visual-identity-v1.css b/static/css/visual-identity-v1.css
+index fcacead..0da1bb2 100644
+--- a/static/css/visual-identity-v1.css
++++ b/static/css/visual-identity-v1.css
+@@ -12,8 +12,8 @@
+     --vc2-blue: #a84f2a;
+     --vc2-blue-dark: #7f361f;
+     --vc2-blue-soft: #f2e3da;
+-    --vc2-surface: #fffdf8;
+-    --vc2-canvas: #f3efe7;
++    --vc2-surface: #ffffff;
++    --vc2-canvas: #ffffff;
+     --vc2-text: #252720;
+     --vc2-muted: #686a61;
+     --vc2-border: #d9d2c6;
