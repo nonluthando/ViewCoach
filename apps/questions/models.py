@@ -13,6 +13,49 @@ def question_import_upload_to(instance, filename):
     return f"question-imports/{instance.owner_id}/{uuid.uuid4()}{suffix}"
 
 
+
+class QuestionGenerationBatch(models.Model):
+    class Status(models.TextChoices):
+        GENERATING = "GENERATING", "Generating"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Failed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="question_generation_batches",
+    )
+    topic = models.ForeignKey(
+        "roadmaps.RoadmapTopic",
+        on_delete=models.CASCADE,
+        related_name="question_generation_batches",
+    )
+    notes_snapshot = models.TextField()
+    requested_count = models.PositiveSmallIntegerField(default=5)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.GENERATING,
+    )
+    generation_model = models.CharField(max_length=120, blank=True)
+    created_question_count = models.PositiveSmallIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["user", "topic", "-created_at"],
+                name="qgen_user_topic_created_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.topic} ({self.get_status_display()})"
+
+
 class Question(models.Model):
     class Type(models.TextChoices):
         TECHNICAL = "TECHNICAL", "Technical"
@@ -42,6 +85,20 @@ class Question(models.Model):
         "QuestionImportBatch",
         on_delete=models.SET_NULL,
         related_name="created_questions",
+        null=True,
+        blank=True,
+    )
+    generation_batch = models.ForeignKey(
+        "QuestionGenerationBatch",
+        on_delete=models.SET_NULL,
+        related_name="created_questions",
+        null=True,
+        blank=True,
+    )
+    source_topic = models.ForeignKey(
+        "roadmaps.RoadmapTopic",
+        on_delete=models.SET_NULL,
+        related_name="generated_questions",
         null=True,
         blank=True,
     )
@@ -92,6 +149,8 @@ class Question(models.Model):
                         owner__isnull=True,
                         system_key__isnull=False,
                         import_batch__isnull=True,
+                        generation_batch__isnull=True,
+                        source_topic__isnull=True,
                         source_system_question__isnull=True,
                     )
                     | Q(
@@ -121,6 +180,10 @@ class Question(models.Model):
                 raise ValidationError("Built-in questions require a system key.")
             if self.import_batch_id:
                 raise ValidationError("Built-in questions cannot belong to an import batch.")
+            if self.generation_batch_id:
+                raise ValidationError("Built-in questions cannot belong to a generation batch.")
+            if self.source_topic_id:
+                raise ValidationError("Built-in questions cannot come from user topic notes.")
             if self.source_system_question_id:
                 raise ValidationError("Built-in questions cannot be copied from another question.")
         else:
@@ -158,6 +221,8 @@ class Question(models.Model):
             return "Built-in"
         if self.source_system_question_id:
             return "Added from built-in"
+        if self.generation_batch_id:
+            return "Generated from notes"
         if self.import_batch_id:
             return "Imported"
         return "My question"

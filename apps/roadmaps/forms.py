@@ -21,6 +21,17 @@ class TopicNotesForm(forms.ModelForm):
         }
 
 
+
+class TopicQuestionGenerationForm(forms.Form):
+    count = forms.TypedChoiceField(
+        choices=((3, "3 cards"), (5, "5 cards"), (7, "7 cards")),
+        coerce=int,
+        initial=5,
+        label="Number of draft cards",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+
 class TopicResourceForm(forms.ModelForm):
     class Meta:
         model = UserTopicResource

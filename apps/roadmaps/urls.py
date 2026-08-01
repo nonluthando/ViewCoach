@@ -65,6 +65,16 @@ urlpatterns = [
         name="save_topic_notes",
     ),
     path(
+        "<slug:slug>/topics/<int:topic_id>/questions/generate/",
+        views.generate_topic_questions,
+        name="generate_topic_questions",
+    ),
+    path(
+        "<slug:slug>/topics/<int:topic_id>/questions/<int:batch_id>/",
+        views.topic_question_drafts,
+        name="topic_question_drafts",
+    ),
+    path(
         "<slug:slug>/topics/<int:topic_id>/resources/",
         views.add_topic_resource,
         name="add_topic_resource",

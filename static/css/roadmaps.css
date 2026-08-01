@@ -814,3 +814,62 @@
         text-align: left;
     }
 }
+
+/* Topic notes -> draft question cards. */
+.topic-question-generation-form {
+    display: flex;
+    align-items: end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.topic-question-generation-form > div {
+    display: grid;
+    gap: 0.4rem;
+}
+.topic-generation-history {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--vc-border);
+}
+.topic-generation-history ul,
+.generated-question-list {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.topic-generation-history li,
+.generated-question-card header,
+.generated-question-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.generated-question-list {
+    margin-top: 1.5rem;
+}
+.generated-question-card {
+    padding: 1.1rem;
+    border: 1px solid var(--vc-border);
+    border-radius: var(--vc2-radius, 0.45rem);
+    background: #ffffff;
+}
+.generated-question-answer {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--vc-border);
+}
+.generated-question-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+@media (max-width: 48rem) {
+    .topic-question-generation-form,
+    .topic-generation-history li,
+    .generated-question-card header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
