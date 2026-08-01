@@ -11,6 +11,7 @@ from .models import (
     YouTubePlaylistRoadmap,
     YouTubePlaylistVideo,
 )
+from .services import MAX_FAVOURITE_YOUTUBE_ROADMAPS
 from .youtube_client import PlaylistPreview, PlaylistVideoPreview, format_duration
 
 
@@ -83,6 +84,15 @@ def create_youtube_roadmap(*, user, preview: PlaylistPreview):
     if existing:
         return existing, False
 
+    should_favourite = (
+        YouTubePlaylistRoadmap.objects.filter(
+            user=user,
+            is_favourite=True,
+            roadmap__source=Roadmap.Source.YOUTUBE,
+        ).count()
+        < MAX_FAVOURITE_YOUTUBE_ROADMAPS
+    )
+
     roadmap = Roadmap.objects.create(
         title=preview.title[:140],
         slug=_unique_roadmap_slug(
@@ -107,6 +117,7 @@ def create_youtube_roadmap(*, user, preview: PlaylistPreview):
     source = YouTubePlaylistRoadmap.objects.create(
         user=user,
         roadmap=roadmap,
+        is_favourite=should_favourite,
         playlist_id=preview.playlist_id,
         source_url=preview.source_url,
         channel_title=preview.channel_title[:200],

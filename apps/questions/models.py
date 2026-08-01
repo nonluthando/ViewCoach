@@ -13,7 +13,6 @@ def question_import_upload_to(instance, filename):
     return f"question-imports/{instance.owner_id}/{uuid.uuid4()}{suffix}"
 
 
-
 class QuestionGenerationBatch(models.Model):
     class Status(models.TextChoices):
         GENERATING = "GENERATING", "Generating"

@@ -21,7 +21,6 @@ class TopicNotesForm(forms.ModelForm):
         }
 
 
-
 class TopicQuestionGenerationForm(forms.Form):
     count = forms.TypedChoiceField(
         choices=((3, "3 cards"), (5, "5 cards"), (7, "7 cards")),

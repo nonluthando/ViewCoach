@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Max
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
@@ -15,10 +16,19 @@ from .models import (
     UserTopicResource,
     YouTubePlaylistRoadmap,
     YouTubePlaylistVideo,
+    YouTubeRoadmapGroup,
 )
-from .services import roadmap_progress, sync_user_roadmap, youtube_roadmap_cards
+from .services import (
+    MAX_FAVOURITE_YOUTUBE_ROADMAPS,
+    RoadmapSelectionLimitError,
+    grouped_youtube_roadmap_cards,
+    roadmap_progress,
+    set_youtube_roadmap_favourite,
+    sync_user_roadmap,
+    youtube_roadmap_cards,
+)
 from .youtube_client import YouTubeDataClient, YouTubeImportError
-from .youtube_forms import YouTubePlaylistImportForm
+from .youtube_forms import YouTubePlaylistImportForm, YouTubeRoadmapGroupForm
 from .youtube_services import create_youtube_roadmap
 
 
@@ -69,7 +79,20 @@ def youtube_roadmap_list(request):
     return render(
         request,
         "roadmaps/youtube/youtube_roadmap_list.html",
-        {"youtube_roadmaps": youtube_roadmap_cards(user=request.user)},
+        {
+            "youtube_roadmaps": youtube_roadmap_cards(user=request.user),
+            "youtube_groups": grouped_youtube_roadmap_cards(user=request.user),
+            "group_choices": YouTubeRoadmapGroup.objects.filter(
+                user=request.user,
+            ).order_by("position", "name", "pk"),
+            "group_form": YouTubeRoadmapGroupForm(),
+            "favourite_count": YouTubePlaylistRoadmap.objects.filter(
+                user=request.user,
+                roadmap__source=Roadmap.Source.YOUTUBE,
+                is_favourite=True,
+            ).count(),
+            "favourite_limit": MAX_FAVOURITE_YOUTUBE_ROADMAPS,
+        },
     )
 
 
@@ -190,6 +213,111 @@ def youtube_video_detail(request, slug, topic_id):
             ).exists(),
         },
     )
+
+
+@login_required
+@require_POST
+def create_youtube_group(request):
+    form = YouTubeRoadmapGroupForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Enter a group name.")
+        return redirect("roadmaps:youtube_list")
+
+    name = form.cleaned_data["name"]
+    if YouTubeRoadmapGroup.objects.filter(user=request.user, name__iexact=name).exists():
+        messages.info(request, "A YouTube group with that name already exists.")
+        return redirect("roadmaps:youtube_list")
+
+    next_position = (
+        YouTubeRoadmapGroup.objects.filter(user=request.user).aggregate(highest=Max("position"))[
+            "highest"
+        ]
+        or 0
+    ) + 1
+    YouTubeRoadmapGroup.objects.create(
+        user=request.user,
+        name=name,
+        position=next_position,
+    )
+    messages.success(request, f"Created the {name} group.")
+    return redirect("roadmaps:youtube_list")
+
+
+@login_required
+@require_POST
+def rename_youtube_group(request, group_id):
+    group = get_object_or_404(YouTubeRoadmapGroup, pk=group_id, user=request.user)
+    form = YouTubeRoadmapGroupForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Enter a group name.")
+        return redirect("roadmaps:youtube_list")
+
+    name = form.cleaned_data["name"]
+    if (
+        YouTubeRoadmapGroup.objects.filter(user=request.user, name__iexact=name)
+        .exclude(pk=group.pk)
+        .exists()
+    ):
+        messages.info(request, "A YouTube group with that name already exists.")
+        return redirect("roadmaps:youtube_list")
+
+    group.name = name
+    group.save(update_fields=["name", "updated_at"])
+    messages.success(request, "YouTube group renamed.")
+    return redirect("roadmaps:youtube_list")
+
+
+@login_required
+@require_POST
+def delete_youtube_group(request, group_id):
+    group = get_object_or_404(YouTubeRoadmapGroup, pk=group_id, user=request.user)
+    name = group.name
+    group.delete()
+    messages.info(
+        request,
+        f"Deleted {name}. Its playlists were moved to Ungrouped.",
+    )
+    return redirect("roadmaps:youtube_list")
+
+
+@login_required
+@require_POST
+def move_youtube_roadmap(request, slug):
+    source = _youtube_source_for_user(request.user, slug)
+    group_id = request.POST.get("group_id", "").strip()
+    if group_id:
+        group = get_object_or_404(
+            YouTubeRoadmapGroup,
+            pk=group_id,
+            user=request.user,
+        )
+    else:
+        group = None
+    source.group = group
+    source.save(update_fields=["group", "updated_at"])
+    messages.success(request, "YouTube roadmap moved.")
+    return redirect("roadmaps:youtube_list")
+
+
+@login_required
+@require_POST
+def toggle_youtube_favourite(request, slug):
+    source = _youtube_source_for_user(request.user, slug)
+    favourite = request.POST.get("favourite") == "true"
+    try:
+        source = set_youtube_roadmap_favourite(
+            user=request.user,
+            source=source,
+            favourite=favourite,
+        )
+    except RoadmapSelectionLimitError as exc:
+        messages.warning(request, str(exc))
+    else:
+        if source.is_favourite:
+            messages.success(request, f"{source.roadmap.title} added to favourites.")
+        else:
+            messages.info(request, f"{source.roadmap.title} removed from favourites.")
+    return redirect(request.POST.get("next") or "roadmaps:youtube_list")
 
 
 @login_required

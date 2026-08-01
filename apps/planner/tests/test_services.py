@@ -36,7 +36,7 @@ def _ready_question(user, title="Explain heaps", topic="Heaps"):
     )
 
 
-def _active_roadmap(user, suffix=""):
+def _active_roadmap(user, suffix="", *, focused=True):
     title = "Backend Developer" if not suffix else f"Backend Developer {suffix}"
     slug_suffix = f"-{suffix}" if suffix else ""
     roadmap = Roadmap.objects.create(
@@ -67,6 +67,7 @@ def _active_roadmap(user, suffix=""):
         user=user,
         roadmap=roadmap,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=focused,
         started_at=timezone.now(),
     )
     return roadmap, first_topic, second_topic
@@ -183,7 +184,11 @@ def test_large_budget_keeps_one_topic_and_deepens_its_block(user):
 
 def test_large_budget_selects_at_most_four_roadmaps(user):
     for index in range(5):
-        _active_roadmap(user, suffix=str(index))
+        _active_roadmap(
+            user,
+            suffix=str(index),
+            focused=index < 4,
+        )
 
     plan = generate_daily_plan(user=user, time_budget_minutes=720)
     roadmap_recommendations = list(

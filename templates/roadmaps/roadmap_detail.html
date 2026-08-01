@@ -25,12 +25,18 @@
         </div>
         {% if user_roadmap %}
             <strong>{{ user_roadmap.get_status_display }}</strong>
-        {% else %}
-            <form method="post" action="{% url 'roadmaps:start' roadmap.slug %}">
-                {% csrf_token %}
-                <button class="button" type="submit">Start this roadmap</button>
-            </form>
         {% endif %}
+        <form method="post" action="{% url 'roadmaps:focus' roadmap.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="focused" value="{% if user_roadmap.is_focused %}false{% else %}true{% endif %}">
+            <button class="button{% if user_roadmap.is_focused %} button-secondary{% endif %}" type="submit">
+                {% if user_roadmap.is_focused %}
+                    Remove from focus
+                {% else %}
+                    Add to focus ({{ focused_count }}/{{ focused_limit }})
+                {% endif %}
+            </button>
+        </form>
     </div>
 </section>
 

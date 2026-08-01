@@ -873,3 +873,134 @@
         flex-direction: column;
     }
 }
+
+/* Patch 3A: focused/favourite roadmap controls and YouTube groups */
+.roadmap-selection-summary {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: end;
+    min-width: 12rem;
+}
+
+.roadmap-selection-summary strong {
+    font-size: 1.5rem;
+}
+
+.roadmap-selection-summary span {
+    color: var(--vc-muted);
+    font-size: 0.78rem;
+}
+
+.is-selected-roadmap {
+    border-color: #9eb5c3;
+    box-shadow: 0 0 0 2px rgba(77, 111, 130, 0.12);
+}
+
+.roadmap-card-controls,
+.youtube-roadmap-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.roadmap-selection-button {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--vc-border-strong);
+    background: transparent;
+    color: var(--vc-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 750;
+}
+
+.roadmap-selection-button:hover,
+.roadmap-selection-button:focus-visible {
+    border-color: var(--vc-ink);
+    outline: none;
+}
+
+.youtube-group-creator {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin: 2rem 0 0;
+    padding: 1.25rem;
+    border: 1px solid var(--vc-border);
+    background: #fff;
+}
+
+.youtube-group-creator h2 {
+    margin: 0.25rem 0 0;
+}
+
+.youtube-group-creator form,
+.youtube-group-management form,
+.youtube-roadmap-move-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.youtube-group-creator input,
+.youtube-group-management input,
+.youtube-roadmap-move-form select {
+    min-height: 2.5rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--vc-border-strong);
+    background: #fff;
+    color: var(--vc-ink);
+    font: inherit;
+}
+
+.youtube-group-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.youtube-group-heading-actions summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 750;
+}
+
+.youtube-group-management {
+    display: grid;
+    gap: 0.75rem;
+    min-width: min(28rem, 80vw);
+    margin-top: 0.75rem;
+    padding: 0.9rem;
+    border: 1px solid var(--vc-border);
+    background: #fff;
+}
+
+.source-empty-state.compact {
+    padding: 1.25rem;
+}
+
+@media (max-width: 48rem) {
+    .roadmap-selection-summary {
+        justify-items: start;
+    }
+
+    .youtube-group-creator,
+    .youtube-group-heading-actions,
+    .roadmap-card-controls,
+    .youtube-roadmap-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .youtube-group-creator form,
+    .youtube-group-management form,
+    .youtube-roadmap-move-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

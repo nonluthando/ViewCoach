@@ -548,7 +548,7 @@ def toggle_youtube_favourite(request, slug):
 """
 changes["youtube_views"] = insert_before(
     changes["youtube_views"],
-    "@login_required\n@require_http_methods([\"GET\", \"POST\"])\ndef youtube_playlist_import",
+    '@login_required\n@require_http_methods(["GET", "POST"])\ndef youtube_playlist_import',
     youtube_group_views,
     label="YouTube group and favourite views",
 )
@@ -580,19 +580,19 @@ changes["youtube_services"] = replace_once(
 # ---------------------------------------------------------------------------
 changes["urls"] = insert_before(
     changes["urls"],
-    "    path(\n        \"youtube/import/confirm/\",\n",
+    '    path(\n        "youtube/import/confirm/",\n',
     """    path(\n        \"youtube/groups/create/\",\n        youtube_views.create_youtube_group,\n        name=\"youtube_group_create\",\n    ),\n    path(\n        \"youtube/groups/<int:group_id>/rename/\",\n        youtube_views.rename_youtube_group,\n        name=\"youtube_group_rename\",\n    ),\n    path(\n        \"youtube/groups/<int:group_id>/delete/\",\n        youtube_views.delete_youtube_group,\n        name=\"youtube_group_delete\",\n    ),\n""",
     label="YouTube group URLs",
 )
 changes["urls"] = insert_before(
     changes["urls"],
-    "    path(\n        \"youtube/<slug:slug>/videos/<int:topic_id>/complete/\",\n",
+    '    path(\n        "youtube/<slug:slug>/videos/<int:topic_id>/complete/",\n',
     """    path(\n        \"youtube/<slug:slug>/favourite/\",\n        youtube_views.toggle_youtube_favourite,\n        name=\"youtube_favourite\",\n    ),\n    path(\n        \"youtube/<slug:slug>/move/\",\n        youtube_views.move_youtube_roadmap,\n        name=\"youtube_move\",\n    ),\n""",
     label="YouTube favourite and move URLs",
 )
 changes["urls"] = insert_before(
     changes["urls"],
-    "    path(\"<slug:slug>/\", views.roadmap_detail, name=\"detail\"),\n",
+    '    path("<slug:slug>/", views.roadmap_detail, name="detail"),\n',
     """    path(\n        \"<slug:slug>/focus/\",\n        views.toggle_roadmap_focus,\n        name=\"focus\",\n    ),\n""",
     label="ViewCoach focus URL",
 )
@@ -696,8 +696,8 @@ changes["reviews"] = replace_once(
 )
 # Add distinct to due/upcoming query returns after select_related chains.
 changes["reviews"] = changes["reviews"].replace(
-    ")\n        .order_by(\"due_at\", \"pk\")\n    )\n",
-    ")\n        .distinct()\n        .order_by(\"due_at\", \"pk\")\n    )\n",
+    ')\n        .order_by("due_at", "pk")\n    )\n',
+    ')\n        .distinct()\n        .order_by("due_at", "pk")\n    )\n',
     2,
 )
 

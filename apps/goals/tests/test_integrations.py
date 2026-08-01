@@ -77,11 +77,13 @@ def test_planner_prefers_primary_goals_linked_roadmap(user, roadmap):
         user=user,
         roadmap=other,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=True,
     )
     preferred = UserRoadmap.objects.create(
         user=user,
         roadmap=roadmap,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=True,
     )
     goal = InterviewGoal.objects.create(
         user=user,
@@ -119,11 +121,13 @@ def test_planner_uses_least_covered_linked_roadmap(user, roadmap):
         user=user,
         roadmap=roadmap,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=True,
     )
     second_enrolment = UserRoadmap.objects.create(
         user=user,
         roadmap=second,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=True,
     )
     for topic in roadmap.sections.first().topics.all()[:2]:
         UserTopicProgress.objects.create(

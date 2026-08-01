@@ -9,9 +9,13 @@
         <div>
             <p class="source-page-kicker">External learning</p>
             <h1>YouTube roadmaps</h1>
-            <p>Import playlists you already trust, preserve their video order and track progress without mixing them into ViewCoach’s built-in curriculum.</p>
+            <p>Save as many playlists as you need, organise them into groups, and favourite up to five for your dashboard and study planner.</p>
         </div>
-        <a class="button" href="{% url 'roadmaps:youtube_import' %}">Import playlist</a>
+        <div class="roadmap-selection-summary">
+            <strong>{{ favourite_count }} / {{ favourite_limit }}</strong>
+            <span>favourite roadmaps</span>
+            <a class="button" href="{% url 'roadmaps:youtube_import' %}">Import playlist</a>
+        </div>
     </header>
 
     <nav class="source-switcher" aria-label="Roadmap source">
@@ -25,51 +29,113 @@
         </a>
     </nav>
 
-    {% if youtube_roadmaps %}
-        <section class="source-roadmap-group" aria-labelledby="youtube-library-heading">
-            <div class="roadmap-group-heading">
-                <div>
-                    <p class="source-page-kicker">Your library</p>
-                    <h2 id="youtube-library-heading">Imported playlists</h2>
-                </div>
-                <span>{{ youtube_roadmaps|length }} roadmap{{ youtube_roadmaps|length|pluralize }}</span>
-            </div>
+    <section class="youtube-group-creator" aria-labelledby="youtube-group-creator-heading">
+        <div>
+            <p class="source-page-kicker">Organisation</p>
+            <h2 id="youtube-group-creator-heading">Create a playlist group</h2>
+        </div>
+        <form method="post" action="{% url 'roadmaps:youtube_group_create' %}">
+            {% csrf_token %}
+            {{ group_form.name }}
+            <button class="button button-secondary" type="submit">Create group</button>
+        </form>
+    </section>
 
-            <div class="source-roadmap-grid youtube-roadmap-grid">
-                {% for item in youtube_roadmaps %}
-                    <article class="source-roadmap-card youtube-roadmap-card">
-                        {% if item.youtube_source.thumbnail_url %}
-                            <a class="youtube-roadmap-thumbnail" href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}" aria-label="Open {{ item.roadmap.title }}">
-                                <img src="{{ item.youtube_source.thumbnail_url }}" alt="">
-                                <span aria-hidden="true">▶</span>
-                            </a>
+    {% if youtube_roadmaps %}
+        {% for roadmap_group in youtube_groups %}
+            <section class="source-roadmap-group youtube-group-section" aria-labelledby="youtube-group-{{ forloop.counter }}">
+                <div class="roadmap-group-heading youtube-group-heading">
+                    <div>
+                        <p class="source-page-kicker">Playlist group</p>
+                        <h2 id="youtube-group-{{ forloop.counter }}">{{ roadmap_group.label }}</h2>
+                    </div>
+                    <div class="youtube-group-heading-actions">
+                        <span>{{ roadmap_group.items|length }} roadmap{{ roadmap_group.items|length|pluralize }}</span>
+                        {% if roadmap_group.group %}
+                            <details>
+                                <summary>Manage</summary>
+                                <div class="youtube-group-management">
+                                    <form method="post" action="{% url 'roadmaps:youtube_group_rename' roadmap_group.group.pk %}">
+                                        {% csrf_token %}
+                                        <input type="text" name="name" maxlength="80" value="{{ roadmap_group.group.name }}" required>
+                                        <button class="button button-secondary" type="submit">Rename</button>
+                                    </form>
+                                    <form method="post" action="{% url 'roadmaps:youtube_group_delete' roadmap_group.group.pk %}">
+                                        {% csrf_token %}
+                                        <button class="roadmap-selection-button" type="submit">Delete group</button>
+                                    </form>
+                                </div>
+                            </details>
                         {% endif %}
-                        <div class="source-roadmap-card-body">
-                            <div class="source-roadmap-card-topline">
-                                <span class="source-badge is-youtube">YouTube</span>
-                                <span>{{ item.youtube_source.total_duration_display }}</span>
-                            </div>
-                            <h3><a href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
-                            <p>
-                                {% if item.youtube_source.channel_title %}{{ item.youtube_source.channel_title }} · {% endif %}
-                                {{ item.youtube_source.available_video_count }} available video{{ item.youtube_source.available_video_count|pluralize }}
-                            </p>
-                            <div class="source-roadmap-progress-copy">
-                                <span>{% if item.enrolment %}{{ item.enrolment.get_status_display }}{% else %}Not started{% endif %}</span>
-                                <strong>{{ item.percentage }}%</strong>
-                            </div>
-                            <div class="source-roadmap-progress" role="progressbar" aria-label="{{ item.roadmap.title }} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
-                                <span style="width: {{ item.percentage }}%"></span>
-                            </div>
-                            <a class="source-roadmap-card-link" href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">
-                                {% if item.enrolment %}Continue playlist{% else %}Open playlist roadmap{% endif %}
-                                <span aria-hidden="true">→</span>
-                            </a>
-                        </div>
-                    </article>
-                {% endfor %}
+                    </div>
+                </div>
+
+                {% if roadmap_group.items %}
+                    <div class="source-roadmap-grid youtube-roadmap-grid">
+                        {% for item in roadmap_group.items %}
+                            <article class="source-roadmap-card youtube-roadmap-card {% if item.youtube_source.is_favourite %}is-selected-roadmap{% endif %}">
+                                {% if item.youtube_source.thumbnail_url %}
+                                    <a class="youtube-roadmap-thumbnail" href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}" aria-label="Open {{ item.roadmap.title }}">
+                                        <img src="{{ item.youtube_source.thumbnail_url }}" alt="">
+                                        <span aria-hidden="true">▶</span>
+                                    </a>
+                                {% endif %}
+                                <div class="source-roadmap-card-body">
+                                    <div class="source-roadmap-card-topline">
+                                        <span class="source-badge is-youtube">YouTube</span>
+                                        <span>{% if item.youtube_source.is_favourite %}★ Favourite{% else %}{{ item.youtube_source.total_duration_display }}{% endif %}</span>
+                                    </div>
+                                    <h3><a href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
+                                    <p>
+                                        {% if item.youtube_source.channel_title %}{{ item.youtube_source.channel_title }} · {% endif %}
+                                        {{ item.youtube_source.available_video_count }} available video{{ item.youtube_source.available_video_count|pluralize }}
+                                    </p>
+                                    <div class="source-roadmap-progress-copy">
+                                        <span>{% if item.enrolment %}{{ item.enrolment.get_status_display }}{% else %}Not started{% endif %}</span>
+                                        <strong>{{ item.percentage }}%</strong>
+                                    </div>
+                                    <div class="source-roadmap-progress" role="progressbar" aria-label="{{ item.roadmap.title }} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
+                                        <span style="width: {{ item.percentage }}%"></span>
+                                    </div>
+                                    <div class="youtube-roadmap-controls">
+                                        <form method="post" action="{% url 'roadmaps:youtube_favourite' item.roadmap.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="favourite" value="{% if item.youtube_source.is_favourite %}false{% else %}true{% endif %}">
+                                            <button class="roadmap-selection-button" type="submit">
+                                                {% if item.youtube_source.is_favourite %}Unfavourite{% else %}Favourite{% endif %}
+                                            </button>
+                                        </form>
+                                        <form class="youtube-roadmap-move-form" method="post" action="{% url 'roadmaps:youtube_move' item.roadmap.slug %}">
+                                            {% csrf_token %}
+                                            <label class="sr-only" for="group-{{ item.youtube_source.pk }}">Move {{ item.roadmap.title }}</label>
+                                            <select id="group-{{ item.youtube_source.pk }}" name="group_id">
+                                                <option value=""{% if not item.youtube_source.group_id %} selected{% endif %}>Ungrouped</option>
+                                                {% for choice in group_choices %}
+                                                    <option value="{{ choice.pk }}"{% if item.youtube_source.group_id == choice.pk %} selected{% endif %}>{{ choice.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <button class="button button-secondary" type="submit">Move</button>
+                                        </form>
+                                    </div>
+                                    <a class="source-roadmap-card-link" href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">
+                                        {% if item.enrolment %}Continue playlist{% else %}Open playlist roadmap{% endif %}
+                                        <span aria-hidden="true">→</span>
+                                    </a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="source-empty-state compact">
+                        <p>This group is empty. Move a playlist here using its group selector.</p>
+                    </div>
+                {% endif %}
+            </section>
+        {% empty %}
+            <div class="source-empty-state">
+                <p>Your imported playlists are currently ungrouped.</p>
             </div>
-        </section>
+        {% endfor %}
     {% else %}
         <div class="source-empty-state youtube-empty-state">
             <span class="source-switcher-icon is-youtube" aria-hidden="true">▶</span>

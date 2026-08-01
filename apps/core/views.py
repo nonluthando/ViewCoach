@@ -18,8 +18,12 @@ def landing_page(request):
     return render(request, "core/landing_page.html")
 
 
-def _prioritised_learning_cards(groups, *, limit=2):
+def _prioritised_learning_cards(groups, *, limit=2, focused_only=False):
     cards = [item for group in groups for item in group["items"]]
+    if focused_only:
+        cards = [
+            item for item in cards if item["enrolment"] is not None and item["enrolment"].is_focused
+        ]
     cards.sort(
         key=lambda item: (
             item["enrolment"] is None,
@@ -41,7 +45,7 @@ def dashboard(request):
     readiness = readiness_report(goal=primary_goal) if primary_goal else None
     evidence_summary = evidence_dashboard_summary(user=request.user)
     viewcoach_groups = grouped_viewcoach_roadmap_cards(user=request.user)
-    youtube_cards = youtube_roadmap_cards(user=request.user)
+    youtube_cards = youtube_roadmap_cards(user=request.user, favourites_only=True)
 
     return render(
         request,
@@ -58,7 +62,10 @@ def dashboard(request):
             "primary_goal": primary_goal,
             "readiness": readiness,
             "evidence_summary": evidence_summary,
-            "viewcoach_learning_cards": _prioritised_learning_cards(viewcoach_groups),
+            "viewcoach_learning_cards": _prioritised_learning_cards(
+                viewcoach_groups,
+                focused_only=True,
+            ),
             "youtube_learning_cards": youtube_cards[:2],
             "recent_questions": questions.select_related(
                 "technicalquestion",

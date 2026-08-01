@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
@@ -8,7 +9,102 @@ from .models import (
     UserRoadmap,
     UserTopicProgress,
     YouTubePlaylistRoadmap,
+    YouTubeRoadmapGroup,
 )
+
+MAX_FOCUSED_VIEWCOACH_ROADMAPS = 4
+MAX_FAVOURITE_YOUTUBE_ROADMAPS = 5
+
+
+class RoadmapSelectionLimitError(ValueError):
+    pass
+
+
+@transaction.atomic
+def set_viewcoach_roadmap_focus(*, user, roadmap, focused: bool):
+    if roadmap.source != Roadmap.Source.VIEWCOACH or not roadmap.is_system:
+        raise ValueError("Only built-in ViewCoach roadmaps can be focused.")
+
+    list(
+        UserRoadmap.objects.select_for_update()
+        .filter(user=user, roadmap__source=Roadmap.Source.VIEWCOACH)
+        .values_list("pk", flat=True)
+    )
+    enrolment, _ = UserRoadmap.objects.get_or_create(
+        user=user,
+        roadmap=roadmap,
+    )
+    if focused and enrolment.status == UserRoadmap.Status.COMPLETED:
+        raise ValueError(
+            "Completed roadmaps cannot be focused. Mark a topic as learning first "
+            "if you want to revisit the roadmap."
+        )
+    if focused and not enrolment.is_focused:
+        focused_count = (
+            UserRoadmap.objects.filter(
+                user=user,
+                roadmap__source=Roadmap.Source.VIEWCOACH,
+                is_focused=True,
+            )
+            .exclude(pk=enrolment.pk)
+            .count()
+        )
+        if focused_count >= MAX_FOCUSED_VIEWCOACH_ROADMAPS:
+            raise RoadmapSelectionLimitError(
+                "You already have four focused ViewCoach roadmaps. "
+                "Remove one from focus before adding another."
+            )
+        enrolment.is_focused = True
+        if enrolment.status == UserRoadmap.Status.NOT_STARTED:
+            enrolment.status = UserRoadmap.Status.IN_PROGRESS
+            enrolment.started_at = enrolment.started_at or timezone.now()
+    elif not focused:
+        enrolment.is_focused = False
+
+    enrolment.save(
+        update_fields=[
+            "is_focused",
+            "status",
+            "started_at",
+            "updated_at",
+        ]
+    )
+    return enrolment
+
+
+@transaction.atomic
+def set_youtube_roadmap_favourite(*, user, source, favourite: bool):
+    list(
+        YouTubePlaylistRoadmap.objects.select_for_update()
+        .filter(user=user)
+        .values_list("pk", flat=True)
+    )
+    locked = YouTubePlaylistRoadmap.objects.select_related("roadmap").get(
+        pk=source.pk,
+        user=user,
+        roadmap__source=Roadmap.Source.YOUTUBE,
+    )
+    if favourite and not locked.is_favourite:
+        favourite_count = (
+            YouTubePlaylistRoadmap.objects.filter(
+                user=user,
+                is_favourite=True,
+                roadmap__source=Roadmap.Source.YOUTUBE,
+            )
+            .exclude(pk=locked.pk)
+            .count()
+        )
+        if favourite_count >= MAX_FAVOURITE_YOUTUBE_ROADMAPS:
+            raise RoadmapSelectionLimitError(
+                "You already have five favourite YouTube roadmaps. "
+                "Unfavourite one before adding another."
+            )
+        locked.is_favourite = True
+    elif not favourite:
+        locked.is_favourite = False
+
+    locked.save(update_fields=["is_favourite", "updated_at"])
+    return locked
 
 
 def progress_summary_for_user(*, user, roadmap_ids=None):
@@ -64,6 +160,8 @@ def sync_user_roadmap(*, user, roadmap):
         user_roadmap.status = UserRoadmap.Status.COMPLETED
         user_roadmap.started_at = user_roadmap.started_at or now
         user_roadmap.completed_at = user_roadmap.completed_at or now
+        if roadmap.source == Roadmap.Source.VIEWCOACH:
+            user_roadmap.is_focused = False
     elif has_progress:
         user_roadmap.status = UserRoadmap.Status.IN_PROGRESS
         user_roadmap.started_at = user_roadmap.started_at or now
@@ -75,7 +173,15 @@ def sync_user_roadmap(*, user, roadmap):
         user_roadmap.status = UserRoadmap.Status.NOT_STARTED
         user_roadmap.completed_at = None
 
-    user_roadmap.save(update_fields=["status", "started_at", "completed_at", "updated_at"])
+    user_roadmap.save(
+        update_fields=[
+            "status",
+            "is_focused",
+            "started_at",
+            "completed_at",
+            "updated_at",
+        ]
+    )
     return user_roadmap
 
 
@@ -155,16 +261,18 @@ def grouped_viewcoach_roadmap_cards(*, user):
     return _group_cards_by_kind(_roadmap_card_rows(user=user, roadmaps=roadmaps))
 
 
-def youtube_roadmap_cards(*, user):
+def youtube_roadmap_cards(*, user, favourites_only=False):
+    sources_query = YouTubePlaylistRoadmap.objects.filter(
+        user=user,
+        roadmap__source=Roadmap.Source.YOUTUBE,
+        roadmap__is_published=True,
+    )
+    if favourites_only:
+        sources_query = sources_query.filter(is_favourite=True)
     sources = list(
-        YouTubePlaylistRoadmap.objects.filter(
-            user=user,
-            roadmap__source=Roadmap.Source.YOUTUBE,
-            roadmap__is_published=True,
-        )
-        .select_related("roadmap")
+        sources_query.select_related("roadmap", "group")
         .prefetch_related("roadmap__sections__topics")
-        .order_by("-updated_at", "-pk")
+        .order_by("-is_favourite", "group__position", "group__name", "-updated_at", "-pk")
     )
     rows = _roadmap_card_rows(
         user=user,
@@ -174,3 +282,36 @@ def youtube_roadmap_cards(*, user):
     for row in rows:
         row["youtube_source"] = source_by_roadmap[row["roadmap"].pk]
     return rows
+
+
+def grouped_youtube_roadmap_cards(*, user):
+    rows = youtube_roadmap_cards(user=user)
+    rows_by_group = defaultdict(list)
+    for row in rows:
+        rows_by_group[row["youtube_source"].group_id].append(row)
+
+    groups = list(
+        YouTubeRoadmapGroup.objects.filter(user=user).order_by(
+            "position",
+            "name",
+            "pk",
+        )
+    )
+    result = [
+        {
+            "group": group,
+            "label": group.name,
+            "items": rows_by_group.pop(group.pk, []),
+        }
+        for group in groups
+    ]
+    ungrouped = rows_by_group.pop(None, [])
+    if ungrouped:
+        result.append(
+            {
+                "group": None,
+                "label": "Ungrouped",
+                "items": ungrouped,
+            }
+        )
+    return result
