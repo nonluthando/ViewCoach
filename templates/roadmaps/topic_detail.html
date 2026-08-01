@@ -48,6 +48,61 @@
             </form>
         </section>
 
+
+        <section class="topic-workspace-panel" aria-labelledby="topic-question-generation-heading">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Retrieval practice</p>
+                    <h2 id="topic-question-generation-heading">Question cards from your notes</h2>
+                </div>
+                <span>Drafts require your approval</span>
+            </div>
+
+            <p>
+                ViewCoach uses only the notes saved for this topic. Generated cards stay
+                out of spaced repetition until you review and approve them.
+            </p>
+
+            {% if progress.notes %}
+                <form class="topic-question-generation-form"
+                      method="post"
+                      action="{% url 'roadmaps:generate_topic_questions' roadmap.slug topic.pk %}">
+                    {% csrf_token %}
+                    <div>
+                        <label for="{{ question_generation_form.count.id_for_label }}">
+                            {{ question_generation_form.count.label }}
+                        </label>
+                        {{ question_generation_form.count }}
+                    </div>
+                    <button class="button" type="submit">Generate draft cards</button>
+                </form>
+            {% else %}
+                <div class="topic-empty-state">
+                    <strong>Add some study notes first.</strong>
+                    <p>Save the material you want the cards to be grounded in, then generate drafts.</p>
+                </div>
+            {% endif %}
+
+            {% if question_generation_batches %}
+                <div class="topic-generation-history">
+                    <h3>Recent generations</h3>
+                    <ul>
+                        {% for batch in question_generation_batches %}
+                            <li>
+                                <a href="{% url 'roadmaps:topic_question_drafts' roadmap.slug topic.pk batch.pk %}">
+                                    {{ batch.created_at|date:"j M Y, H:i" }}
+                                </a>
+                                <span>
+                                    {{ batch.get_status_display }}
+                                    · {{ batch.created_question_count }} card{{ batch.created_question_count|pluralize }}
+                                </span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </section>
+
         <section class="topic-workspace-panel" aria-labelledby="topic-resources-heading">
             <div class="topic-panel-heading">
                 <div>

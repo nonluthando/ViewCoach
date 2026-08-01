@@ -8,8 +8,17 @@ from django.views.decorators.http import require_POST
 
 from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
 from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
+from apps.questions.generation import (
+    QuestionGenerationError,
+    generate_topic_question_drafts,
+)
+from apps.questions.models import QuestionGenerationBatch
 
-from .forms import TopicNotesForm, TopicResourceForm
+from .forms import (
+    TopicNotesForm,
+    TopicQuestionGenerationForm,
+    TopicResourceForm,
+)
 from .models import (
     Roadmap,
     RoadmapTopic,
@@ -189,6 +198,11 @@ def topic_detail(request, slug, topic_id):
                 progress.status if progress else UserTopicProgress.Status.NOT_STARTED
             ),
             "notes_form": TopicNotesForm(instance=progress),
+            "question_generation_form": TopicQuestionGenerationForm(),
+            "question_generation_batches": QuestionGenerationBatch.objects.filter(
+                user=request.user,
+                topic=topic,
+            )[:5],
             "resource_form": TopicResourceForm(),
             "resources": UserTopicResource.objects.filter(
                 user=request.user,
@@ -281,6 +295,82 @@ def save_topic_notes(request, slug, topic_id):
         messages.error(request, "Your notes could not be saved.")
 
     return _redirect_to_topic_workspace(roadmap, topic)
+
+
+
+@login_required
+@require_POST
+def generate_topic_questions(request, slug, topic_id):
+    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
+    progress = UserTopicProgress.objects.filter(
+        user=request.user,
+        topic=topic,
+    ).first()
+    form = TopicQuestionGenerationForm(request.POST)
+
+    if not form.is_valid():
+        messages.error(request, "Choose how many draft cards to generate.")
+        return _redirect_to_topic_workspace(roadmap, topic)
+
+    notes = progress.notes.strip() if progress else ""
+    if not notes:
+        messages.warning(request, "Save topic notes before generating question cards.")
+        return _redirect_to_topic_workspace(roadmap, topic)
+
+    try:
+        batch = generate_topic_question_drafts(
+            user=request.user,
+            topic=topic,
+            notes=notes,
+            count=form.cleaned_data["count"],
+        )
+    except ValueError as exc:
+        messages.warning(request, str(exc))
+        return _redirect_to_topic_workspace(roadmap, topic)
+    except QuestionGenerationError:
+        messages.error(
+            request,
+            "The draft cards could not be generated. Your notes were not changed.",
+        )
+        return _redirect_to_topic_workspace(roadmap, topic)
+
+    messages.success(
+        request,
+        (
+            f"Generated {batch.created_question_count} editable draft "
+            f"question{'s' if batch.created_question_count != 1 else ''}."
+        ),
+    )
+    return redirect(
+        "roadmaps:topic_question_drafts",
+        slug=roadmap.slug,
+        topic_id=topic.pk,
+        batch_id=batch.pk,
+    )
+
+
+@login_required
+def topic_question_drafts(request, slug, topic_id, batch_id):
+    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
+    batch = get_object_or_404(
+        QuestionGenerationBatch.objects.prefetch_related(
+            "created_questions__conceptquestion",
+            "created_questions__technicalquestion",
+        ),
+        pk=batch_id,
+        user=request.user,
+        topic=topic,
+    )
+    return render(
+        request,
+        "roadmaps/topic_question_drafts.html",
+        {
+            "roadmap": roadmap,
+            "topic": topic,
+            "batch": batch,
+            "questions": batch.created_questions.all(),
+        },
+    )
 
 
 @login_required

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Draft question cards | {{ topic.title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">{{ topic.title }}</a>
+    <span aria-hidden="true">/</span>
+    <span>Draft cards</span>
+</nav>
+
+<section class="topic-workspace-header">
+    <div>
+        <p class="eyebrow">Generated from your saved notes</p>
+        <h1>Review draft question cards</h1>
+        <p class="lead">
+            Edit anything that is unclear or unsupported. A card enters spaced
+            repetition only after you mark it ready.
+        </p>
+    </div>
+    <a class="topic-back-link" href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">Back to topic</a>
+</section>
+
+<section class="topic-workspace-panel">
+    <div class="topic-panel-heading">
+        <div>
+            <p class="eyebrow">{{ topic.title }}</p>
+            <h2>{{ batch.created_question_count }} draft card{{ batch.created_question_count|pluralize }}</h2>
+        </div>
+        <span>{{ batch.created_at|date:"j M Y, H:i" }}</span>
+    </div>
+
+    {% if batch.status == "FAILED" %}
+        <div class="topic-empty-state">
+            <strong>Generation failed.</strong>
+            <p>{{ batch.error_message }}</p>
+        </div>
+    {% elif questions %}
+        <div class="generated-question-list">
+            {% for question in questions %}
+                <article class="generated-question-card">
+                    <header>
+                        <div>
+                            <p class="eyebrow">{{ question.get_question_type_display }}</p>
+                            <h2>{{ question.title }}</h2>
+                        </div>
+                        <span class="badge badge-neutral">{{ question.get_status_display }}</span>
+                    </header>
+                    <p><strong>Question</strong></p>
+                    <p>{{ question.prompt|linebreaksbr }}</p>
+                    <div class="generated-question-answer">
+                        <p><strong>Draft answer</strong></p>
+                        {% if question.question_type == "CONCEPT" %}
+                            <p>{{ question.specific.canonical_answer|linebreaksbr }}</p>
+                            {% if question.specific.key_points %}
+                                <ul>
+                                    {% for point in question.specific.key_points %}<li>{{ point }}</li>{% endfor %}
+                                </ul>
+                            {% endif %}
+                        {% else %}
+                            {% if question.specific.intuition %}<p>{{ question.specific.intuition|linebreaksbr }}</p>{% endif %}
+                            {% if question.specific.optimal_approach %}<p>{{ question.specific.optimal_approach|linebreaksbr }}</p>{% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="generated-question-actions">
+                        <a class="button" href="{% url 'questions:edit' question.pk %}">Edit draft</a>
+                        <a class="button button-secondary" href="{% url 'questions:detail' question.pk %}">Open card</a>
+                        <a class="button button-secondary" href="{% url 'questions:delete' question.pk %}">Delete</a>
+                        {% if question.can_mark_ready %}
+                            <form method="post" action="{% url 'questions:mark_ready' question.pk %}">
+                                {% csrf_token %}
+                                <button class="button button-secondary" type="submit">Approve for review</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="topic-empty-state">
+            <strong>No draft cards were created.</strong>
+            <p>Return to the topic and try again after expanding the notes.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
