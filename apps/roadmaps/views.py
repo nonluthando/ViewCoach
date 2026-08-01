@@ -27,8 +27,11 @@ from .models import (
     UserTopicResource,
 )
 from .services import (
+    MAX_FOCUSED_VIEWCOACH_ROADMAPS,
+    RoadmapSelectionLimitError,
     grouped_viewcoach_roadmap_cards,
     roadmap_progress,
+    set_viewcoach_roadmap_focus,
     sync_user_roadmap,
 )
 
@@ -123,7 +126,15 @@ def roadmap_list(request):
     return render(
         request,
         "roadmaps/roadmap_list.html",
-        {"roadmap_groups": grouped_viewcoach_roadmap_cards(user=request.user)},
+        {
+            "roadmap_groups": grouped_viewcoach_roadmap_cards(user=request.user),
+            "focused_count": UserRoadmap.objects.filter(
+                user=request.user,
+                roadmap__source=Roadmap.Source.VIEWCOACH,
+                is_focused=True,
+            ).count(),
+            "focused_limit": MAX_FOCUSED_VIEWCOACH_ROADMAPS,
+        },
     )
 
 
@@ -163,6 +174,12 @@ def roadmap_detail(request, slug):
                 roadmap=roadmap,
             ).first(),
             "progress": roadmap_progress(user=request.user, roadmap=roadmap),
+            "focused_count": UserRoadmap.objects.filter(
+                user=request.user,
+                roadmap__source=Roadmap.Source.VIEWCOACH,
+                is_focused=True,
+            ).count(),
+            "focused_limit": MAX_FOCUSED_VIEWCOACH_ROADMAPS,
         },
     )
 
@@ -229,6 +246,23 @@ def topic_detail(request, slug, topic_id):
 @require_POST
 def start_roadmap(request, slug):
     roadmap = _accessible_roadmap(request.user, slug)
+
+    if roadmap.source == Roadmap.Source.VIEWCOACH:
+        try:
+            set_viewcoach_roadmap_focus(
+                user=request.user,
+                roadmap=roadmap,
+                focused=True,
+            )
+        except RoadmapSelectionLimitError as exc:
+            messages.warning(request, str(exc))
+        else:
+            messages.success(
+                request,
+                f"{roadmap.title} is now one of your focused roadmaps.",
+            )
+        return redirect(_roadmap_detail_route(roadmap), slug=roadmap.slug)
+
     user_roadmap, created = UserRoadmap.objects.get_or_create(
         user=request.user,
         roadmap=roadmap,
@@ -244,6 +278,32 @@ def start_roadmap(request, slug):
     sync_user_roadmap(user=request.user, roadmap=roadmap)
 
     messages.success(request, f"{roadmap.title} is now one of your active roadmaps.")
+    return redirect(_roadmap_detail_route(roadmap), slug=roadmap.slug)
+
+
+@login_required
+@require_POST
+def toggle_roadmap_focus(request, slug):
+    roadmap = _accessible_roadmap(request.user, slug)
+    focused = request.POST.get("focused") == "true"
+    try:
+        enrolment = set_viewcoach_roadmap_focus(
+            user=request.user,
+            roadmap=roadmap,
+            focused=focused,
+        )
+    except RoadmapSelectionLimitError as exc:
+        messages.warning(request, str(exc))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        if enrolment.is_focused:
+            messages.success(request, f"{roadmap.title} added to your focus list.")
+        else:
+            messages.info(request, f"{roadmap.title} removed from your focus list.")
+    next_url = request.POST.get("next")
+    if next_url:
+        return redirect(next_url)
     return redirect(_roadmap_detail_route(roadmap), slug=roadmap.slug)
 
 
@@ -295,7 +355,6 @@ def save_topic_notes(request, slug, topic_id):
         messages.error(request, "Your notes could not be saved.")
 
     return _redirect_to_topic_workspace(roadmap, topic)
-
 
 
 @login_required

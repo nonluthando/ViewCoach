@@ -2,14 +2,48 @@ from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.questions.models import Question
+from apps.roadmaps.models import Roadmap
 
 from .models import ReviewAttempt, ReviewState
 
 MINIMUM_EASE = Decimal("1.30")
 AGAIN_DELAY_MINUTES = 10
+
+
+def _selected_roadmap_question_filter(*, user, prefix="question__"):
+    source_topic = f"{prefix}source_topic"
+    roadmap = f"{source_topic}__section__roadmap"
+    return (
+        Q(**{f"{source_topic}__isnull": True})
+        | Q(
+            **{
+                f"{roadmap}__source": Roadmap.Source.VIEWCOACH,
+                f"{roadmap}__user_enrolments__user": user,
+                f"{roadmap}__user_enrolments__is_focused": True,
+            }
+        )
+        | Q(
+            **{
+                f"{roadmap}__source": Roadmap.Source.YOUTUBE,
+                f"{roadmap}__youtube_playlist__user": user,
+                f"{roadmap}__youtube_playlist__is_favourite": True,
+            }
+        )
+        | Q(
+            **{
+                f"{roadmap}__source__in": [
+                    Roadmap.Source.IBM,
+                    Roadmap.Source.CUSTOM,
+                ],
+                f"{roadmap}__user_enrolments__user": user,
+                f"{roadmap}__user_enrolments__is_focused": True,
+            }
+        )
+    )
 
 
 def sync_ready_review_states(*, user, now=None):
@@ -50,6 +84,7 @@ def due_review_states(*, user, now=None):
             question__status=Question.Status.READY_FOR_REVIEW,
             due_at__lte=current_time,
         )
+        .filter(_selected_roadmap_question_filter(user=user))
         .select_related(
             "question",
             "question__technicalquestion",
@@ -57,6 +92,7 @@ def due_review_states(*, user, now=None):
             "question__behaviouralquestion",
             "question__debugquestion",
         )
+        .distinct()
         .order_by("due_at", "pk")
     )
 
@@ -71,7 +107,9 @@ def upcoming_review_states(*, user, now=None):
             question__status=Question.Status.READY_FOR_REVIEW,
             due_at__gt=current_time,
         )
+        .filter(_selected_roadmap_question_filter(user=user))
         .select_related("question")
+        .distinct()
         .order_by("due_at", "pk")
     )
 
@@ -80,10 +118,14 @@ def review_dashboard_summary(*, user, now=None):
     current_time = now or timezone.now()
     sync_ready_review_states(user=user, now=current_time)
 
-    active_states = ReviewState.objects.filter(
-        user=user,
-        question__owner=user,
-        question__status=Question.Status.READY_FOR_REVIEW,
+    active_states = (
+        ReviewState.objects.filter(
+            user=user,
+            question__owner=user,
+            question__status=Question.Status.READY_FOR_REVIEW,
+        )
+        .filter(_selected_roadmap_question_filter(user=user))
+        .distinct()
     )
     due_states = active_states.filter(due_at__lte=current_time)
     next_state = active_states.order_by("due_at", "pk").first()

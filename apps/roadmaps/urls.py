@@ -7,6 +7,21 @@ app_name = "roadmaps"
 urlpatterns = [
     path("", views.roadmap_list, name="list"),
     path(
+        "youtube/groups/create/",
+        youtube_views.create_youtube_group,
+        name="youtube_group_create",
+    ),
+    path(
+        "youtube/groups/<int:group_id>/rename/",
+        youtube_views.rename_youtube_group,
+        name="youtube_group_rename",
+    ),
+    path(
+        "youtube/groups/<int:group_id>/delete/",
+        youtube_views.delete_youtube_group,
+        name="youtube_group_delete",
+    ),
+    path(
         "youtube/import/confirm/",
         youtube_views.youtube_playlist_confirm,
         name="youtube_import_confirm",
@@ -20,6 +35,16 @@ urlpatterns = [
         "youtube/",
         youtube_views.youtube_roadmap_list,
         name="youtube_list",
+    ),
+    path(
+        "youtube/<slug:slug>/favourite/",
+        youtube_views.toggle_youtube_favourite,
+        name="youtube_favourite",
+    ),
+    path(
+        "youtube/<slug:slug>/move/",
+        youtube_views.move_youtube_roadmap,
+        name="youtube_move",
     ),
     path(
         "youtube/<slug:slug>/videos/<int:topic_id>/complete/",
@@ -46,6 +71,11 @@ urlpatterns = [
         "<slug:slug>/youtube/delete/",
         youtube_views.delete_youtube_roadmap,
         name="delete_youtube_roadmap",
+    ),
+    path(
+        "<slug:slug>/focus/",
+        views.toggle_roadmap_focus,
+        name="focus",
     ),
     path("<slug:slug>/", views.roadmap_detail, name="detail"),
     path("<slug:slug>/start/", views.start_roadmap, name="start"),

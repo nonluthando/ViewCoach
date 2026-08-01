@@ -53,9 +53,7 @@ class GeminiQuestionGenerationProvider:
             self.max_output_tokens or settings.QUESTION_GENERATION_MAX_OUTPUT_TOKENS
         )
         if not settings.GEMINI_API_KEY:
-            raise ImproperlyConfigured(
-                "GEMINI_API_KEY is required to generate question cards."
-            )
+            raise ImproperlyConfigured("GEMINI_API_KEY is required to generate question cards.")
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     def generate(self, *, topic_title: str, notes: str, count: int) -> str:
@@ -133,9 +131,7 @@ def parse_generated_questions(raw_output: str) -> tuple[dict, ...]:
             raise ValueError(f"Generated card {position} is not an object.")
         question_type = str(item.get("question_type", "CONCEPT")).strip().upper()
         if question_type not in {Question.Type.CONCEPT, Question.Type.TECHNICAL}:
-            raise ValueError(
-                f"Generated card {position} has unsupported type {question_type}."
-            )
+            raise ValueError(f"Generated card {position} has unsupported type {question_type}.")
         draft = {
             "question_type": question_type,
             "title": _required_text(item, "title", position)[:180],
@@ -144,23 +140,17 @@ def parse_generated_questions(raw_output: str) -> tuple[dict, ...]:
         if question_type == Question.Type.CONCEPT:
             draft.update(
                 {
-                    "canonical_answer": _required_text(
-                        item, "canonical_answer", position
-                    ),
+                    "canonical_answer": _required_text(item, "canonical_answer", position),
                     "key_points": _key_points(item),
                     "example": _optional_text(item, "example"),
-                    "common_misconception": _optional_text(
-                        item, "common_misconception"
-                    ),
+                    "common_misconception": _optional_text(item, "common_misconception"),
                 }
             )
         else:
             intuition = _optional_text(item, "intuition")
             optimal_approach = _optional_text(item, "optimal_approach")
             if not intuition and not optimal_approach:
-                raise ValueError(
-                    f"Generated technical card {position} has no solution notes."
-                )
+                raise ValueError(f"Generated technical card {position} has no solution notes.")
             draft.update(
                 {
                     "intuition": intuition,
@@ -199,9 +189,7 @@ def _create_question(*, user, topic, batch, draft):
     )
 
 
-def generate_topic_question_drafts(
-    *, user, topic, notes: str, count: int = 5, provider=None
-):
+def generate_topic_question_drafts(*, user, topic, notes: str, count: int = 5, provider=None):
     cleaned_notes = notes.strip()
     minimum_length = settings.QUESTION_GENERATION_MIN_NOTE_CHARACTERS
     if len(cleaned_notes) < minimum_length:
@@ -227,9 +215,7 @@ def generate_topic_question_drafts(
         )
         drafts = parse_generated_questions(raw_output)[:requested_count]
         with transaction.atomic():
-            locked_batch = QuestionGenerationBatch.objects.select_for_update().get(
-                pk=batch.pk
-            )
+            locked_batch = QuestionGenerationBatch.objects.select_for_update().get(pk=batch.pk)
             for draft in drafts:
                 _create_question(
                     user=user,
@@ -256,11 +242,7 @@ def generate_topic_question_drafts(
             completed_at=timezone.now(),
             error_message=f"{type(exc).__name__}: {exc}"[:2000],
         )
-        raise QuestionGenerationError(
-            "Topic question cards could not be generated."
-        ) from exc
+        raise QuestionGenerationError("Topic question cards could not be generated.") from exc
 
-    batch.generation_latency_ms = max(
-        0, int((time.perf_counter() - started_at) * 1000)
-    )
+    batch.generation_latency_ms = max(0, int((time.perf_counter() - started_at) * 1000))
     return batch

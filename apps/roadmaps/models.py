@@ -112,6 +112,7 @@ class UserRoadmap(models.Model):
         choices=Status.choices,
         default=Status.NOT_STARTED,
     )
+    is_focused = models.BooleanField(default=False)
     target_date = models.DateField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -124,6 +125,7 @@ class UserRoadmap(models.Model):
         ]
         indexes = [
             models.Index(fields=["user", "status"], name="user_roadmap_status_idx"),
+            models.Index(fields=["user", "is_focused"], name="user_roadmap_focus_idx"),
         ]
 
     def __str__(self) -> str:
@@ -194,6 +196,36 @@ class UserTopicResource(models.Model):
         return f"{self.user}: {self.topic} — {self.title}"
 
 
+class YouTubeRoadmapGroup(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="youtube_roadmap_groups",
+    )
+    name = models.CharField(max_length=80)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "name", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_youtube_group_name",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "position"],
+                name="yt_group_user_position_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.name}"
+
+
 class YouTubePlaylistRoadmap(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -205,6 +237,14 @@ class YouTubePlaylistRoadmap(models.Model):
         on_delete=models.CASCADE,
         related_name="youtube_playlist",
     )
+    group = models.ForeignKey(
+        YouTubeRoadmapGroup,
+        on_delete=models.SET_NULL,
+        related_name="roadmaps",
+        null=True,
+        blank=True,
+    )
+    is_favourite = models.BooleanField(default=False)
     playlist_id = models.CharField(max_length=100)
     source_url = models.URLField(max_length=500)
     channel_title = models.CharField(max_length=200, blank=True)
@@ -229,6 +269,10 @@ class YouTubePlaylistRoadmap(models.Model):
             models.Index(
                 fields=["user", "last_synced_at"],
                 name="yt_playlist_user_sync_idx",
+            ),
+            models.Index(
+                fields=["user", "is_favourite"],
+                name="yt_playlist_user_fav_idx",
             ),
         ]
 

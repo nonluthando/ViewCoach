@@ -49,7 +49,7 @@ paths = {
 }
 changes = {key: path.read_text() for key, path in paths.items()}
 
-batch_model = '''
+batch_model = """
 class QuestionGenerationBatch(models.Model):
     class Status(models.TextChoices):
         GENERATING = "GENERATING", "Generating"
@@ -92,7 +92,7 @@ class QuestionGenerationBatch(models.Model):
         return f"{self.user}: {self.topic} ({self.get_status_display()})"
 
 
-'''
+"""
 changes["models"] = insert_before(
     changes["models"],
     "class Question(models.Model):\n",
@@ -102,7 +102,7 @@ changes["models"] = insert_before(
 
 changes["models"] = replace_once(
     changes["models"],
-    '''    import_batch = models.ForeignKey(
+    """    import_batch = models.ForeignKey(
         "QuestionImportBatch",
         on_delete=models.SET_NULL,
         related_name="created_questions",
@@ -110,8 +110,8 @@ changes["models"] = replace_once(
         blank=True,
     )
     source_system_question = models.ForeignKey(
-''',
-    '''    import_batch = models.ForeignKey(
+""",
+    """    import_batch = models.ForeignKey(
         "QuestionImportBatch",
         on_delete=models.SET_NULL,
         related_name="created_questions",
@@ -133,57 +133,57 @@ changes["models"] = replace_once(
         blank=True,
     )
     source_system_question = models.ForeignKey(
-''',
+""",
     label="Question generation relationships",
 )
 changes["models"] = replace_once(
     changes["models"],
-    '''                        import_batch__isnull=True,
+    """                        import_batch__isnull=True,
                         source_system_question__isnull=True,
-''',
-    '''                        import_batch__isnull=True,
+""",
+    """                        import_batch__isnull=True,
                         generation_batch__isnull=True,
                         source_topic__isnull=True,
                         source_system_question__isnull=True,
-''',
+""",
     label="built-in question consistency constraint",
 )
 changes["models"] = replace_once(
     changes["models"],
-    '''            if self.import_batch_id:
+    """            if self.import_batch_id:
                 raise ValidationError("Built-in questions cannot belong to an import batch.")
             if self.source_system_question_id:
-''',
-    '''            if self.import_batch_id:
+""",
+    """            if self.import_batch_id:
                 raise ValidationError("Built-in questions cannot belong to an import batch.")
             if self.generation_batch_id:
                 raise ValidationError("Built-in questions cannot belong to a generation batch.")
             if self.source_topic_id:
                 raise ValidationError("Built-in questions cannot come from user topic notes.")
             if self.source_system_question_id:
-''',
+""",
     label="built-in generated question validation",
 )
 changes["models"] = replace_once(
     changes["models"],
-    '''        if self.source_system_question_id:
+    """        if self.source_system_question_id:
             return "Added from built-in"
         if self.import_batch_id:
             return "Imported"
-''',
-    '''        if self.source_system_question_id:
+""",
+    """        if self.source_system_question_id:
             return "Added from built-in"
         if self.generation_batch_id:
             return "Generated from notes"
         if self.import_batch_id:
             return "Imported"
-''',
+""",
     label="generated question source label",
 )
 
 changes["settings"] = append_once(
     changes["settings"],
-    '''
+    """
 QUESTION_GENERATION_MODEL = os.getenv(
     "QUESTION_GENERATION_MODEL",
     RAG_GENERATION_MODEL,
@@ -194,24 +194,24 @@ QUESTION_GENERATION_MAX_OUTPUT_TOKENS = int(
 QUESTION_GENERATION_MIN_NOTE_CHARACTERS = int(
     os.getenv("QUESTION_GENERATION_MIN_NOTE_CHARACTERS", "80")
 )
-''',
+""",
 )
 changes["env"] = append_once(
     changes["env"],
-    '''
+    """
 # AI-assisted question generation
 # Keep the real key only in your local or hosting-platform environment.
 GEMINI_API_KEY=
 QUESTION_GENERATION_MODEL=gemini-3.5-flash-lite
 QUESTION_GENERATION_MAX_OUTPUT_TOKENS=1800
 QUESTION_GENERATION_MIN_NOTE_CHARACTERS=80
-''',
+""",
 )
 
 changes["roadmap_forms"] = insert_before(
     changes["roadmap_forms"],
     "class TopicResourceForm(forms.ModelForm):\n",
-    '''
+    """
 class TopicQuestionGenerationForm(forms.Form):
     count = forms.TypedChoiceField(
         choices=((3, "3 cards"), (5, "5 cards"), (7, "7 cards")),
@@ -222,18 +222,18 @@ class TopicQuestionGenerationForm(forms.Form):
     )
 
 
-''',
+""",
     label="topic question generation form",
 )
 
 changes["roadmap_views"] = replace_once(
     changes["roadmap_views"],
-    '''from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
+    """from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
 from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
 
 from .forms import TopicNotesForm, TopicResourceForm
-''',
-    '''from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
+""",
+    """from apps.evidence.forms import TopicEvidenceLinkForm, TopicEvidenceProfileForm
 from apps.evidence.models import EvidenceItem, TopicEvidenceLink, TopicEvidenceProfile
 from apps.questions.generation import (
     QuestionGenerationError,
@@ -246,28 +246,28 @@ from .forms import (
     TopicQuestionGenerationForm,
     TopicResourceForm,
 )
-''',
+""",
     label="roadmap question-generation imports",
 )
 changes["roadmap_views"] = replace_once(
     changes["roadmap_views"],
-    '''            "notes_form": TopicNotesForm(instance=progress),
+    """            "notes_form": TopicNotesForm(instance=progress),
             "resource_form": TopicResourceForm(),
-''',
-    '''            "notes_form": TopicNotesForm(instance=progress),
+""",
+    """            "notes_form": TopicNotesForm(instance=progress),
             "question_generation_form": TopicQuestionGenerationForm(),
             "question_generation_batches": QuestionGenerationBatch.objects.filter(
                 user=request.user,
                 topic=topic,
             )[:5],
             "resource_form": TopicResourceForm(),
-''',
+""",
     label="topic generation context",
 )
 changes["roadmap_views"] = insert_before(
     changes["roadmap_views"],
     "@login_required\n@require_POST\ndef add_topic_resource",
-    '''
+    """
 @login_required
 @require_POST
 def generate_topic_questions(request, slug, topic_id):
@@ -343,21 +343,21 @@ def topic_question_drafts(request, slug, topic_id, batch_id):
     )
 
 
-''',
+""",
     label="topic generation views",
 )
 
 changes["roadmap_urls"] = replace_once(
     changes["roadmap_urls"],
-    '''    path(
+    """    path(
         "<slug:slug>/topics/<int:topic_id>/notes/",
         views.save_topic_notes,
         name="save_topic_notes",
     ),
     path(
         "<slug:slug>/topics/<int:topic_id>/resources/",
-''',
-    '''    path(
+""",
+    """    path(
         "<slug:slug>/topics/<int:topic_id>/notes/",
         views.save_topic_notes,
         name="save_topic_notes",
@@ -374,14 +374,14 @@ changes["roadmap_urls"] = replace_once(
     ),
     path(
         "<slug:slug>/topics/<int:topic_id>/resources/",
-''',
+""",
     label="topic generation URLs",
 )
 
 changes["topic_template"] = insert_before(
     changes["topic_template"],
     '        <section class="topic-workspace-panel" aria-labelledby="topic-resources-heading">',
-    '''
+    """
         <section class="topic-workspace-panel" aria-labelledby="topic-question-generation-heading">
             <div class="topic-panel-heading">
                 <div>
@@ -436,13 +436,13 @@ changes["topic_template"] = insert_before(
             {% endif %}
         </section>
 
-''',
+""",
     label="topic question generation panel",
 )
 
 changes["roadmap_css"] = append_once(
     changes["roadmap_css"],
-    '''
+    """
 /* Topic notes -> draft question cards. */
 .topic-question-generation-form {
     display: flex;
@@ -501,7 +501,7 @@ changes["roadmap_css"] = append_once(
         flex-direction: column;
     }
 }
-''',
+""",
 )
 
 new_files = {
@@ -772,7 +772,7 @@ def generate_topic_question_drafts(
     )
     return batch
 ''',
-    ROOT / "templates/roadmaps/topic_question_drafts.html": '''{% extends "base.html" %}
+    ROOT / "templates/roadmaps/topic_question_drafts.html": """{% extends "base.html" %}
 
 {% block title %}Draft question cards | {{ topic.title }} | ViewCoach{% endblock %}
 {% block body_class %}roadmap-source-page{% endblock %}
@@ -863,8 +863,8 @@ def generate_topic_question_drafts(
     {% endif %}
 </section>
 {% endblock %}
-''',
-    ROOT / "apps/questions/tests/test_generation.py": '''import json
+""",
+    ROOT / "apps/questions/tests/test_generation.py": """import json
 
 import pytest
 
@@ -970,8 +970,8 @@ def test_generation_rejects_notes_that_are_too_short(user, settings):
             provider=FakeProvider(),
         )
     assert not QuestionGenerationBatch.objects.exists()
-''',
-    ROOT / "apps/roadmaps/tests/test_question_generation_views.py": '''import pytest
+""",
+    ROOT / "apps/roadmaps/tests/test_question_generation_views.py": """import pytest
 from django.urls import reverse
 
 from apps.questions.models import ConceptQuestion, Question, QuestionGenerationBatch
@@ -1070,7 +1070,7 @@ def test_generate_view_redirects_to_editable_draft_preview(client, user, monkeyp
             "batch_id": batch.pk,
         },
     )
-''',
+""",
 }
 
 for path, content in new_files.items():
@@ -1090,7 +1090,9 @@ print("Next:")
 print("  python manage.py makemigrations questions")
 print("  python manage.py migrate")
 print("  python manage.py check")
-print("  python -m pytest apps/questions/tests/test_generation.py apps/roadmaps/tests/test_question_generation_views.py -x -vv")
+print(
+    "  python -m pytest apps/questions/tests/test_generation.py apps/roadmaps/tests/test_question_generation_views.py -x -vv"
+)
 print("  python -m pytest")
 print("  python -m ruff check .")
 print("  python -m ruff format --check .")

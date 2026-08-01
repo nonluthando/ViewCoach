@@ -23,3 +23,19 @@ class YouTubePlaylistImportForm(forms.Form):
         except ValueError as exc:
             raise forms.ValidationError(str(exc)) from exc
         return value
+
+
+class YouTubeRoadmapGroupForm(forms.Form):
+    name = forms.CharField(
+        max_length=80,
+        label="Group name",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "e.g. Backend development",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    def clean_name(self):
+        return " ".join(self.cleaned_data["name"].split())

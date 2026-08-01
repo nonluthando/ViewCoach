@@ -50,6 +50,7 @@ def _roadmap(user, topic_count=2):
         user=user,
         roadmap=roadmap,
         status=UserRoadmap.Status.IN_PROGRESS,
+        is_focused=True,
         started_at=timezone.now(),
     )
     return roadmap, topics
@@ -88,6 +89,7 @@ def test_due_reviews_become_coherent_topic_groups(user):
     assert any("Heaps" in candidate.title for candidate in review_candidates)
     assert any("Graphs" in candidate.title for candidate in review_candidates)
 
+
 def test_large_budget_only_offers_first_unfinished_roadmap_topic(user):
     now = timezone.now()
     _, topics = _roadmap(user, topic_count=8)
@@ -100,9 +102,7 @@ def test_large_budget_only_offers_first_unfinished_roadmap_topic(user):
     )
 
     roadmap_candidates = [
-        candidate
-        for candidate in build.candidates
-        if candidate.kind == CandidateKind.ROADMAP
+        candidate for candidate in build.candidates if candidate.kind == CandidateKind.ROADMAP
     ]
 
     assert len(roadmap_candidates) == 1
@@ -128,9 +128,7 @@ def test_completing_first_topic_unlocks_second_topic(user):
     )
 
     roadmap_candidates = [
-        candidate
-        for candidate in build.candidates
-        if candidate.kind == CandidateKind.ROADMAP
+        candidate for candidate in build.candidates if candidate.kind == CandidateKind.ROADMAP
     ]
 
     assert len(roadmap_candidates) == 1

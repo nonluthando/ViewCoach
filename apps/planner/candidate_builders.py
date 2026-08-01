@@ -5,13 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.goals.models import InterviewGoal
 from apps.questions.models import Question, TechnicalQuestion
 from apps.reviews.models import ReviewAttempt
 from apps.reviews.services import due_review_states
-from apps.roadmaps.models import RoadmapTopic, UserRoadmap, UserTopicProgress
+from apps.roadmaps.models import Roadmap, RoadmapTopic, UserRoadmap, UserTopicProgress
 
 from .candidates import CandidateKind, PlanCandidate, stable_candidate_id
 from .explanations import candidate_explanation
@@ -58,11 +59,30 @@ def _primary_goal(*, user):
 
 
 def _ordered_active_roadmap_enrolments(*, user, goal=None):
-    enrolment_query = UserRoadmap.objects.filter(
-        user=user,
-        status=UserRoadmap.Status.IN_PROGRESS,
-        roadmap__is_published=True,
-    ).select_related("roadmap")
+    enrolment_query = (
+        UserRoadmap.objects.filter(
+            user=user,
+            status=UserRoadmap.Status.IN_PROGRESS,
+            roadmap__is_published=True,
+        )
+        .filter(
+            Q(
+                roadmap__source=Roadmap.Source.VIEWCOACH,
+                is_focused=True,
+            )
+            | Q(
+                roadmap__source=Roadmap.Source.YOUTUBE,
+                roadmap__youtube_playlist__user=user,
+                roadmap__youtube_playlist__is_favourite=True,
+            )
+            | Q(
+                roadmap__source__in=[Roadmap.Source.IBM, Roadmap.Source.CUSTOM],
+                is_focused=True,
+            )
+        )
+        .select_related("roadmap")
+        .distinct()
+    )
 
     if goal is not None:
         linked_roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))

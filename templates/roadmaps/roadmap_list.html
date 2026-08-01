@@ -9,9 +9,13 @@
         <div>
             <p class="source-page-kicker">Curated curriculum</p>
             <h1>ViewCoach roadmaps</h1>
-            <p>Structured paths for roles, technical skills and interview practice. These roadmaps are maintained by ViewCoach and shared across users.</p>
+            <p>Browse every built-in roadmap, but keep only four in focus so ViewCoach can help you finish what you start.</p>
         </div>
-        <a class="button button-secondary" href="{% url 'roadmaps:youtube_list' %}">Open YouTube roadmaps</a>
+        <div class="roadmap-selection-summary">
+            <strong>{{ focused_count }} / {{ focused_limit }}</strong>
+            <span>focused roadmaps</span>
+            <a class="button button-secondary" href="{% url 'roadmaps:youtube_list' %}">Open YouTube roadmaps</a>
+        </div>
     </header>
 
     <nav class="source-switcher" aria-label="Roadmap source">
@@ -42,10 +46,10 @@
 
             <div class="source-roadmap-grid">
                 {% for item in group.items %}
-                    <article class="source-roadmap-card">
+                    <article class="source-roadmap-card {% if item.enrolment.is_focused %}is-selected-roadmap{% endif %}">
                         <div class="source-roadmap-card-topline">
                             <span class="source-badge is-viewcoach">ViewCoach</span>
-                            <span>{{ item.topic_count }} topics</span>
+                            <span>{% if item.enrolment.is_focused %}Focused{% else %}{{ item.topic_count }} topics{% endif %}</span>
                         </div>
                         <h3><a href="{% url 'roadmaps:detail' item.roadmap.slug %}">{{ item.roadmap.title }}</a></h3>
                         <p>{{ item.roadmap.description }}</p>
@@ -56,10 +60,20 @@
                         <div class="source-roadmap-progress" role="progressbar" aria-label="{{ item.roadmap.title }} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ item.percentage }}">
                             <span style="width: {{ item.percentage }}%"></span>
                         </div>
-                        <a class="source-roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
-                            {% if item.enrolment %}Continue roadmap{% else %}Explore roadmap{% endif %}
-                            <span aria-hidden="true">→</span>
-                        </a>
+                        <div class="roadmap-card-controls">
+                            <a class="source-roadmap-card-link" href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+                                {% if item.enrolment %}Continue roadmap{% else %}Explore roadmap{% endif %}
+                                <span aria-hidden="true">→</span>
+                            </a>
+                            <form method="post" action="{% url 'roadmaps:focus' item.roadmap.slug %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="focused" value="{% if item.enrolment.is_focused %}false{% else %}true{% endif %}">
+                                <input type="hidden" name="next" value="{% url 'roadmaps:list' %}">
+                                <button class="roadmap-selection-button" type="submit">
+                                    {% if item.enrolment.is_focused %}Remove focus{% else %}Add to focus{% endif %}
+                                </button>
+                            </form>
+                        </div>
                     </article>
                 {% endfor %}
             </div>
