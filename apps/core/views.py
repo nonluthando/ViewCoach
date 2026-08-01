@@ -8,10 +8,27 @@ from apps.goals.services import primary_goal_for_user, readiness_report
 from apps.planner.services import generate_daily_plan, plan_summary
 from apps.questions.models import Question
 from apps.reviews.services import review_dashboard_summary
+from apps.roadmaps.services import (
+    grouped_viewcoach_roadmap_cards,
+    youtube_roadmap_cards,
+)
 
 
 def landing_page(request):
     return render(request, "core/landing_page.html")
+
+
+def _prioritised_learning_cards(groups, *, limit=2):
+    cards = [item for group in groups for item in group["items"]]
+    cards.sort(
+        key=lambda item: (
+            item["enrolment"] is None,
+            -(item["percentage"] or 0),
+            item["roadmap"].position,
+            item["roadmap"].title,
+        )
+    )
+    return cards[:limit]
 
 
 @login_required
@@ -23,6 +40,8 @@ def dashboard(request):
     primary_goal = primary_goal_for_user(user=request.user)
     readiness = readiness_report(goal=primary_goal) if primary_goal else None
     evidence_summary = evidence_dashboard_summary(user=request.user)
+    viewcoach_groups = grouped_viewcoach_roadmap_cards(user=request.user)
+    youtube_cards = youtube_roadmap_cards(user=request.user)
 
     return render(
         request,
@@ -39,6 +58,8 @@ def dashboard(request):
             "primary_goal": primary_goal,
             "readiness": readiness,
             "evidence_summary": evidence_summary,
+            "viewcoach_learning_cards": _prioritised_learning_cards(viewcoach_groups),
+            "youtube_learning_cards": youtube_cards[:2],
             "recent_questions": questions.select_related(
                 "technicalquestion",
                 "conceptquestion",

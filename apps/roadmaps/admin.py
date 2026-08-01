@@ -28,8 +28,15 @@ class RoadmapSectionAdmin(admin.ModelAdmin):
 
 @admin.register(Roadmap)
 class RoadmapAdmin(admin.ModelAdmin):
-    list_display = ("title", "kind", "is_system", "is_published", "position")
-    list_filter = ("kind", "is_system", "is_published")
+    list_display = (
+        "title",
+        "source",
+        "kind",
+        "is_system",
+        "is_published",
+        "position",
+    )
+    list_filter = ("source", "kind", "is_system", "is_published")
     search_fields = ("title", "description")
     prepopulated_fields = {"slug": ("title",)}
     ordering = ("kind", "position", "title")

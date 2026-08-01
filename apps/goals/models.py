@@ -85,11 +85,15 @@ class InterviewGoal(models.Model):
         current = self.stages.filter(is_current=True, completed_at__isnull=True).first()
         if current is not None:
             return current
-        return self.stages.filter(completed_at__isnull=True).order_by(
-            "scheduled_for",
-            "position",
-            "pk",
-        ).first()
+        return (
+            self.stages.filter(completed_at__isnull=True)
+            .order_by(
+                "scheduled_for",
+                "position",
+                "pk",
+            )
+            .first()
+        )
 
     @property
     def next_deadline(self):

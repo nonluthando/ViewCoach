@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title }} | {{ roadmap.title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page youtube-workspace-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:youtube_list' %}">YouTube roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'roadmaps:youtube_detail' roadmap.slug %}">{{ roadmap.title }}</a>
+    <span aria-hidden="true">/</span>
+    <span>Video {{ video_number }}</span>
+</nav>
+
+<section class="youtube-workspace-header">
+    <div>
+        <span class="source-badge is-youtube">Video {{ video_number }} of {{ video_count }}</span>
+        <h1>{{ video.title }}</h1>
+        <p>{% if video.channel_title %}{{ video.channel_title }} · {% endif %}{{ video.duration_display }}</p>
+    </div>
+    <a class="topic-back-link" href="{% url 'roadmaps:youtube_detail' roadmap.slug %}">Back to playlist</a>
+</section>
+
+<div class="youtube-workspace-layout">
+    <div class="youtube-workspace-main">
+        <section class="youtube-player-panel" aria-labelledby="youtube-player-heading">
+            <h2 class="sr-only" id="youtube-player-heading">Course video</h2>
+            {% if video.embeddable %}
+                <div class="youtube-player-frame">
+                    <iframe
+                        src="{{ video.embed_url }}"
+                        title="{{ video.title }}"
+                        loading="lazy"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen>
+                    </iframe>
+                </div>
+            {% else %}
+                <div class="youtube-player-external">
+                    <span aria-hidden="true">▶</span>
+                    <div>
+                        <h2>Watch this video on YouTube</h2>
+                        <p>The creator has disabled playback outside YouTube. Your notes and progress still stay in ViewCoach.</p>
+                        <a class="button" href="{{ video.watch_url }}" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="youtube-player-actions">
+                <a href="{{ video.watch_url }}" target="_blank" rel="noopener noreferrer">Open original video</a>
+                <form method="post" action="{% url 'roadmaps:youtube_video_complete' roadmap.slug topic.pk %}">
+                    {% csrf_token %}
+                    <button class="button" type="submit">
+                        {% if next_video %}Mark watched and continue{% else %}Mark watched and finish{% endif %}
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section class="topic-workspace-panel" aria-labelledby="topic-notes-heading">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Your workspace</p>
+                    <h2 id="topic-notes-heading">Video notes</h2>
+                </div>
+                {% if progress.updated_at %}<span>Updated {{ progress.updated_at|date:"j M Y, H:i" }}</span>{% endif %}
+            </div>
+            <form method="post" action="{% url 'roadmaps:save_topic_notes' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <label class="sr-only" for="{{ notes_form.notes.id_for_label }}">Video notes</label>
+                {{ notes_form.notes }}
+                <div class="topic-form-actions">
+                    <p>Capture concepts, examples and questions here. A later patch will turn approved notes into question cards.</p>
+                    <button class="button" type="submit">Save notes</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="topic-workspace-panel" aria-labelledby="topic-resources-heading">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Reference material</p>
+                    <h2 id="topic-resources-heading">Learning resources</h2>
+                </div>
+                <span>{{ resources|length }} saved</span>
+            </div>
+
+            {% if resources %}
+                <ul class="topic-resource-list">
+                    {% for resource in resources %}
+                        <li>
+                            <div>
+                                <a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">{{ resource.title }}</a>
+                                <span>{{ resource.url }}</span>
+                            </div>
+                            <form method="post" action="{% url 'roadmaps:delete_topic_resource' roadmap.slug topic.pk resource.pk %}">
+                                {% csrf_token %}
+                                <button class="topic-resource-delete" type="submit" aria-label="Remove {{ resource.title }}">Remove</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="topic-empty-state">
+                    <strong>No extra resources saved.</strong>
+                    <p>Add documentation, an article or an exercise that supports this video.</p>
+                </div>
+            {% endif %}
+
+            <form class="topic-resource-form" method="post" action="{% url 'roadmaps:add_topic_resource' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ resource_form.title.id_for_label }}">Title</label>
+                    {{ resource_form.title }}
+                </div>
+                <div>
+                    <label for="{{ resource_form.url.id_for_label }}">URL</label>
+                    {{ resource_form.url }}
+                </div>
+                <button class="button button-secondary" type="submit">Add resource</button>
+            </form>
+        </section>
+
+        {% include "evidence/_topic_evidence.html" %}
+    </div>
+
+    <aside class="youtube-workspace-sidebar">
+        <section class="topic-sidebar-panel" aria-labelledby="topic-status-heading">
+            <p class="eyebrow">Progress</p>
+            <h2 id="topic-status-heading">Video status</h2>
+            <p class="topic-current-status">
+                {% if progress %}{{ progress.get_status_display }}{% else %}Not started{% endif %}
+            </p>
+            <form class="topic-status-form" method="post" action="{% url 'roadmaps:update_topic_status' roadmap.slug topic.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="return_to" value="topic">
+                <button class="topic-status-option {% if current_status == 'NOT_STARTED' %}is-current{% endif %}" type="submit" name="status" value="NOT_STARTED">
+                    <span aria-hidden="true">○</span><span>Not started</span>
+                </button>
+                <button class="topic-status-option {% if current_status == 'IN_PROGRESS' %}is-current{% endif %}" type="submit" name="status" value="IN_PROGRESS">
+                    <span aria-hidden="true">→</span><span>Learning</span>
+                </button>
+                <button class="topic-status-option topic-status-complete {% if current_status == 'COMPLETED' %}is-current{% endif %}" type="submit" name="status" value="COMPLETED">
+                    <span aria-hidden="true">✓</span><span>Completed</span>
+                </button>
+            </form>
+        </section>
+
+        <section class="topic-sidebar-panel youtube-next-panel" aria-labelledby="next-video-heading">
+            <p class="eyebrow">Playlist navigation</p>
+            <h2 id="next-video-heading">Keep your place</h2>
+            {% if next_video %}
+                <span>Next video</span>
+                <a href="{% url 'roadmaps:youtube_video_detail' roadmap.slug next_video.topic_id %}">{{ next_video.title }} →</a>
+            {% else %}
+                <p>This is the final available video in the playlist.</p>
+            {% endif %}
+        </section>
+    </aside>
+</div>
+
+<nav class="topic-pagination" aria-label="Video navigation">
+    <div>
+        {% if previous_video %}
+            <span>Previous video</span>
+            <a href="{% url 'roadmaps:youtube_video_detail' roadmap.slug previous_video.topic_id %}">← {{ previous_video.title }}</a>
+        {% endif %}
+    </div>
+    <div class="topic-pagination-next">
+        {% if next_video %}
+            <span>Next video</span>
+            <a href="{% url 'roadmaps:youtube_video_detail' roadmap.slug next_video.topic_id %}">{{ next_video.title }} →</a>
+        {% endif %}
+    </div>
+</nav>
+{% endblock %}

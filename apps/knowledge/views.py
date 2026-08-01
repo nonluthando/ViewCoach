@@ -12,25 +12,18 @@ from .models import KnowledgeQueryLog
 
 
 def _rate_limit_exceeded(user):
-    window_started_at = timezone.now() - timedelta(
-        seconds=settings.RAG_RATE_LIMIT_WINDOW_SECONDS
-    )
+    window_started_at = timezone.now() - timedelta(seconds=settings.RAG_RATE_LIMIT_WINDOW_SECONDS)
     request_count = KnowledgeQueryLog.objects.filter(
         user=user,
         created_at__gte=window_started_at,
     ).count()
-    return (
-        request_count
-        >= settings.RAG_MAX_REQUESTS_PER_WINDOW
-    )
+    return request_count >= settings.RAG_MAX_REQUESTS_PER_WINDOW
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def help_assistant(request):
-    form = HelpAssistantForm(
-        request.POST or None
-    )
+    form = HelpAssistantForm(request.POST or None)
     result = None
 
     if request.method == "POST" and form.is_valid():

@@ -7,15 +7,41 @@ app_name = "roadmaps"
 urlpatterns = [
     path("", views.roadmap_list, name="list"),
     path(
+        "youtube/import/confirm/",
+        youtube_views.youtube_playlist_confirm,
+        name="youtube_import_confirm",
+    ),
+    path(
         "youtube/import/",
         youtube_views.youtube_playlist_import,
         name="youtube_import",
     ),
     path(
-        "youtube/import/confirm/",
-        youtube_views.youtube_playlist_confirm,
-        name="youtube_import_confirm",
+        "youtube/",
+        youtube_views.youtube_roadmap_list,
+        name="youtube_list",
     ),
+    path(
+        "youtube/<slug:slug>/videos/<int:topic_id>/complete/",
+        youtube_views.complete_youtube_video,
+        name="youtube_video_complete",
+    ),
+    path(
+        "youtube/<slug:slug>/videos/<int:topic_id>/",
+        youtube_views.youtube_video_detail,
+        name="youtube_video_detail",
+    ),
+    path(
+        "youtube/<slug:slug>/delete/",
+        youtube_views.delete_youtube_roadmap,
+        name="youtube_delete",
+    ),
+    path(
+        "youtube/<slug:slug>/",
+        youtube_views.youtube_roadmap_detail,
+        name="youtube_detail",
+    ),
+    # Compatibility aliases for existing bookmarks and forms.
     path(
         "<slug:slug>/youtube/delete/",
         youtube_views.delete_youtube_roadmap,
@@ -44,10 +70,7 @@ urlpatterns = [
         name="add_topic_resource",
     ),
     path(
-        (
-            "<slug:slug>/topics/<int:topic_id>/resources/"
-            "<int:resource_id>/delete/"
-        ),
+        ("<slug:slug>/topics/<int:topic_id>/resources/<int:resource_id>/delete/"),
         views.delete_topic_resource,
         name="delete_topic_resource",
     ),

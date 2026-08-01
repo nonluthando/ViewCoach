@@ -17,7 +17,11 @@ from .models import (
     UserTopicProgress,
     UserTopicResource,
 )
-from .services import grouped_roadmap_cards, roadmap_progress, sync_user_roadmap
+from .services import (
+    grouped_viewcoach_roadmap_cards,
+    roadmap_progress,
+    sync_user_roadmap,
+)
 
 
 def _accessible_roadmap(user, slug, *, with_topics=False):
@@ -70,13 +74,36 @@ def _topic_navigation(roadmap, current_topic):
     }
 
 
+def _topic_workspace_route(roadmap):
+    if roadmap.source == Roadmap.Source.YOUTUBE:
+        return "roadmaps:youtube_video_detail"
+    return "roadmaps:topic_detail"
+
+
+def _roadmap_detail_route(roadmap):
+    if roadmap.source == Roadmap.Source.YOUTUBE:
+        return "roadmaps:youtube_detail"
+    return "roadmaps:detail"
+
+
+def _redirect_to_topic_workspace(roadmap, topic):
+    return redirect(
+        _topic_workspace_route(roadmap),
+        slug=roadmap.slug,
+        topic_id=topic.pk,
+    )
+
+
 def _redirect_after_status_update(request, roadmap, topic):
     if request.POST.get("return_to") == "topic":
-        return redirect(
-            "roadmaps:topic_detail",
-            slug=roadmap.slug,
-            topic_id=topic.pk,
+        return _redirect_to_topic_workspace(roadmap, topic)
+
+    if roadmap.source == Roadmap.Source.YOUTUBE:
+        detail_url = reverse(
+            "roadmaps:youtube_detail",
+            kwargs={"slug": roadmap.slug},
         )
+        return redirect(detail_url)
 
     detail_url = reverse("roadmaps:detail", kwargs={"slug": roadmap.slug})
     return redirect(f"{detail_url}#topic-{topic.pk}")
@@ -87,13 +114,16 @@ def roadmap_list(request):
     return render(
         request,
         "roadmaps/roadmap_list.html",
-        {"roadmap_groups": grouped_roadmap_cards(user=request.user)},
+        {"roadmap_groups": grouped_viewcoach_roadmap_cards(user=request.user)},
     )
 
 
 @login_required
 def roadmap_detail(request, slug):
     roadmap = _accessible_roadmap(request.user, slug, with_topics=True)
+    if roadmap.source == Roadmap.Source.YOUTUBE:
+        return redirect("roadmaps:youtube_detail", slug=roadmap.slug)
+
     progress_by_topic = {
         progress.topic_id: progress
         for progress in UserTopicProgress.objects.filter(
@@ -131,6 +161,13 @@ def roadmap_detail(request, slug):
 @login_required
 def topic_detail(request, slug, topic_id):
     roadmap, topic = _accessible_topic(request.user, slug, topic_id)
+    if roadmap.source == Roadmap.Source.YOUTUBE:
+        return redirect(
+            "roadmaps:youtube_video_detail",
+            slug=roadmap.slug,
+            topic_id=topic.pk,
+        )
+
     progress = UserTopicProgress.objects.filter(
         user=request.user,
         topic=topic,
@@ -149,9 +186,7 @@ def topic_detail(request, slug, topic_id):
             "topic": topic,
             "progress": progress,
             "current_status": (
-                progress.status
-                if progress
-                else UserTopicProgress.Status.NOT_STARTED
+                progress.status if progress else UserTopicProgress.Status.NOT_STARTED
             ),
             "notes_form": TopicNotesForm(instance=progress),
             "resource_form": TopicResourceForm(),
@@ -195,7 +230,7 @@ def start_roadmap(request, slug):
     sync_user_roadmap(user=request.user, roadmap=roadmap)
 
     messages.success(request, f"{roadmap.title} is now one of your active roadmaps.")
-    return redirect("roadmaps:detail", slug=roadmap.slug)
+    return redirect(_roadmap_detail_route(roadmap), slug=roadmap.slug)
 
 
 @login_required
@@ -233,7 +268,7 @@ def update_topic_status(request, slug, topic_id):
 @login_required
 @require_POST
 def save_topic_notes(request, slug, topic_id):
-    _, topic = _accessible_topic(request.user, slug, topic_id)
+    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
     progress, _ = UserTopicProgress.objects.get_or_create(
         user=request.user,
         topic=topic,
@@ -245,17 +280,13 @@ def save_topic_notes(request, slug, topic_id):
     else:
         messages.error(request, "Your notes could not be saved.")
 
-    return redirect(
-        "roadmaps:topic_detail",
-        slug=slug,
-        topic_id=topic.pk,
-    )
+    return _redirect_to_topic_workspace(roadmap, topic)
 
 
 @login_required
 @require_POST
 def add_topic_resource(request, slug, topic_id):
-    _, topic = _accessible_topic(request.user, slug, topic_id)
+    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
     form = TopicResourceForm(request.POST)
     if form.is_valid():
         _, created = UserTopicResource.objects.get_or_create(
@@ -271,17 +302,13 @@ def add_topic_resource(request, slug, topic_id):
     else:
         messages.error(request, "Add a title and a valid resource URL.")
 
-    return redirect(
-        "roadmaps:topic_detail",
-        slug=slug,
-        topic_id=topic.pk,
-    )
+    return _redirect_to_topic_workspace(roadmap, topic)
 
 
 @login_required
 @require_POST
 def delete_topic_resource(request, slug, topic_id, resource_id):
-    _, topic = _accessible_topic(request.user, slug, topic_id)
+    roadmap, topic = _accessible_topic(request.user, slug, topic_id)
     resource = get_object_or_404(
         UserTopicResource,
         pk=resource_id,
@@ -290,8 +317,4 @@ def delete_topic_resource(request, slug, topic_id, resource_id):
     )
     resource.delete()
     messages.success(request, "Learning resource removed.")
-    return redirect(
-        "roadmaps:topic_detail",
-        slug=slug,
-        topic_id=topic.pk,
-    )
+    return _redirect_to_topic_workspace(roadmap, topic)

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{{ roadmap.title }} | YouTube Roadmaps | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page youtube-detail-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:youtube_list' %}">YouTube roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ roadmap.title }}</span>
+</nav>
+
+<section class="youtube-detail-hero">
+    <div class="youtube-detail-media">
+        {% if source.thumbnail_url %}
+            <img src="{{ source.thumbnail_url }}" alt="">
+        {% else %}
+            <span aria-hidden="true">▶</span>
+        {% endif %}
+    </div>
+    <div class="youtube-detail-copy">
+        <span class="source-badge is-youtube">YouTube playlist</span>
+        <h1>{{ roadmap.title }}</h1>
+        <p>{{ roadmap.description }}</p>
+        <div class="youtube-detail-meta">
+            {% if source.channel_title %}<span>{{ source.channel_title }}</span>{% endif %}
+            <span>{{ source.available_video_count }} videos</span>
+            <span>{{ source.total_duration_display }}</span>
+            {% if source.unavailable_video_count %}<span>{{ source.unavailable_video_count }} unavailable</span>{% endif %}
+        </div>
+        <div class="youtube-detail-actions">
+            <a class="button button-secondary" href="{{ source.source_url }}" target="_blank" rel="noopener noreferrer">Open original playlist</a>
+            <form method="post" action="{% url 'roadmaps:youtube_delete' roadmap.slug %}">
+                {% csrf_token %}
+                <button class="youtube-danger-button" type="submit">Remove from ViewCoach</button>
+            </form>
+        </div>
+    </div>
+    <aside class="youtube-detail-progress">
+        <span>Progress</span>
+        <strong>{{ progress.percentage }}%</strong>
+        <p>{{ progress.completed_count }} of {{ progress.total_count }} videos complete</p>
+        <div class="source-roadmap-progress" role="progressbar" aria-label="Playlist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ progress.percentage }}">
+            <span style="width: {{ progress.percentage }}%"></span>
+        </div>
+        {% if user_roadmap %}
+            <small>{{ user_roadmap.get_status_display }}</small>
+        {% else %}
+            <form method="post" action="{% url 'roadmaps:start' roadmap.slug %}">
+                {% csrf_token %}
+                <button class="button" type="submit">Start roadmap</button>
+            </form>
+        {% endif %}
+    </aside>
+</section>
+
+<section class="youtube-video-outline" aria-labelledby="playlist-videos-heading">
+    <div class="roadmap-group-heading">
+        <div>
+            <p class="source-page-kicker">Playlist order</p>
+            <h2 id="playlist-videos-heading">Videos</h2>
+        </div>
+        <span>{{ videos|length }} available</span>
+    </div>
+
+    <ol class="youtube-video-list">
+        {% for video in videos %}
+            <li class="youtube-video-row {% if video.topic.current_status == 'COMPLETED' %}is-complete{% elif video.topic.current_status == 'IN_PROGRESS' %}is-progress{% endif %}">
+                <a class="youtube-video-row-main" href="{% url 'roadmaps:youtube_video_detail' roadmap.slug video.topic_id %}">
+                    <span class="youtube-video-position">{{ forloop.counter|stringformat:"02d" }}</span>
+                    {% if video.thumbnail_url %}
+                        <img src="{{ video.thumbnail_url }}" alt="">
+                    {% else %}
+                        <span class="youtube-video-placeholder" aria-hidden="true">▶</span>
+                    {% endif %}
+                    <span class="youtube-video-copy">
+                        <strong>{{ video.title }}</strong>
+                        <small>{{ video.duration_display }}{% if video.channel_title %} · {{ video.channel_title }}{% endif %}</small>
+                    </span>
+                    <span class="youtube-video-status">
+                        {% if video.topic.current_status == "COMPLETED" %}Completed
+                        {% elif video.topic.current_status == "IN_PROGRESS" %}Learning
+                        {% else %}Not started{% endif %}
+                    </span>
+                    <span aria-hidden="true">→</span>
+                </a>
+            </li>
+        {% empty %}
+            <li class="source-empty-state">
+                <h3>No available videos</h3>
+                <p>Refresh the playlist metadata to check whether its videos are available again.</p>
+            </li>
+        {% endfor %}
+    </ol>
+</section>
+{% endblock %}

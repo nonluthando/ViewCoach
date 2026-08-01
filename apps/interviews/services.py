@@ -242,9 +242,7 @@ def _guidance_snapshot(question):
     if question.question_type == Question.Type.TECHNICAL:
         hints = [specific.first_hint, *specific.progressive_hints]
         return "\n".join(
-            f"• {hint.strip()}"
-            for hint in hints
-            if isinstance(hint, str) and hint.strip()
+            f"• {hint.strip()}" for hint in hints if isinstance(hint, str) and hint.strip()
         )
 
     if question.question_type == Question.Type.CONCEPT:
@@ -270,9 +268,7 @@ def _guidance_snapshot(question):
         specific.common_mistake,
     ]
     return "\n".join(
-        f"• {part.strip()}"
-        for part in debug_parts
-        if isinstance(part, str) and part.strip()
+        f"• {part.strip()}" for part in debug_parts if isinstance(part, str) and part.strip()
     )
 
 
@@ -404,9 +400,9 @@ def record_mock_interview_response(
             ]
         )
 
-        has_remaining_items = interview.items.filter(
-            answered_at__isnull=True
-        ).exclude(pk=locked_item.pk).exists()
+        has_remaining_items = (
+            interview.items.filter(answered_at__isnull=True).exclude(pk=locked_item.pk).exists()
+        )
 
         if not has_remaining_items:
             interview.status = MockInterview.Status.COMPLETED

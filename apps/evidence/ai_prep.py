@@ -206,8 +206,7 @@ AI_ASSISTED_INTERVIEW_QUESTIONS = (
         key="tests-are-incomplete",
         category="Verification and debugging",
         question=(
-            "What do you do when AI-generated code passes the tests but the tests "
-            "are incomplete?"
+            "What do you do when AI-generated code passes the tests but the tests are incomplete?"
         ),
         interviewer_is_testing=(
             "Whether you can reason about correctness independently of the supplied test suite."

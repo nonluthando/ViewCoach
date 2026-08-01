@@ -9,10 +9,21 @@ class Roadmap(models.Model):
         SKILL = "SKILL", "Skill roadmap"
         PRACTICE = "PRACTICE", "Practice roadmap"
 
+    class Source(models.TextChoices):
+        VIEWCOACH = "VIEWCOACH", "ViewCoach"
+        YOUTUBE = "YOUTUBE", "YouTube"
+        IBM = "IBM", "IBM SkillsBuild"
+        CUSTOM = "CUSTOM", "Custom import"
+
     title = models.CharField(max_length=140)
     slug = models.SlugField(max_length=160, unique=True)
     description = models.TextField(blank=True)
     kind = models.CharField(max_length=12, choices=Kind.choices)
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.VIEWCOACH,
+    )
     position = models.PositiveIntegerField(default=0)
     is_system = models.BooleanField(default=True)
     is_published = models.BooleanField(default=True)
@@ -30,6 +41,10 @@ class Roadmap(models.Model):
         ordering = ["position", "title"]
         indexes = [
             models.Index(fields=["kind", "is_published", "position"], name="roadmap_kind_pub_idx"),
+            models.Index(
+                fields=["source", "is_published", "position"],
+                name="roadmap_source_pub_idx",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -140,9 +155,7 @@ class UserTopicProgress(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                fields=["user", "topic"], name="unique_user_topic_progress"
-            ),
+            models.UniqueConstraint(fields=["user", "topic"], name="unique_user_topic_progress"),
         ]
         indexes = [
             models.Index(fields=["user", "status"], name="user_topic_status_idx"),
@@ -228,6 +241,12 @@ class YouTubePlaylistRoadmap(models.Model):
         if minutes:
             return f"{minutes}m"
         return f"{seconds}s"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        Roadmap.objects.filter(pk=self.roadmap_id).exclude(
+            source=Roadmap.Source.YOUTUBE,
+        ).update(source=Roadmap.Source.YOUTUBE)
 
     def __str__(self):
         return f"{self.user}: {self.roadmap.title}"

@@ -14,9 +14,7 @@ def test_truncated_gemini_vector_is_normalised():
     )
 
     assert vector == pytest.approx([0.6, 0.8])
-    magnitude = math.sqrt(
-        sum(value * value for value in vector)
-    )
+    magnitude = math.sqrt(sum(value * value for value in vector))
     assert magnitude == pytest.approx(1.0)
 
 

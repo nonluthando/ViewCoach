@@ -40,9 +40,7 @@ def answer_result():
 
 @pytest.mark.django_db
 def test_help_assistant_requires_login(client):
-    response = client.get(
-        reverse("knowledge:help_assistant")
-    )
+    response = client.get(reverse("knowledge:help_assistant"))
 
     assert response.status_code == 302
     assert "/accounts/login/" in response.url
@@ -52,9 +50,7 @@ def test_help_assistant_requires_login(client):
 def test_help_assistant_get_renders_form(client, user):
     client.force_login(user)
 
-    response = client.get(
-        reverse("knowledge:help_assistant")
-    )
+    response = client.get(reverse("knowledge:help_assistant"))
 
     assert response.status_code == 200
     assert b"Help Assistant" in response.content

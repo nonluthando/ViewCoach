@@ -100,9 +100,7 @@ def test_user_cannot_edit_another_users_project_explanation(
     )
     client.force_login(user)
 
-    response = client.get(
-        reverse("evidence:project_explanation_edit", args=[private_project.pk])
-    )
+    response = client.get(reverse("evidence:project_explanation_edit", args=[private_project.pk]))
 
     assert response.status_code == 404
 
@@ -130,8 +128,6 @@ def test_non_project_evidence_cannot_open_the_explanation_form(client, user):
     )
     client.force_login(user)
 
-    response = client.get(
-        reverse("evidence:project_explanation_edit", args=[work_item.pk])
-    )
+    response = client.get(reverse("evidence:project_explanation_edit", args=[work_item.pk]))
 
     assert response.status_code == 404

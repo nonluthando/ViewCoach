@@ -37,13 +37,9 @@ class Command(BaseCommand):
             "user",
         )
         if options["playlist_id"]:
-            queryset = queryset.filter(
-                playlist_id=options["playlist_id"]
-            )
+            queryset = queryset.filter(playlist_id=options["playlist_id"])
         elif not options["all"]:
-            cutoff = timezone.now() - timedelta(
-                days=max(0, options["stale_days"])
-            )
+            cutoff = timezone.now() - timedelta(days=max(0, options["stale_days"]))
             queryset = queryset.filter(last_synced_at__lte=cutoff)
 
         sources = list(queryset.order_by("last_synced_at", "pk"))
@@ -60,22 +56,13 @@ class Command(BaseCommand):
                 sync_youtube_roadmap(source=source, preview=preview)
             except YouTubeImportError as exc:
                 failed += 1
-                self.stderr.write(
-                    f"{source.playlist_id}: {exc}"
-                )
+                self.stderr.write(f"{source.playlist_id}: {exc}")
             else:
                 succeeded += 1
                 self.stdout.write(
-                    f"{source.playlist_id}: refreshed "
-                    f"{source.available_video_count} videos"
+                    f"{source.playlist_id}: refreshed {source.available_video_count} videos"
                 )
 
         if failed:
-            raise CommandError(
-                f"Refreshed {succeeded}; {failed} playlist(s) failed."
-            )
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Refreshed {succeeded} YouTube playlist(s)."
-            )
-        )
+            raise CommandError(f"Refreshed {succeeded}; {failed} playlist(s) failed.")
+        self.stdout.write(self.style.SUCCESS(f"Refreshed {succeeded} YouTube playlist(s)."))

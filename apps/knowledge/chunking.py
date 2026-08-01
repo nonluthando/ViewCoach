@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass
 from textwrap import dedent
 
-
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
 
@@ -20,10 +19,7 @@ class MarkdownChunk:
 def normalise_markdown(value):
     value = dedent(value)
 
-    lines = [
-        line.rstrip()
-        for line in value.replace("\r\n", "\n").split("\n")
-    ]
+    lines = [line.rstrip() for line in value.replace("\r\n", "\n").split("\n")]
     normalised = "\n".join(lines).strip()
 
     return re.sub(r"\n{3,}", "\n\n", normalised)
@@ -35,11 +31,7 @@ def _token_estimate(value):
 
 
 def _heading_label(heading_stack):
-    return " › ".join(
-        heading
-        for heading in heading_stack
-        if heading
-    )
+    return " › ".join(heading for heading in heading_stack if heading)
 
 
 def _split_long_text(value, max_characters):
@@ -54,10 +46,7 @@ def _split_long_text(value, max_characters):
     for word in words:
         added_length = len(word) + (1 if current_words else 0)
 
-        if (
-            current_words
-            and current_length + added_length > max_characters
-        ):
+        if current_words and current_length + added_length > max_characters:
             parts.append(" ".join(current_words))
             current_words = [word]
             current_length = len(word)
@@ -146,19 +135,13 @@ def chunk_markdown(
     overlap_characters=300,
 ):
     if max_characters < 200:
-        raise ValueError(
-            "max_characters must be at least 200."
-        )
+        raise ValueError("max_characters must be at least 200.")
 
     if overlap_characters < 0:
-        raise ValueError(
-            "overlap_characters cannot be negative."
-        )
+        raise ValueError("overlap_characters cannot be negative.")
 
     if overlap_characters >= max_characters:
-        raise ValueError(
-            "overlap_characters must be smaller than max_characters."
-        )
+        raise ValueError("overlap_characters must be smaller than max_characters.")
 
     normalised = normalise_markdown(markdown)
 
@@ -167,13 +150,9 @@ def chunk_markdown(
 
     prepared_paragraphs = []
 
-    for heading, paragraph in _paragraphs_with_headings(
-        normalised
-    ):
+    for heading, paragraph in _paragraphs_with_headings(normalised):
         if len(paragraph) <= max_characters:
-            prepared_paragraphs.append(
-                (heading, paragraph)
-            )
+            prepared_paragraphs.append((heading, paragraph))
             continue
 
         prepared_paragraphs.extend(
@@ -221,20 +200,13 @@ def chunk_markdown(
             *current_parts,
             paragraph,
         ]
-        proposed = "\n\n".join(
-            proposed_parts
-        ).strip()
+        proposed = "\n\n".join(proposed_parts).strip()
 
         heading_changed = (
-            bool(current_parts)
-            and bool(current_heading)
-            and heading != current_heading
+            bool(current_parts) and bool(current_heading) and heading != current_heading
         )
 
-        too_large = (
-            bool(current_parts)
-            and len(proposed) > max_characters
-        )
+        too_large = bool(current_parts) and len(proposed) > max_characters
 
         if heading_changed or too_large:
             flush()
@@ -245,14 +217,9 @@ def chunk_markdown(
             *current_parts,
             paragraph,
         ]
-        proposed = "\n\n".join(
-            proposed_parts
-        ).strip()
+        proposed = "\n\n".join(proposed_parts).strip()
 
-        if (
-            len(proposed) > max_characters
-            and current_parts
-        ):
+        if len(proposed) > max_characters and current_parts:
             current_parts = []
 
         current_parts.append(paragraph)

@@ -64,9 +64,7 @@ def optimise_candidates(
     time_limit_seconds=0.25,
 ):
     if cp_model is None:
-        raise OptimiserUnavailable(
-            "OR-Tools is not installed; use the heuristic fallback."
-        )
+        raise OptimiserUnavailable("OR-Tools is not installed; use the heuristic fallback.")
     if not isinstance(policy, DailyPlanPolicy):
         raise TypeError("policy must be a DailyPlanPolicy.")
 
@@ -88,18 +86,12 @@ def optimise_candidates(
             solve_time_ms=0,
         )
 
-    candidate_ids = [
-        item.candidate.candidate_id
-        for item in ranked
-    ]
+    candidate_ids = [item.candidate.candidate_id for item in ranked]
     if len(set(candidate_ids)) != len(candidate_ids):
         raise ValueError("Candidate identifiers must be unique.")
 
     model = cp_model.CpModel()
-    selected_vars = [
-        model.new_bool_var(f"candidate_{index}")
-        for index in range(len(ranked))
-    ]
+    selected_vars = [model.new_bool_var(f"candidate_{index}") for index in range(len(ranked))]
 
     model.add(
         sum(
@@ -126,10 +118,7 @@ def optimise_candidates(
     roadmap_indices = defaultdict(list)
     for index, item in enumerate(ranked):
         candidate = item.candidate
-        if (
-            candidate.kind == CandidateKind.ROADMAP
-            and candidate.roadmap_id is not None
-        ):
+        if candidate.kind == CandidateKind.ROADMAP and candidate.roadmap_id is not None:
             roadmap_indices[candidate.roadmap_id].append(index)
 
     roadmap_vars = {}
@@ -140,11 +129,7 @@ def optimise_candidates(
             model.add(selected_vars[index] <= roadmap_var)
         model.add(roadmap_var <= sum(selected_vars[index] for index in indices))
         model.add(
-            sum(
-                ranked[index].candidate.topic_count
-                * selected_vars[index]
-                for index in indices
-            )
+            sum(ranked[index].candidate.topic_count * selected_vars[index] for index in indices)
             <= policy.max_topics_per_roadmap
         )
 
@@ -152,15 +137,12 @@ def optimise_candidates(
         model.add(sum(roadmap_vars.values()) <= policy.max_roadmaps)
 
     review_indices = [
-        index
-        for index, item in enumerate(ranked)
-        if item.candidate.kind == CandidateKind.REVIEW
+        index for index, item in enumerate(ranked) if item.candidate.kind == CandidateKind.REVIEW
     ]
     if review_indices:
         model.add(
             sum(
-                ranked[index].candidate.estimated_minutes
-                * selected_vars[index]
+                ranked[index].candidate.estimated_minutes * selected_vars[index]
                 for index in review_indices
             )
             <= policy.review_target_minutes
@@ -169,23 +151,19 @@ def optimise_candidates(
     practice_indices = [
         index
         for index, item in enumerate(ranked)
-        if item.candidate.kind
-        in {CandidateKind.PRACTICE, CandidateKind.WEAK_AREA}
+        if item.candidate.kind in {CandidateKind.PRACTICE, CandidateKind.WEAK_AREA}
     ]
     if practice_indices:
         model.add(
             sum(
-                ranked[index].candidate.estimated_minutes
-                * selected_vars[index]
+                ranked[index].candidate.estimated_minutes * selected_vars[index]
                 for index in practice_indices
             )
             <= policy.practice_target_minutes
         )
 
     pure_practice_indices = [
-        index
-        for index, item in enumerate(ranked)
-        if item.candidate.kind == CandidateKind.PRACTICE
+        index for index, item in enumerate(ranked) if item.candidate.kind == CandidateKind.PRACTICE
     ]
     if pure_practice_indices:
         model.add(
@@ -194,14 +172,11 @@ def optimise_candidates(
         )
 
     weak_indices = [
-        index
-        for index, item in enumerate(ranked)
-        if item.candidate.kind == CandidateKind.WEAK_AREA
+        index for index, item in enumerate(ranked) if item.candidate.kind == CandidateKind.WEAK_AREA
     ]
     if weak_indices:
         model.add(
-            sum(selected_vars[index] for index in weak_indices)
-            <= policy.max_weak_area_blocks
+            sum(selected_vars[index] for index in weak_indices) <= policy.max_weak_area_blocks
         )
 
     context_indices = _group_indices(
@@ -209,9 +184,7 @@ def optimise_candidates(
         lambda candidate: (candidate.effective_context_key,),
     )
     context_vars = {}
-    for context_position, (context_key, indices) in enumerate(
-        sorted(context_indices.items())
-    ):
+    for context_position, (context_key, indices) in enumerate(sorted(context_indices.items())):
         context_var = model.new_bool_var(f"context_{context_position}")
         context_vars[context_key] = context_var
         for index in indices:
@@ -219,23 +192,13 @@ def optimise_candidates(
         model.add(context_var <= sum(selected_vars[index] for index in indices))
 
     score_term = sum(
-        item.total_score * 100 * selected_vars[index]
-        for index, item in enumerate(ranked)
+        item.total_score * 100 * selected_vars[index] for index, item in enumerate(ranked)
     )
     used_minutes_term = sum(
-        item.candidate.estimated_minutes * selected_vars[index]
-        for index, item in enumerate(ranked)
+        item.candidate.estimated_minutes * selected_vars[index] for index, item in enumerate(ranked)
     )
-    context_switch_penalty = (
-        300 * sum(context_vars.values())
-        if context_vars
-        else 0
-    )
-    model.maximize(
-        score_term
-        + used_minutes_term
-        - context_switch_penalty
-    )
+    context_switch_penalty = 300 * sum(context_vars.values()) if context_vars else 0
+    model.maximize(score_term + used_minutes_term - context_switch_penalty)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = max(
@@ -251,19 +214,12 @@ def optimise_candidates(
     elif solver_status == cp_model.FEASIBLE:
         status = "FEASIBLE"
     else:
-        raise OptimisationFailed(
-            f"CP-SAT returned status {solver.status_name(solver_status)}."
-        )
+        raise OptimisationFailed(f"CP-SAT returned status {solver.status_name(solver_status)}.")
 
     selected = tuple(
-        item
-        for index, item in enumerate(ranked)
-        if solver.value(selected_vars[index])
+        item for index, item in enumerate(ranked) if solver.value(selected_vars[index])
     )
-    selected_ids = {
-        item.candidate.candidate_id
-        for item in selected
-    }
+    selected_ids = {item.candidate.candidate_id for item in selected}
     rejected = tuple(
         CandidateRejection(
             candidate_id=item.candidate.candidate_id,
@@ -272,10 +228,7 @@ def optimise_candidates(
         for item in ranked
         if item.candidate.candidate_id not in selected_ids
     )
-    used_minutes = sum(
-        item.candidate.estimated_minutes
-        for item in selected
-    )
+    used_minutes = sum(item.candidate.estimated_minutes for item in selected)
 
     return OptimisationResult(
         selected=selected,

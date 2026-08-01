@@ -123,9 +123,7 @@ def test_due_reviews_are_grouped_by_topic(user):
         now=now,
     )
 
-    review_recommendations = list(
-        plan.recommendations.filter(kind=StudyRecommendation.Kind.REVIEW)
-    )
+    review_recommendations = list(plan.recommendations.filter(kind=StudyRecommendation.Kind.REVIEW))
     assert len(review_recommendations) == 2
     review_titles = {item.title for item in review_recommendations}
     assert any("Heaps" in title for title in review_titles)
@@ -138,9 +136,7 @@ def test_plan_continues_next_active_roadmap_topic(user):
 
     plan = generate_daily_plan(user=user, time_budget_minutes=60)
 
-    recommendation = plan.recommendations.get(
-        kind=StudyRecommendation.Kind.ROADMAP
-    )
+    recommendation = plan.recommendations.get(kind=StudyRecommendation.Kind.ROADMAP)
     assert recommendation.topic == first_topic
     assert "Backend Developer" in recommendation.description
 
@@ -157,9 +153,7 @@ def test_completed_roadmap_topic_is_skipped(user):
 
     plan = generate_daily_plan(user=user, time_budget_minutes=60)
 
-    recommendation = plan.recommendations.get(
-        kind=StudyRecommendation.Kind.ROADMAP
-    )
+    recommendation = plan.recommendations.get(kind=StudyRecommendation.Kind.ROADMAP)
     assert recommendation.topic == second_topic
 
 
@@ -180,14 +174,8 @@ def test_large_budget_caps_topics_and_deepens_existing_blocks(user):
         plan.recommendations.filter(kind=StudyRecommendation.Kind.ROADMAP)
     )
     assert len(roadmap_recommendations) == 2
-    assert all(
-        recommendation.estimated_minutes >= 45
-        for recommendation in roadmap_recommendations
-    )
-    assert any(
-        recommendation.estimated_minutes > 45
-        for recommendation in roadmap_recommendations
-    )
+    assert all(recommendation.estimated_minutes >= 45 for recommendation in roadmap_recommendations)
+    assert any(recommendation.estimated_minutes > 45 for recommendation in roadmap_recommendations)
     assert plan.time_budget_minutes == 720
     assert plan_summary(plan=plan)["estimated_minutes"] <= 720
 
@@ -198,13 +186,12 @@ def test_large_budget_selects_at_most_four_roadmaps(user):
 
     plan = generate_daily_plan(user=user, time_budget_minutes=720)
     roadmap_recommendations = list(
-        plan.recommendations.filter(
-            kind=StudyRecommendation.Kind.ROADMAP
-        ).select_related("topic__section__roadmap")
+        plan.recommendations.filter(kind=StudyRecommendation.Kind.ROADMAP).select_related(
+            "topic__section__roadmap"
+        )
     )
     roadmap_ids = {
-        recommendation.topic.section.roadmap_id
-        for recommendation in roadmap_recommendations
+        recommendation.topic.section.roadmap_id for recommendation in roadmap_recommendations
     }
     topic_count_by_roadmap = {
         roadmap_id: sum(
@@ -216,10 +203,7 @@ def test_large_budget_selects_at_most_four_roadmaps(user):
 
     assert len(roadmap_ids) == 4
     assert all(count <= 2 for count in topic_count_by_roadmap.values())
-    assert all(
-        recommendation.estimated_minutes >= 45
-        for recommendation in roadmap_recommendations
-    )
+    assert all(recommendation.estimated_minutes >= 45 for recommendation in roadmap_recommendations)
 
 
 def test_recent_hard_review_becomes_weak_area_recommendation(user):
@@ -242,9 +226,7 @@ def test_recent_hard_review_becomes_weak_area_recommendation(user):
         now=now + timedelta(minutes=1),
     )
 
-    recommendation = plan.recommendations.get(
-        kind=StudyRecommendation.Kind.WEAK_AREA
-    )
+    recommendation = plan.recommendations.get(kind=StudyRecommendation.Kind.WEAK_AREA)
     assert recommendation.question_id == question.pk
     assert "Hard" in recommendation.rationale
 
@@ -261,9 +243,7 @@ def test_fresh_built_in_question_is_used_for_practice(user):
 
     plan = generate_daily_plan(user=user, time_budget_minutes=30)
 
-    recommendation = plan.recommendations.get(
-        kind=StudyRecommendation.Kind.PRACTICE
-    )
+    recommendation = plan.recommendations.get(kind=StudyRecommendation.Kind.PRACTICE)
     assert recommendation.question_id == question.pk
 
 
@@ -277,18 +257,14 @@ def test_empty_account_gets_question_library_starting_task(user):
 
 def test_force_regeneration_replaces_recommendations_and_budget(user):
     first_plan = generate_daily_plan(user=user, time_budget_minutes=30)
-    first_recommendation_ids = set(
-        first_plan.recommendations.values_list("pk", flat=True)
-    )
+    first_recommendation_ids = set(first_plan.recommendations.values_list("pk", flat=True))
 
     regenerated = generate_daily_plan(
         user=user,
         time_budget_minutes=90,
         force=True,
     )
-    regenerated_ids = set(
-        regenerated.recommendations.values_list("pk", flat=True)
-    )
+    regenerated_ids = set(regenerated.recommendations.values_list("pk", flat=True))
 
     assert regenerated.pk == first_plan.pk
     assert regenerated.time_budget_minutes == 90

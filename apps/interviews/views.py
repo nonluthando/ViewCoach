@@ -50,9 +50,7 @@ def interview_list(request):
         {
             "active_interviews": active_interviews,
             "completed_interviews": completed_interviews,
-            "completed_count": interviews.filter(
-                status=MockInterview.Status.COMPLETED
-            ).count(),
+            "completed_count": interviews.filter(status=MockInterview.Status.COMPLETED).count(),
         },
     )
 
@@ -111,9 +109,7 @@ def interview_session(request, interview_id):
         )
         return redirect("interviews:summary", interview_id=interview.pk)
 
-    form = MockInterviewResponseForm(
-        initial={"response_notes": current_item.response_notes}
-    )
+    form = MockInterviewResponseForm(initial={"response_notes": current_item.response_notes})
 
     return render(
         request,

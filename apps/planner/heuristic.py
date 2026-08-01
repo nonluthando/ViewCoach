@@ -67,10 +67,7 @@ def _constraint_failure(*, candidate, state, policy):
         return "duplicates a selected topic"
 
     if candidate.kind == CandidateKind.REVIEW:
-        if (
-            state.review_minutes + candidate.estimated_minutes
-            > policy.review_target_minutes
-        ):
+        if state.review_minutes + candidate.estimated_minutes > policy.review_target_minutes:
             return "review allocation reached"
 
     if candidate.kind == CandidateKind.ROADMAP:
@@ -79,17 +76,11 @@ def _constraint_failure(*, candidate, state, policy):
             return "daily roadmap limit reached"
 
         current_topic_count = state.topic_count_by_roadmap[candidate.roadmap_id]
-        if (
-            current_topic_count + candidate.topic_count
-            > policy.max_topics_per_roadmap
-        ):
+        if current_topic_count + candidate.topic_count > policy.max_topics_per_roadmap:
             return "topic limit reached for this roadmap"
 
     if candidate.kind in {CandidateKind.PRACTICE, CandidateKind.WEAK_AREA}:
-        if (
-            state.practice_minutes + candidate.estimated_minutes
-            > policy.practice_target_minutes
-        ):
+        if state.practice_minutes + candidate.estimated_minutes > policy.practice_target_minutes:
             return "practice allocation reached"
 
     if (
@@ -138,8 +129,7 @@ def _context_adjusted_order(scored_candidates, state):
                 + (
                     5
                     if state.last_context_key
-                    and item.candidate.effective_context_key
-                    == state.last_context_key
+                    and item.candidate.effective_context_key == state.last_context_key
                     else 0
                 )
             ),
@@ -188,17 +178,12 @@ def select_candidates(*, candidates, policy, time_budget_minutes=None):
     selected = []
     rejected = []
 
-    review_candidates = [
-        item for item in ranked if item.candidate.kind == CandidateKind.REVIEW
-    ]
-    roadmap_candidates = [
-        item for item in ranked if item.candidate.kind == CandidateKind.ROADMAP
-    ]
+    review_candidates = [item for item in ranked if item.candidate.kind == CandidateKind.REVIEW]
+    roadmap_candidates = [item for item in ranked if item.candidate.kind == CandidateKind.ROADMAP]
     remaining_candidates = [
         item
         for item in ranked
-        if item.candidate.kind
-        not in {CandidateKind.REVIEW, CandidateKind.ROADMAP}
+        if item.candidate.kind not in {CandidateKind.REVIEW, CandidateKind.ROADMAP}
     ]
 
     _choose_from_pass(

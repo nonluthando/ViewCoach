@@ -24,28 +24,20 @@ class Command(BaseCommand):
             results = retrieve_knowledge(
                 query=options["query"],
                 limit=options["limit"],
-                minimum_similarity=options[
-                    "minimum_similarity"
-                ],
+                minimum_similarity=options["minimum_similarity"],
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
 
         if not results:
-            self.stdout.write(
-                self.style.WARNING(
-                    "No result met the similarity threshold."
-                )
-            )
+            self.stdout.write(self.style.WARNING("No result met the similarity threshold."))
             return
 
         for index, result in enumerate(results, start=1):
             excerpt = result.content.replace("\n", " ")[:220]
             self.stdout.write(
-                (
-                    f"{index}. {result.similarity:.3f} · "
-                    f"{result.citation_label}\n"
-                    f"   {result.source_path}\n"
-                    f"   {excerpt}"
-                )
+                f"{index}. {result.similarity:.3f} · "
+                f"{result.citation_label}\n"
+                f"   {result.source_path}\n"
+                f"   {excerpt}"
             )

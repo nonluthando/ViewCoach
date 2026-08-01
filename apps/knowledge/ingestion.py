@@ -21,9 +21,7 @@ class IngestionResult:
 
 
 def _checksum(value):
-    return hashlib.sha256(
-        value.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _embedding_text(*, document, chunk):
@@ -52,15 +50,11 @@ def ingest_document(
 ):
     body = normalise_markdown(document.body_markdown)
     if not body:
-        raise ValueError(
-            "Knowledge documents must contain non-empty Markdown."
-        )
+        raise ValueError("Knowledge documents must contain non-empty Markdown.")
 
     content_checksum = _checksum(body)
     expected_model = (
-        getattr(embedder, "model", "")
-        if embedder is not None
-        else settings.RAG_EMBEDDING_MODEL
+        getattr(embedder, "model", "") if embedder is not None else settings.RAG_EMBEDDING_MODEL
     )
     existing_chunks = document.chunks.count()
     already_current = (
@@ -68,10 +62,7 @@ def ingest_document(
         and document.content_checksum == content_checksum
         and existing_chunks == document.chunk_count
         and existing_chunks > 0
-        and (
-            not create_embeddings
-            or document.embedding_model == expected_model
-        )
+        and (not create_embeddings or document.embedding_model == expected_model)
     )
     if already_current:
         return IngestionResult(
@@ -84,14 +75,10 @@ def ingest_document(
     chunk_specs = chunk_markdown(
         body,
         max_characters=settings.RAG_CHUNK_MAX_CHARACTERS,
-        overlap_characters=(
-            settings.RAG_CHUNK_OVERLAP_CHARACTERS
-        ),
+        overlap_characters=(settings.RAG_CHUNK_OVERLAP_CHARACTERS),
     )
     if not chunk_specs:
-        raise ValueError(
-            "The document did not produce any searchable chunks."
-        )
+        raise ValueError("The document did not produce any searchable chunks.")
 
     embeddings = [None] * len(chunk_specs)
     embedding_model = ""
@@ -116,10 +103,7 @@ def ingest_document(
             titles=embedding_titles,
         )
         if len(embeddings) != len(chunk_specs):
-            raise RuntimeError(
-                "The embedding provider returned "
-                "the wrong result count."
-            )
+            raise RuntimeError("The embedding provider returned the wrong result count.")
         embedding_model = provider.model
 
     current_time = now or timezone.now()
@@ -142,15 +126,9 @@ def ingest_document(
     ]
 
     with transaction.atomic():
-        locked_document = (
-            KnowledgeDocument.objects.select_for_update().get(
-                pk=document.pk
-            )
-        )
+        locked_document = KnowledgeDocument.objects.select_for_update().get(pk=document.pk)
         locked_document.chunks.all().delete()
-        KnowledgeChunk.objects.bulk_create(
-            chunk_objects
-        )
+        KnowledgeChunk.objects.bulk_create(chunk_objects)
 
         locked_document.body_markdown = body
         locked_document.content_checksum = content_checksum

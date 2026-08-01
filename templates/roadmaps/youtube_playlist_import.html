@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 
 {% block title %}Import YouTube Playlist | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page youtube-library-page{% endblock %}
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">Roadmaps</a>
+    <a href="{% url 'roadmaps:youtube_list' %}">YouTube roadmaps</a>
     <span aria-hidden="true">/</span>
-    <span>Import YouTube playlist</span>
+    <span>Import playlist</span>
 </nav>
 
 <section class="youtube-import-hero">
     <div>
-        <p class="eyebrow">YouTube course roadmap</p>
-        <h1>Turn a playlist into a trackable roadmap.</h1>
-        <p class="lead">Paste a public or accessible YouTube playlist. ViewCoach will preserve the video order, show durations and let you work through each video inside its topic workspace.</p>
+        <p class="eyebrow">YouTube roadmap</p>
+        <h1>Turn a playlist into a trackable learning path.</h1>
+        <p class="lead">Paste a public or accessible YouTube playlist. ViewCoach preserves the video order and keeps the imported path separate from its built-in curriculum.</p>
     </div>
 </section>
 
@@ -36,9 +37,9 @@
     <aside class="youtube-import-explainer">
         <p class="eyebrow">What ViewCoach creates</p>
         <ol>
-            <li><strong>One skill roadmap</strong><span>Named after the playlist.</span></li>
-            <li><strong>One topic per available video</strong><span>Kept in the original playlist order.</span></li>
-            <li><strong>A video workspace</strong><span>Embedded player, notes, progress and next-video navigation.</span></li>
+            <li><strong>A user-owned YouTube roadmap</strong><span>It does not enter the built-in catalogue.</span></li>
+            <li><strong>One learning item per available video</strong><span>Kept in the source playlist order.</span></li>
+            <li><strong>A dedicated video workspace</strong><span>Playback, notes, progress and next-video navigation.</span></li>
         </ol>
     </aside>
 </div>

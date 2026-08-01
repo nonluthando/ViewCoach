@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from django.db.models import Q
 from django.utils import timezone
 
 from apps.goals.models import InterviewGoal
@@ -29,7 +28,6 @@ from .policies import (
     plan_policy_for_budget,
 )
 from .scoring import BASE_SCORE_BY_KIND, KIND_ORDER
-
 
 MAX_CANDIDATE_ROADMAPS = 8
 MAX_REVIEW_QUESTIONS_PER_GROUP = 8
@@ -69,9 +67,7 @@ def _ordered_active_roadmap_enrolments(*, user, goal=None):
     if goal is not None:
         linked_roadmap_ids = list(goal.roadmaps.values_list("pk", flat=True))
         if linked_roadmap_ids:
-            enrolment_query = enrolment_query.filter(
-                roadmap_id__in=linked_roadmap_ids
-            )
+            enrolment_query = enrolment_query.filter(roadmap_id__in=linked_roadmap_ids)
 
     enrolments = list(enrolment_query)
     if not enrolments:
@@ -102,8 +98,7 @@ def _ordered_active_roadmap_enrolments(*, user, goal=None):
     enrolments = [
         enrolment
         for enrolment in enrolments
-        if completed_counts.get(enrolment.roadmap_id, 0)
-        < topic_counts.get(enrolment.roadmap_id, 0)
+        if completed_counts.get(enrolment.roadmap_id, 0) < topic_counts.get(enrolment.roadmap_id, 0)
     ]
 
     far_future = date.max
@@ -150,7 +145,7 @@ def _unfinished_roadmap_topics(*, user, enrolment):
     return (
         sorted(
             available.order_by(*topic_ordering),
-            key=lambda topic: (0 if topic.pk in in_progress_ids else 1),
+            key=lambda topic: 0 if topic.pk in in_progress_ids else 1,
         ),
         in_progress_ids,
     )
@@ -220,9 +215,7 @@ def _build_review_candidates(
 
         question_ids = tuple(state.question_id for state in states)
         selected_question_ids.update(question_ids)
-        question_by_id.update(
-            {state.question_id: state.question for state in states}
-        )
+        question_by_id.update({state.question_id: state.question for state in states})
         question_count = len(states)
         question_label = "question" if question_count == 1 else "questions"
 
@@ -234,23 +227,14 @@ def _build_review_candidates(
                     source_ids=question_ids,
                 ),
                 kind=CandidateKind.REVIEW,
-                title=(
-                    f"Review: {group['label']} — "
-                    f"{question_count} {question_label}"
-                ),
-                estimated_minutes=(
-                    question_count * REVIEW_MINUTES_PER_QUESTION
-                ),
+                title=(f"Review: {group['label']} — {question_count} {question_label}"),
+                estimated_minutes=(question_count * REVIEW_MINUTES_PER_QUESTION),
                 question_ids=question_ids,
                 context_key=f"review:{key}",
                 is_overdue=any(state.due_at < now for state in states),
-                description=(
-                    "Complete this related review group before switching "
-                    "domains."
-                ),
+                description=("Complete this related review group before switching domains."),
                 rationale=(
-                    "Due reviews are time-sensitive and grouped to reduce "
-                    "context switching."
+                    "Due reviews are time-sensitive and grouped to reduce context switching."
                 ),
             )
         )
@@ -273,9 +257,7 @@ def _build_roadmap_candidates(
     enrolments = _ordered_active_roadmap_enrolments(user=user, goal=goal)
     enrolments = enrolments[:MAX_CANDIDATE_ROADMAPS]
     linked_roadmap_ids = (
-        set(goal.roadmaps.values_list("pk", flat=True))
-        if goal is not None
-        else set()
+        set(goal.roadmaps.values_list("pk", flat=True)) if goal is not None else set()
     )
 
     for enrolment in enrolments:
@@ -287,11 +269,7 @@ def _build_roadmap_candidates(
 
         goal_deadline = goal.next_deadline if goal is not None else None
         target_date = goal_deadline or enrolment.target_date
-        deadline_days = (
-            (target_date - plan_date).days
-            if target_date is not None
-            else None
-        )
+        deadline_days = (target_date - plan_date).days if target_date is not None else None
 
         for topic in candidate_topics:
             topic_by_id[topic.pk] = topic
@@ -309,9 +287,7 @@ def _build_roadmap_candidates(
                     topic_ids=(topic.pk,),
                     goal_id=goal.pk if goal is not None else None,
                     context_key=f"roadmap:{enrolment.roadmap_id}",
-                    supports_primary_goal=(
-                        enrolment.roadmap_id in linked_roadmap_ids
-                    ),
+                    supports_primary_goal=(enrolment.roadmap_id in linked_roadmap_ids),
                     continues_in_progress_work=topic.pk in in_progress_ids,
                     deadline_days=deadline_days,
                     description=(
@@ -342,10 +318,7 @@ def _build_weak_area_candidates(
     candidates,
     question_by_id,
 ):
-    if (
-        policy.practice_target_minutes < WEAK_AREA_BLOCK_MINUTES
-        or policy.max_weak_area_blocks <= 0
-    ):
+    if policy.practice_target_minutes < WEAK_AREA_BLOCK_MINUTES or policy.max_weak_area_blocks <= 0:
         return
 
     recent_cutoff = now - timedelta(days=14)
@@ -419,10 +392,7 @@ def _build_practice_candidates(
     candidates,
     question_by_id,
 ):
-    if (
-        policy.practice_target_minutes < PRACTICE_BLOCK_MINUTES
-        or policy.max_practice_blocks <= 0
-    ):
+    if policy.practice_target_minutes < PRACTICE_BLOCK_MINUTES or policy.max_practice_blocks <= 0:
         return
 
     questions = list(
@@ -436,20 +406,14 @@ def _build_practice_candidates(
     offset = (plan_date.toordinal() + (user.pk or 0)) % len(questions)
     questions = questions[offset:] + questions[:offset]
 
-    goal_words = (
-        _normalised_words(f"{goal.role_title} {goal.title}")
-        if goal is not None
-        else set()
-    )
+    goal_words = _normalised_words(f"{goal.role_title} {goal.title}") if goal is not None else set()
     roadmap_words = set()
     for enrolment in enrolments:
         roadmap_words.update(_normalised_words(enrolment.roadmap.title))
 
     for question in questions[:MAX_PRACTICE_CANDIDATES]:
         question_by_id[question.pk] = question
-        question_words = _normalised_words(
-            f"{question.title} {question.topic} {question.pattern}"
-        )
+        question_words = _normalised_words(f"{question.title} {question.topic} {question.pattern}")
         topic_label = question.topic.strip() or "Technical practice"
 
         candidates.append(
@@ -466,16 +430,13 @@ def _build_practice_candidates(
                 goal_id=goal.pk if goal is not None else None,
                 context_key=f"practice:{topic_label.casefold()}",
                 supports_primary_goal=bool(goal_words & question_words),
-                continues_in_progress_work=bool(
-                    roadmap_words & question_words
-                ),
+                continues_in_progress_work=bool(roadmap_words & question_words),
                 description=(
                     "Work through one fresh built-in question and explain "
                     "the approach before reading the notes."
                 ),
                 rationale=(
-                    "A fresh question adds retrieval practice while keeping "
-                    "the session balanced."
+                    "A fresh question adds retrieval practice while keeping the session balanced."
                 ),
             )
         )
@@ -523,8 +484,7 @@ def _build_library_candidate(
                     "then mark it ready for review."
                 ),
                 rationale=(
-                    "Preparing one question creates useful material for "
-                    "future review sessions."
+                    "Preparing one question creates useful material for future review sessions."
                 ),
             )
         )
@@ -541,8 +501,7 @@ def _build_library_candidate(
                 "to explain under pressure."
             ),
             rationale=(
-                "Your plan needs study material before review scheduling "
-                "can become useful."
+                "Your plan needs study material before review scheduling can become useful."
             ),
         )
     )
@@ -618,14 +577,11 @@ def build_plan_candidates(
 def _extend_payload_blocks(*, payloads, time_budget_minutes):
     minutes_left = max(
         0,
-        int(time_budget_minutes)
-        - sum(payload["estimated_minutes"] for payload in payloads),
+        int(time_budget_minutes) - sum(payload["estimated_minutes"] for payload in payloads),
     )
 
     roadmap_payloads = [
-        payload
-        for payload in payloads
-        if payload["kind"] == StudyRecommendation.Kind.ROADMAP
+        payload for payload in payloads if payload["kind"] == StudyRecommendation.Kind.ROADMAP
     ]
     while minutes_left >= PRACTICE_BLOCK_MINUTES and roadmap_payloads:
         extended = False
@@ -643,17 +599,12 @@ def _extend_payload_blocks(*, payloads, time_budget_minutes):
             break
 
     practice_payloads = [
-        payload
-        for payload in payloads
-        if payload["kind"] == StudyRecommendation.Kind.PRACTICE
+        payload for payload in payloads if payload["kind"] == StudyRecommendation.Kind.PRACTICE
     ]
     while minutes_left >= PRACTICE_BLOCK_MINUTES and practice_payloads:
         extended = False
         for payload in practice_payloads:
-            room = (
-                PRACTICE_BLOCK_MAX_MINUTES
-                - payload["estimated_minutes"]
-            )
+            room = PRACTICE_BLOCK_MAX_MINUTES - payload["estimated_minutes"]
             if room < PRACTICE_BLOCK_MINUTES:
                 continue
             increment = min(PRACTICE_BLOCK_MINUTES, room, minutes_left)
@@ -684,16 +635,8 @@ def recommendation_payloads_from_selection(
     payloads = []
     for scored_candidate in selected:
         candidate = scored_candidate.candidate
-        first_question_id = (
-            candidate.question_ids[0]
-            if candidate.question_ids
-            else None
-        )
-        first_topic_id = (
-            candidate.topic_ids[0]
-            if candidate.topic_ids
-            else None
-        )
+        first_question_id = candidate.question_ids[0] if candidate.question_ids else None
+        first_topic_id = candidate.topic_ids[0] if candidate.topic_ids else None
 
         payload = {
             "kind": StudyRecommendation.Kind(candidate.kind.value),
@@ -704,9 +647,7 @@ def recommendation_payloads_from_selection(
             "priority_score": BASE_SCORE_BY_KIND[candidate.kind],
         }
         if first_question_id is not None:
-            payload["question"] = build_result.question_by_id[
-                first_question_id
-            ]
+            payload["question"] = build_result.question_by_id[first_question_id]
         if first_topic_id is not None:
             payload["topic"] = build_result.topic_by_id[first_topic_id]
 

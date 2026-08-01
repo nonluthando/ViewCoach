@@ -3,7 +3,6 @@ from django.db import models
 from django.utils import timezone
 from pgvector.django import VectorField
 
-
 EMBEDDING_DIMENSIONS = 1536
 
 
@@ -128,7 +127,6 @@ class KnowledgeIngestionRun(models.Model):
 
     def __str__(self):
         return f"{self.source_label} · {self.status}"
-
 
 
 class KnowledgeQueryLog(models.Model):

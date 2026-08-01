@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 
 from apps.roadmaps.models import (
+    Roadmap,
     RoadmapTopic,
     YouTubePlaylistRoadmap,
     YouTubePlaylistVideo,
@@ -12,16 +13,13 @@ from apps.roadmaps.youtube_client import (
 )
 from apps.roadmaps.youtube_services import create_youtube_roadmap
 
-
 pytestmark = pytest.mark.django_db
 
 
 def build_preview():
     return PlaylistPreview(
         playlist_id="PL1234567890ABC",
-        source_url=(
-            "https://www.youtube.com/playlist?list=PL1234567890ABC"
-        ),
+        source_url=("https://www.youtube.com/playlist?list=PL1234567890ABC"),
         title="Spring Boot Course",
         description="",
         channel_title="Example Channel",
@@ -81,20 +79,20 @@ def test_create_youtube_roadmap_preserves_order_and_unavailable_items():
     assert created is True
     assert source.roadmap.created_by == user
     assert source.roadmap.is_system is False
+    assert source.roadmap.source == Roadmap.Source.YOUTUBE
     assert source.available_video_count == 2
     assert source.unavailable_video_count == 1
     assert list(
-        RoadmapTopic.objects.filter(
-            section__roadmap=source.roadmap
-        ).values_list("title", flat=True)
+        RoadmapTopic.objects.filter(section__roadmap=source.roadmap).values_list("title", flat=True)
     ) == ["Introduction", "Dependency Injection"]
-    assert YouTubePlaylistVideo.objects.filter(
-        playlist=source
-    ).count() == 3
-    assert YouTubePlaylistVideo.objects.get(
-        playlist=source,
-        playlist_item_id="item-3",
-    ).topic is None
+    assert YouTubePlaylistVideo.objects.filter(playlist=source).count() == 3
+    assert (
+        YouTubePlaylistVideo.objects.get(
+            playlist=source,
+            playlist_item_id="item-3",
+        ).topic
+        is None
+    )
 
 
 def test_duplicate_playlist_returns_existing_roadmap():

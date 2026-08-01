@@ -61,15 +61,13 @@ class StudyPlan(models.Model):
     @property
     def estimated_minutes(self):
         return sum(
-            recommendation.estimated_minutes
-            for recommendation in self.recommendations.all()
+            recommendation.estimated_minutes for recommendation in self.recommendations.all()
         )
 
     @property
     def completed_count(self):
         return sum(
-            recommendation.completed_at is not None
-            for recommendation in self.recommendations.all()
+            recommendation.completed_at is not None for recommendation in self.recommendations.all()
         )
 
     def __str__(self):
@@ -133,11 +131,7 @@ class StudyRecommendation(models.Model):
             self.Kind.ROADMAP: "Open topic",
             self.Kind.WEAK_AREA: "Revisit question",
             self.Kind.PRACTICE: "Open practice question",
-            self.Kind.LIBRARY: (
-                "Open question"
-                if self.question_id
-                else "Open question library"
-            ),
+            self.Kind.LIBRARY: ("Open question" if self.question_id else "Open question library"),
         }
         return labels[self.kind]
 
@@ -174,9 +168,7 @@ class StudySession(models.Model):
     )
     started_at = models.DateTimeField(default=timezone.now)
     ended_at = models.DateTimeField(null=True, blank=True)
-    completed_recommendation_count = models.PositiveSmallIntegerField(
-        default=0
-    )
+    completed_recommendation_count = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["-started_at", "-pk"]

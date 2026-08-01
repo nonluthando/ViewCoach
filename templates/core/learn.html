@@ -1,20 +1,27 @@
 {% extends "base.html" %}
 
 {% block title %}Learn | ViewCoach{% endblock %}
+{% block body_class %}learning-hub-v2-page{% endblock %}
 
 {% block content %}
 <section class="section-hub-header">
     <p class="eyebrow">Learn</p>
     <h1>Build knowledge with structure.</h1>
-    <p>Follow focused roadmaps, work through topic objectives and keep your learning notes and resources in one place.</p>
+    <p>Use curated ViewCoach curriculum and your imported learning sources without mixing their ownership or workflows.</p>
 </section>
 
-<section class="section-hub-grid" aria-label="Learning tools">
+<section class="section-hub-grid section-hub-grid-three" aria-label="Learning tools">
     <a class="section-hub-card section-hub-card-featured" href="{% url 'roadmaps:list' %}">
-        <span class="section-hub-kicker">Start here</span>
-        <h2>Roadmaps</h2>
-        <p>Choose a role, skill or practice path and continue from the next unfinished topic.</p>
-        <strong>Open learning roadmaps <span aria-hidden="true">→</span></strong>
+        <span class="section-hub-kicker">Curated curriculum</span>
+        <h2>ViewCoach roadmaps</h2>
+        <p>Follow structured role, skill and practice paths maintained inside ViewCoach.</p>
+        <strong>Explore ViewCoach roadmaps <span aria-hidden="true">→</span></strong>
+    </a>
+    <a class="section-hub-card" href="{% url 'roadmaps:youtube_list' %}">
+        <span class="section-hub-kicker">External learning</span>
+        <h2>YouTube roadmaps</h2>
+        <p>Continue playlists you imported, with their own video workspace, notes and progress.</p>
+        <strong>Open YouTube roadmaps <span aria-hidden="true">→</span></strong>
     </a>
     <a class="section-hub-card" href="{% url 'planner:today' %}">
         <span class="section-hub-kicker">Today</span>
@@ -26,7 +33,7 @@
 
 <section class="section-hub-guidance">
     <p class="eyebrow">How this section works</p>
-    <h2>Learn first, then test recall elsewhere.</h2>
-    <p>Use roadmaps for new concepts, progression, notes and resources. Use Prepare for questions, review and interview drills.</p>
+    <h2>Different learning sources, one progress engine.</h2>
+    <p>ViewCoach roadmaps remain canonical curriculum. YouTube roadmaps remain user-owned imports. Both can use notes, progress and planning without being presented as the same content.</p>
 </section>
 {% endblock %}

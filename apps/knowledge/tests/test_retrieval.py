@@ -10,7 +10,6 @@ from apps.knowledge.retrieval import (
 )
 from apps.knowledge.tests.fakes import FakeEmbeddingProvider
 
-
 pytestmark = pytest.mark.django_db
 
 
@@ -63,9 +62,7 @@ def test_retrieval_returns_nearest_published_chunks():
         token_estimate=7,
         embedding=_vector(1.0),
     )
-    provider = FakeEmbeddingProvider(
-        vectors=[_vector(1.0)]
-    )
+    provider = FakeEmbeddingProvider(vectors=[_vector(1.0)])
 
     results = retrieve_knowledge(
         query="How does available time affect my plan?",
@@ -76,10 +73,7 @@ def test_retrieval_returns_nearest_published_chunks():
 
     assert len(results) == 2
     assert results[0].heading == "Available time"
-    assert all(
-        result.document_slug != "old-planner-guide"
-        for result in results
-    )
+    assert all(result.document_slug != "old-planner-guide" for result in results)
 
     context = build_grounding_context(results)
     assert "[Source 1]" in context

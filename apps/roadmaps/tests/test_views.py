@@ -174,9 +174,7 @@ def test_unpublished_roadmap_is_not_accessible(client, user):
 
 
 def test_topic_workspace_requires_login(client, roadmap, topic):
-    response = client.get(
-        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
-    )
+    response = client.get(reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk]))
 
     assert response.status_code == 302
 
@@ -201,9 +199,7 @@ def test_topic_workspace_shows_notes_resources_and_status(
     )
     client.force_login(user)
 
-    response = client.get(
-        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
-    )
+    response = client.get(reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk]))
 
     content = response.content.decode()
     assert response.status_code == 200
@@ -211,9 +207,7 @@ def test_topic_workspace_shows_notes_resources_and_status(
     assert "Remember indexes and query plans." in content
     assert "PostgreSQL documentation" in content
     assert response.context["progress"] == progress
-    assert response.context["current_status"] == (
-        UserTopicProgress.Status.IN_PROGRESS
-    )
+    assert response.context["current_status"] == (UserTopicProgress.Status.IN_PROGRESS)
 
 
 def test_topic_navigation_crosses_section_boundaries(
@@ -237,9 +231,7 @@ def test_topic_navigation_crosses_section_boundaries(
     )
     client.force_login(user)
 
-    first_response = client.get(
-        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
-    )
+    first_response = client.get(reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk]))
     second_response = client.get(
         reverse("roadmaps:topic_detail", args=[roadmap.slug, next_topic.pk])
     )
@@ -277,9 +269,7 @@ def test_topic_workspace_rejects_topic_from_another_roadmap(
     )
     client.force_login(user)
 
-    response = client.get(
-        reverse("roadmaps:topic_detail", args=[roadmap.slug, other_topic.pk])
-    )
+    response = client.get(reverse("roadmaps:topic_detail", args=[roadmap.slug, other_topic.pk]))
 
     assert response.status_code == 404
 
@@ -366,9 +356,7 @@ def test_topic_workspace_hides_another_users_resources(
     )
     client.force_login(user)
 
-    response = client.get(
-        reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk])
-    )
+    response = client.get(reverse("roadmaps:topic_detail", args=[roadmap.slug, topic.pk]))
 
     assert "Private study link" not in response.content.decode()
 

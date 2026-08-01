@@ -10,7 +10,6 @@ from .candidate_builders import (
 from .models import StudyPlan, StudyRecommendation, StudySession
 from .selection import select_plan_candidates
 
-
 DEFAULT_TIME_BUDGET_MINUTES = 60
 
 
@@ -94,11 +93,7 @@ def generate_daily_plan(
         },
     )
 
-    should_regenerate = (
-        created
-        or force
-        or not plan.recommendations.exists()
-    )
+    should_regenerate = created or force or not plan.recommendations.exists()
     if not should_regenerate:
         return plan
 
@@ -151,8 +146,7 @@ def plan_summary(*, plan):
         )
     )
     completed_count = sum(
-        recommendation.completed_at is not None
-        for recommendation in recommendations
+        recommendation.completed_at is not None for recommendation in recommendations
     )
     return {
         "plan": plan,
@@ -160,13 +154,9 @@ def plan_summary(*, plan):
         "total_count": len(recommendations),
         "completed_count": completed_count,
         "estimated_minutes": sum(
-            recommendation.estimated_minutes
-            for recommendation in recommendations
+            recommendation.estimated_minutes for recommendation in recommendations
         ),
-        "is_complete": (
-            bool(recommendations)
-            and completed_count == len(recommendations)
-        ),
+        "is_complete": (bool(recommendations) and completed_count == len(recommendations)),
         "selection_status": plan.selection_status,
         "selection_objective": plan.selection_objective,
         "selection_best_bound": plan.selection_best_bound,
@@ -178,16 +168,9 @@ def sync_plan_status(*, plan):
     recommendations = plan.recommendations.all()
     has_recommendations = recommendations.exists()
     is_complete = (
-        has_recommendations
-        and not recommendations.filter(
-            completed_at__isnull=True
-        ).exists()
+        has_recommendations and not recommendations.filter(completed_at__isnull=True).exists()
     )
-    new_status = (
-        StudyPlan.Status.COMPLETED
-        if is_complete
-        else StudyPlan.Status.ACTIVE
-    )
+    new_status = StudyPlan.Status.COMPLETED if is_complete else StudyPlan.Status.ACTIVE
     if plan.status != new_status:
         plan.status = new_status
         plan.save(update_fields=["status", "updated_at"])
@@ -196,15 +179,11 @@ def sync_plan_status(*, plan):
 
 @transaction.atomic
 def toggle_recommendation_completion(*, recommendation, now=None):
-    locked_recommendation = (
-        StudyRecommendation.objects.select_for_update().get(
-            pk=recommendation.pk
-        )
+    locked_recommendation = StudyRecommendation.objects.select_for_update().get(
+        pk=recommendation.pk
     )
     locked_recommendation.completed_at = (
-        None
-        if locked_recommendation.completed_at
-        else (now or timezone.now())
+        None if locked_recommendation.completed_at else (now or timezone.now())
     )
     locked_recommendation.save(update_fields=["completed_at"])
     sync_plan_status(plan=locked_recommendation.plan)
@@ -213,9 +192,7 @@ def toggle_recommendation_completion(*, recommendation, now=None):
 
 @transaction.atomic
 def start_study_session(*, plan, now=None):
-    active_session = plan.sessions.filter(
-        ended_at__isnull=True
-    ).first()
+    active_session = plan.sessions.filter(ended_at__isnull=True).first()
     if active_session is not None:
         return active_session, False
 
@@ -228,18 +205,14 @@ def start_study_session(*, plan, now=None):
 
 @transaction.atomic
 def finish_study_session(*, session, now=None):
-    locked_session = StudySession.objects.select_for_update().get(
-        pk=session.pk
-    )
+    locked_session = StudySession.objects.select_for_update().get(pk=session.pk)
     if locked_session.ended_at is not None:
         return locked_session
 
     locked_session.ended_at = now or timezone.now()
-    locked_session.completed_recommendation_count = (
-        locked_session.plan.recommendations.filter(
-            completed_at__isnull=False
-        ).count()
-    )
+    locked_session.completed_recommendation_count = locked_session.plan.recommendations.filter(
+        completed_at__isnull=False
+    ).count()
     locked_session.save(
         update_fields=[
             "ended_at",

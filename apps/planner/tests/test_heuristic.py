@@ -26,10 +26,7 @@ def test_heuristic_respects_roadmap_limit():
         policy=policy,
     )
 
-    roadmap_ids = {
-        item.candidate.roadmap_id
-        for item in result.selected
-    }
+    roadmap_ids = {item.candidate.roadmap_id for item in result.selected}
     assert len(roadmap_ids) == 4
 
 
@@ -62,8 +59,7 @@ def test_heuristic_does_not_select_duplicate_questions():
 
     assert len(result.selected) == 1
     assert any(
-        rejection.reason == "duplicates a selected question"
-        for rejection in result.rejected
+        rejection.reason == "duplicates a selected question" for rejection in result.rejected
     )
 
 

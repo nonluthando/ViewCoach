@@ -17,7 +17,6 @@ from .retrieval import (
     retrieve_knowledge,
 )
 
-
 REFUSAL_ANSWER = (
     "I could not find enough trusted ViewCoach documentation to answer "
     "that confidently. Try asking about a specific ViewCoach feature or "
@@ -53,8 +52,7 @@ class AnswerGenerationError(RuntimeError):
 class GenerationProvider(Protocol):
     model: str
 
-    def generate(self, *, question, context):
-        ...
+    def generate(self, *, question, context): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,20 +86,12 @@ class GeminiAnswerProvider:
     )
 
     def __post_init__(self):
-        self.model = (
-            self.model
-            or settings.RAG_GENERATION_MODEL
-        )
-        self.max_output_tokens = (
-            self.max_output_tokens
-            or settings.RAG_MAX_OUTPUT_TOKENS
-        )
+        self.model = self.model or settings.RAG_GENERATION_MODEL
+        self.max_output_tokens = self.max_output_tokens or settings.RAG_MAX_OUTPUT_TOKENS
 
         api_key = settings.GEMINI_API_KEY
         if not api_key:
-            raise ImproperlyConfigured(
-                "GEMINI_API_KEY is required to generate grounded answers."
-            )
+            raise ImproperlyConfigured("GEMINI_API_KEY is required to generate grounded answers.")
 
         self.client = genai.Client(api_key=api_key)
 
@@ -125,9 +115,7 @@ class GeminiAnswerProvider:
         )
         answer = (response.text or "").strip()
         if not answer:
-            raise RuntimeError(
-                "Gemini returned an empty answer."
-            )
+            raise RuntimeError("Gemini returned an empty answer.")
         return answer
 
 
@@ -156,10 +144,7 @@ def _source_numbers(answer):
 
 
 def _grounded_sources(results, source_numbers):
-    selected_numbers = (
-        source_numbers
-        or tuple(range(1, len(results) + 1))
-    )
+    selected_numbers = source_numbers or tuple(range(1, len(results) + 1))
     sources = []
     for number in selected_numbers:
         result = results[number - 1]
@@ -203,21 +188,14 @@ def _create_log(
     latency_ms,
     error_message="",
 ):
-    top_similarity = (
-        results[0].similarity
-        if results
-        else None
-    )
+    top_similarity = results[0].similarity if results else None
     return KnowledgeQueryLog.objects.create(
         user=_query_user(user),
         question=question,
         answer=answer,
         status=status,
         generation_model=model,
-        retrieved_chunk_ids=[
-            result.chunk_id
-            for result in results
-        ],
+        retrieved_chunk_ids=[result.chunk_id for result in results],
         citations=_citation_payload(sources),
         top_similarity=top_similarity,
         latency_ms=latency_ms,
@@ -237,9 +215,7 @@ def answer_question(
         raise ValueError("A question cannot be empty.")
 
     started_at = time.perf_counter()
-    results: tuple[RetrievedKnowledge, ...] = tuple(
-        retriever(query=cleaned_question)
-    )
+    results: tuple[RetrievedKnowledge, ...] = tuple(retriever(query=cleaned_question))
 
     if not results:
         latency_ms = _elapsed_ms(started_at)
@@ -272,9 +248,7 @@ def answer_question(
             context=build_grounding_context(results),
         )
 
-        if generated_answer.strip().upper().startswith(
-            "NOT_SUPPORTED"
-        ):
+        if generated_answer.strip().upper().startswith("NOT_SUPPORTED"):
             latency_ms = _elapsed_ms(started_at)
             log = _create_log(
                 user=user,
@@ -298,14 +272,10 @@ def answer_question(
 
         source_numbers = _source_numbers(generated_answer)
         invalid_numbers = [
-            number
-            for number in source_numbers
-            if number < 1 or number > len(results)
+            number for number in source_numbers if number < 1 or number > len(results)
         ]
         if invalid_numbers:
-            raise ValueError(
-                "Gemini cited a source that was not supplied."
-            )
+            raise ValueError("Gemini cited a source that was not supplied.")
 
         sources = _grounded_sources(
             results,
@@ -342,10 +312,6 @@ def answer_question(
             results=results,
             sources=(),
             latency_ms=latency_ms,
-            error_message=(
-                f"{type(exc).__name__}: {exc}"
-            )[:2000],
+            error_message=(f"{type(exc).__name__}: {exc}")[:2000],
         )
-        raise AnswerGenerationError(
-            "The grounded answer could not be generated."
-        ) from exc
+        raise AnswerGenerationError("The grounded answer could not be generated.") from exc

@@ -95,9 +95,7 @@ def test_user_cannot_delete_another_users_attempt(
     )
     client.force_login(user)
 
-    response = client.post(
-        reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk])
-    )
+    response = client.post(reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk]))
 
     assert response.status_code == 404
     assert AIRepositoryPracticeAttempt.objects.filter(pk=attempt.pk).exists()
@@ -110,9 +108,7 @@ def test_user_can_delete_own_attempt(client, user):
     )
     client.force_login(user)
 
-    response = client.post(
-        reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk])
-    )
+    response = client.post(reverse("evidence:ai_repository_attempt_delete", args=[attempt.pk]))
 
     assert response.status_code == 302
     assert not AIRepositoryPracticeAttempt.objects.filter(pk=attempt.pk).exists()
@@ -156,4 +152,3 @@ def test_practice_outcome_labels(user):
 
     assert completed.outcome_label == "Completed and verified"
     assert partial.outcome_label == "Partially completed"
-

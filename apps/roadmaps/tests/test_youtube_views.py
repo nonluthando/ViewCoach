@@ -10,16 +10,13 @@ from apps.roadmaps.youtube_client import (
 )
 from apps.roadmaps.youtube_services import create_youtube_roadmap
 
-
 pytestmark = pytest.mark.django_db
 
 
 def build_preview():
     return PlaylistPreview(
         playlist_id="PL1234567890ABC",
-        source_url=(
-            "https://www.youtube.com/playlist?list=PL1234567890ABC"
-        ),
+        source_url=("https://www.youtube.com/playlist?list=PL1234567890ABC"),
         title="Spring Boot Course",
         description="",
         channel_title="Example Channel",
@@ -81,7 +78,7 @@ def test_user_can_preview_and_import_playlist(client, monkeypatch):
     )
     assert preview_response.status_code == 200
     assert "Spring Boot Course" in preview_response.content.decode()
-    assert "Create roadmap" in preview_response.content.decode()
+    assert "Create YouTube roadmap" in preview_response.content.decode()
 
     create_response = client.post(
         reverse("roadmaps:youtube_import_confirm"),
@@ -112,7 +109,7 @@ def test_mark_watched_moves_to_next_video(client):
 
     assert response.status_code == 302
     assert response.url == reverse(
-        "roadmaps:topic_detail",
+        "roadmaps:youtube_video_detail",
         kwargs={
             "slug": source.roadmap.slug,
             "topic_id": videos[1].topic_id,

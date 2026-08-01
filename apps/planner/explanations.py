@@ -15,9 +15,7 @@ def candidate_explanation(scored_candidate, *, max_reasons=3):
         key=lambda component: (-component.points, component.key),
     )
     explanations = [
-        component.explanation
-        for component in ordered_components
-        if component.points > 0
+        component.explanation for component in ordered_components if component.points > 0
     ][:max_reasons]
 
     candidate = scored_candidate.candidate
