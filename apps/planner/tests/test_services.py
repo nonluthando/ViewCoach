@@ -157,8 +157,8 @@ def test_completed_roadmap_topic_is_skipped(user):
     assert recommendation.topic == second_topic
 
 
-def test_large_budget_caps_topics_and_deepens_existing_blocks(user):
-    roadmap, _, _ = _active_roadmap(user)
+def test_large_budget_keeps_one_topic_and_deepens_its_block(user):
+    roadmap, first_topic, _ = _active_roadmap(user)
     section = roadmap.sections.get()
     for position in range(3, 9):
         RoadmapTopic.objects.create(
@@ -173,9 +173,10 @@ def test_large_budget_caps_topics_and_deepens_existing_blocks(user):
     roadmap_recommendations = list(
         plan.recommendations.filter(kind=StudyRecommendation.Kind.ROADMAP)
     )
-    assert len(roadmap_recommendations) == 2
-    assert all(recommendation.estimated_minutes >= 45 for recommendation in roadmap_recommendations)
-    assert any(recommendation.estimated_minutes > 45 for recommendation in roadmap_recommendations)
+
+    assert len(roadmap_recommendations) == 1
+    assert roadmap_recommendations[0].topic == first_topic
+    assert roadmap_recommendations[0].estimated_minutes > 45
     assert plan.time_budget_minutes == 720
     assert plan_summary(plan=plan)["estimated_minutes"] <= 720
 
