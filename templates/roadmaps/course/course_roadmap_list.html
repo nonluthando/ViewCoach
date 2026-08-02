@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Course roadmaps | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<section class="section-hub-header">
+    <p class="eyebrow">Learn · Course roadmaps</p>
+    <h1>Keep external courses structured.</h1>
+    <p>
+        Import course outlines, continue where you stopped and use the same
+        notes, question cards and planner as the rest of ViewCoach.
+    </p>
+    <a class="button" href="{% url 'roadmaps:ibm_course_import' %}">
+        Import IBM SkillsBuild course
+    </a>
+</section>
+
+<section class="roadmap-grid">
+    {% for item in course_roadmaps %}
+        <article class="roadmap-card">
+            <p class="eyebrow">
+                {{ item.course_source.get_provider_display }}
+            </p>
+            <h2>{{ item.roadmap.title }}</h2>
+            <p>{{ item.roadmap.description|truncatewords:30 }}</p>
+            <p>
+                {{ item.completed_count }} / {{ item.topic_count }} lessons
+                complete · {{ item.percentage }}%
+            </p>
+            <div class="roadmap-card-actions">
+                <a class="button"
+                   href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+                    Continue
+                </a>
+                <form method="post"
+                      action="{% url 'roadmaps:course_focus' item.roadmap.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next"
+                           value="{% url 'roadmaps:course_list' %}">
+                    <input type="hidden" name="focused"
+                           value="{% if item.enrolment.is_focused %}false{% else %}true{% endif %}">
+                    <button class="button button-secondary" type="submit">
+                        {% if item.enrolment.is_focused %}
+                            Remove from planner
+                        {% else %}
+                            Add to planner
+                        {% endif %}
+                    </button>
+                </form>
+                <form method="post"
+                      action="{% url 'roadmaps:course_delete' item.roadmap.slug %}">
+                    {% csrf_token %}
+                    <button class="button button-secondary" type="submit">
+                        Remove
+                    </button>
+                </form>
+            </div>
+        </article>
+    {% empty %}
+        <div class="topic-empty-state">
+            <h2>No course roadmaps yet</h2>
+            <p>Import a public IBM SkillsBuild course to begin.</p>
+        </div>
+    {% endfor %}
+</section>
+{% endblock %}

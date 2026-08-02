@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Import IBM course | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>Import IBM SkillsBuild</span>
+</nav>
+
+<section class="form-card">
+    <p class="eyebrow">IBM SkillsBuild</p>
+    <h1>Import a public course page</h1>
+    <p class="lead">
+        ViewCoach extracts the public metadata and lets you correct the
+        outline before saving it.
+    </p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="form-field">
+            {{ form.course_url.label_tag }}
+            {{ form.course_url }}
+            {{ form.course_url.errors }}
+        </div>
+        <button class="button" type="submit">Preview course</button>
+    </form>
+</section>
+{% endblock %}

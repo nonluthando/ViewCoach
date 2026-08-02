@@ -5,6 +5,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from .models import (
+    ExternalCourseRoadmap,
     Roadmap,
     UserRoadmap,
     UserTopicProgress,
@@ -315,3 +316,49 @@ def grouped_youtube_roadmap_cards(*, user):
             }
         )
     return result
+
+def course_roadmap_cards(*, user):
+    sources = list(
+        ExternalCourseRoadmap.objects.filter(
+            user=user,
+            roadmap__learning_format=Roadmap.LearningFormat.COURSE,
+            roadmap__is_published=True,
+        )
+        .select_related("roadmap")
+        .prefetch_related("roadmap__sections__topics")
+        .order_by("-updated_at", "-pk")
+    )
+    rows = _roadmap_card_rows(
+        user=user,
+        roadmaps=[source.roadmap for source in sources],
+    )
+    source_by_roadmap = {source.roadmap_id: source for source in sources}
+    for row in rows:
+        row["course_source"] = source_by_roadmap[row["roadmap"].pk]
+    return rows
+
+
+@transaction.atomic
+def set_course_roadmap_focus(*, user, source, focused):
+    locked = (
+        ExternalCourseRoadmap.objects.select_for_update()
+        .select_related("roadmap")
+        .get(pk=source.pk, user=user)
+    )
+    enrolment, _ = UserRoadmap.objects.get_or_create(
+        user=user,
+        roadmap=locked.roadmap,
+    )
+    enrolment.is_focused = bool(focused)
+    if focused and enrolment.status == UserRoadmap.Status.NOT_STARTED:
+        enrolment.status = UserRoadmap.Status.IN_PROGRESS
+        enrolment.started_at = enrolment.started_at or timezone.now()
+    enrolment.save(
+        update_fields=[
+            "is_focused",
+            "status",
+            "started_at",
+            "updated_at",
+        ]
+    )
+    return enrolment

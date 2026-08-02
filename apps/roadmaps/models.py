@@ -15,6 +15,10 @@ class Roadmap(models.Model):
         IBM = "IBM", "IBM SkillsBuild"
         CUSTOM = "CUSTOM", "Custom import"
 
+    class LearningFormat(models.TextChoices):
+        COURSE = "COURSE", "Course"
+        VIDEO = "VIDEO", "Video"
+
     title = models.CharField(max_length=140)
     slug = models.SlugField(max_length=160, unique=True)
     description = models.TextField(blank=True)
@@ -23,6 +27,11 @@ class Roadmap(models.Model):
         max_length=20,
         choices=Source.choices,
         default=Source.VIEWCOACH,
+    )
+    learning_format = models.CharField(
+        max_length=12,
+        choices=LearningFormat.choices,
+        default=LearningFormat.COURSE,
     )
     position = models.PositiveIntegerField(default=0)
     is_system = models.BooleanField(default=True)
@@ -76,6 +85,8 @@ class RoadmapTopic(models.Model):
     title = models.CharField(max_length=160)
     slug = models.SlugField(max_length=180)
     description = models.TextField(blank=True)
+    external_url = models.URLField(max_length=500, blank=True)
+    estimated_minutes = models.PositiveIntegerField(null=True, blank=True)
     position = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -196,6 +207,50 @@ class UserTopicResource(models.Model):
         return f"{self.user}: {self.topic} — {self.title}"
 
 
+class ExternalCourseRoadmap(models.Model):
+    class Provider(models.TextChoices):
+        IBM_SKILLSBUILD = "IBM_SKILLSBUILD", "IBM SkillsBuild"
+        OTHER = "OTHER", "Other provider"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="external_course_roadmaps",
+    )
+    roadmap = models.OneToOneField(
+        Roadmap,
+        on_delete=models.CASCADE,
+        related_name="external_course",
+    )
+    provider = models.CharField(max_length=24, choices=Provider.choices)
+    source_url = models.URLField(max_length=500)
+    external_key = models.CharField(max_length=220, blank=True)
+    language = models.CharField(max_length=80, blank=True)
+    thumbnail_url = models.URLField(max_length=500, blank=True)
+    total_duration_minutes = models.PositiveIntegerField(default=0)
+    last_synced_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "provider", "source_url"],
+                name="unique_user_external_course_url",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "provider", "-updated_at"],
+                name="course_user_provider_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.roadmap.title}"
+
+
 class YouTubeRoadmapGroup(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -290,7 +345,11 @@ class YouTubePlaylistRoadmap(models.Model):
         super().save(*args, **kwargs)
         Roadmap.objects.filter(pk=self.roadmap_id).exclude(
             source=Roadmap.Source.YOUTUBE,
-        ).update(source=Roadmap.Source.YOUTUBE)
+            learning_format=Roadmap.LearningFormat.VIDEO,
+        ).update(
+            source=Roadmap.Source.YOUTUBE,
+            learning_format=Roadmap.LearningFormat.VIDEO,
+        )
 
     def __str__(self):
         return f"{self.user}: {self.roadmap.title}"
