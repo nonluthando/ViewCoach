@@ -42,6 +42,8 @@ def preserve_current_learning_choices(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
     dependencies = [
         ("roadmaps", "0004_roadmap_source"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
@@ -129,5 +131,6 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             preserve_current_learning_choices,
             migrations.RunPython.noop,
+            atomic=True,
         ),
     ]

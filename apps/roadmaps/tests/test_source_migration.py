@@ -5,8 +5,19 @@ from django.db.migrations.executor import MigrationExecutor
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-MIGRATE_FROM = [("roadmaps", "0003_youtube_playlist_roadmaps")]
-MIGRATE_TO = [("roadmaps", "0004_roadmap_source")]
+ACCOUNTS_NEED_TYPES = (
+    "accounts",
+    "0002_user_primary_need_type_user_secondary_need_type",
+)
+
+MIGRATE_FROM = [
+    ACCOUNTS_NEED_TYPES,
+    ("roadmaps", "0003_youtube_playlist_roadmaps"),
+]
+MIGRATE_TO = [
+    ACCOUNTS_NEED_TYPES,
+    ("roadmaps", "0004_roadmap_source"),
+]
 
 
 def test_roadmap_source_backfill_preserves_existing_records():

@@ -63,5 +63,5 @@ def test_account_menu_contains_secondary_actions(client, user):
     assert "Open account menu" in html
     assert f'href="{reverse("questions:import_history")}"' in html
     assert "Help centre" in html
-    assert "Settings" in html
+    assert "Preparation aims" in html
     assert "Log out" in html
