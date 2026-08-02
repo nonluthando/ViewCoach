@@ -9,6 +9,8 @@ MAX_REVIEW_GROUPS = 3
 PRACTICE_BLOCK_MINUTES = 15
 PRACTICE_BLOCK_MAX_MINUTES = 45
 WEAK_AREA_BLOCK_MINUTES = 15
+STAR_BLOCK_MINUTES = 15
+READINESS_BLOCK_MINUTES = 20
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,7 @@ class DailyPlanPolicy:
     practice_target_minutes: int
     max_practice_blocks: int
     max_weak_area_blocks: int
+    max_readiness_blocks: int = 0
 
 
 def _round_down_to_five(minutes):
@@ -63,7 +66,34 @@ def _review_target_minutes(*, time_budget_minutes, due_count):
     return min(time_budget_minutes, review_demand, review_ceiling)
 
 
-def plan_policy_for_budget(*, time_budget_minutes, due_count):
+def _need_adjusted_roadmap_limit(*, limit, budget, primary_need_type):
+    if primary_need_type == "PRACTISE_RETAIN":
+        return min(limit, 1 if budget < 240 else 2)
+    if primary_need_type == "INTERVIEW_SKILLS":
+        return min(limit, 1 if budget < 180 else 2)
+    return limit
+
+
+def _need_adjusted_practice_minutes(*, minutes, budget, primary_need_type):
+    if budget < 30:
+        return 0
+    if primary_need_type == "PRACTISE_RETAIN":
+        return max(minutes, _round_down_to_five(budget * 40 // 100))
+    if primary_need_type == "INTERVIEW_SKILLS":
+        return max(minutes, _round_down_to_five(budget * 25 // 100))
+    if primary_need_type == "LEARN_ORGANISE":
+        learning_ceiling = max(15, _round_down_to_five(budget * 15 // 100))
+        return min(minutes, learning_ceiling)
+    return minutes
+
+
+def plan_policy_for_budget(
+    *,
+    time_budget_minutes,
+    due_count,
+    primary_need_type="",
+    secondary_need_type="",
+):
     budget = max(1, int(time_budget_minutes))
     review_target = _review_target_minutes(
         time_budget_minutes=budget,
@@ -72,6 +102,11 @@ def plan_policy_for_budget(*, time_budget_minutes, due_count):
     minutes_after_review = max(0, budget - review_target)
 
     band_roadmap_limit = _roadmap_limit_for_budget(budget)
+    band_roadmap_limit = _need_adjusted_roadmap_limit(
+        limit=band_roadmap_limit,
+        budget=budget,
+        primary_need_type=primary_need_type,
+    )
     roadmap_limit_that_fits = min(
         band_roadmap_limit,
         minutes_after_review // ROADMAP_BLOCK_MINUTES,
@@ -79,6 +114,11 @@ def plan_policy_for_budget(*, time_budget_minutes, due_count):
     minimum_learning_minutes = roadmap_limit_that_fits * ROADMAP_BLOCK_MINUTES
 
     desired_practice = _desired_practice_minutes(budget)
+    desired_practice = _need_adjusted_practice_minutes(
+        minutes=desired_practice,
+        budget=budget,
+        primary_need_type=primary_need_type,
+    )
     practice_room = max(0, minutes_after_review - minimum_learning_minutes)
     practice_target = min(desired_practice, practice_room)
 
@@ -89,6 +129,19 @@ def plan_policy_for_budget(*, time_budget_minutes, due_count):
     else:
         max_practice_blocks = 3
 
+    interview_is_selected = "INTERVIEW_SKILLS" in {
+        primary_need_type,
+        secondary_need_type,
+    }
+    if budget < 30:
+        max_readiness_blocks = 0
+    elif primary_need_type == "INTERVIEW_SKILLS" and budget >= 90:
+        max_readiness_blocks = 2
+    elif interview_is_selected or budget >= 60:
+        max_readiness_blocks = 1
+    else:
+        max_readiness_blocks = 0
+
     return DailyPlanPolicy(
         time_budget_minutes=budget,
         review_target_minutes=review_target,
@@ -97,4 +150,5 @@ def plan_policy_for_budget(*, time_budget_minutes, due_count):
         practice_target_minutes=practice_target,
         max_practice_blocks=max_practice_blocks,
         max_weak_area_blocks=2 if budget >= 240 else 1,
+        max_readiness_blocks=max_readiness_blocks,
     )

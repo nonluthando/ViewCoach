@@ -8,9 +8,13 @@ from enum import StrEnum
 
 class CandidateKind(StrEnum):
     REVIEW = "REVIEW"
+    STAR = "STAR"
     ROADMAP = "ROADMAP"
     WEAK_AREA = "WEAK_AREA"
     PRACTICE = "PRACTICE"
+    EVIDENCE = "EVIDENCE"
+    GUIDE = "GUIDE"
+    MOCK = "MOCK"
     LIBRARY = "LIBRARY"
 
 
@@ -32,6 +36,10 @@ class PlanCandidate:
     supports_primary_goal: bool = False
     continues_in_progress_work: bool = False
     deadline_days: int | None = None
+    aim_alignment_bonus: int = 0
+    aim_alignment_explanation: str = ""
+    action_path: str = ""
+    is_required: bool = False
 
     description: str = ""
     rationale: str = ""

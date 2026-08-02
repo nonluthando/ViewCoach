@@ -77,9 +77,13 @@ class StudyPlan(models.Model):
 class StudyRecommendation(models.Model):
     class Kind(models.TextChoices):
         REVIEW = "REVIEW", "Due review"
+        STAR = "STAR", "Daily STAR practice"
         ROADMAP = "ROADMAP", "Roadmap"
         WEAK_AREA = "WEAK_AREA", "Weak area"
         PRACTICE = "PRACTICE", "Practice"
+        EVIDENCE = "EVIDENCE", "Evidence bank"
+        GUIDE = "GUIDE", "Built-in guide"
+        MOCK = "MOCK", "Mock interview"
         LIBRARY = "LIBRARY", "Question library"
 
     plan = models.ForeignKey(
@@ -108,6 +112,8 @@ class StudyRecommendation(models.Model):
         null=True,
         blank=True,
     )
+    action_path = models.CharField(max_length=500, blank=True)
+    is_required = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -128,15 +134,24 @@ class StudyRecommendation(models.Model):
     def action_label(self):
         labels = {
             self.Kind.REVIEW: "Start reviews",
+            self.Kind.STAR: "Open STAR practice",
             self.Kind.ROADMAP: "Open topic",
             self.Kind.WEAK_AREA: "Revisit question",
             self.Kind.PRACTICE: "Open practice question",
-            self.Kind.LIBRARY: ("Open question" if self.question_id else "Open question library"),
+            self.Kind.EVIDENCE: "Open evidence bank",
+            self.Kind.GUIDE: "Open guide",
+            self.Kind.MOCK: "Open mock interview",
+            self.Kind.LIBRARY: (
+                "Open question" if self.question_id else "Open question library"
+            ),
         }
         return labels[self.kind]
 
     @property
     def action_url(self):
+        if self.action_path:
+            return self.action_path
+
         if self.kind == self.Kind.REVIEW:
             if self.question_id:
                 return reverse("reviews:review", args=[self.question_id])

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
 
+from apps.accounts.needs import need_alignment_for_kind
+from apps.evidence.models import BehaviouralStory, EvidenceItem
 from apps.goals.models import InterviewGoal
+from apps.interviews.models import MockInterview
 from apps.questions.models import Question, TechnicalQuestion
 from apps.reviews.models import ReviewAttempt
 from apps.reviews.services import due_review_states
@@ -23,7 +27,9 @@ from .policies import (
     PRACTICE_BLOCK_MINUTES,
     REVIEW_MINUTES_PER_QUESTION,
     ROADMAP_BLOCK_MAX_MINUTES,
+    READINESS_BLOCK_MINUTES,
     ROADMAP_BLOCK_MINUTES,
+    STAR_BLOCK_MINUTES,
     WEAK_AREA_BLOCK_MINUTES,
     DailyPlanPolicy,
     plan_policy_for_budget,
@@ -454,6 +460,234 @@ def _build_practice_candidates(
         )
 
 
+def _daily_star_candidate(*, user, time_budget_minutes):
+    duration = min(STAR_BLOCK_MINUTES, max(1, int(time_budget_minutes)))
+    evidence_items = list(
+        EvidenceItem.objects.filter(owner=user).order_by("updated_at", "pk")
+    )
+    stories = list(
+        BehaviouralStory.objects.filter(evidence__owner=user)
+        .select_related("evidence")
+        .order_by("updated_at", "pk")
+    )
+
+    if not evidence_items:
+        title = "Create evidence for today's STAR story"
+        description = (
+            "Capture one real project, work or leadership example that can "
+            "become a behavioural interview story."
+        )
+        action_path = reverse("evidence:create")
+        source = "create-evidence"
+        source_ids = (user.pk,)
+    elif not stories:
+        title = "Create today's STAR story"
+        description = (
+            "Turn one evidence item into a structured situation, task, "
+            "action and result answer."
+        )
+        action_path = reverse("evidence:behavioural_story_create")
+        source = "create-story"
+        source_ids = (evidence_items[0].pk,)
+    else:
+        story = min(
+            stories,
+            key=lambda item: (
+                item.is_interview_ready,
+                item.completed_interview_sections,
+                item.updated_at,
+                item.pk,
+            ),
+        )
+        action_path = reverse(
+            "evidence:behavioural_story_edit",
+            args=[story.pk],
+        )
+        source_ids = (story.pk,)
+        if story.is_interview_ready:
+            title = f"Practise STAR story: {story.title}"
+            description = (
+                "Answer this story aloud without reading, then tighten the "
+                "result and likely follow-up responses."
+            )
+            source = "rehearse-story"
+        else:
+            missing = ", ".join(story.missing_interview_sections[:2])
+            title = f"Strengthen STAR story: {story.title}"
+            description = (
+                f"Complete the missing interview-ready sections: {missing}."
+            )
+            source = "strengthen-story"
+
+    return PlanCandidate(
+        candidate_id=stable_candidate_id(
+            kind=CandidateKind.STAR,
+            source=source,
+            source_ids=source_ids,
+        ),
+        kind=CandidateKind.STAR,
+        title=title,
+        estimated_minutes=duration,
+        context_key="interview:star",
+        action_path=action_path,
+        is_required=True,
+        description=description,
+        rationale=(
+            "STAR practice is a daily non-negotiable so behavioural "
+            "preparation cannot be postponed indefinitely."
+        ),
+    )
+
+
+def _evidence_candidate(*, user):
+    evidence_items = list(
+        EvidenceItem.objects.filter(owner=user).order_by("updated_at", "pk")
+    )
+    if not evidence_items:
+        return PlanCandidate(
+            candidate_id=f"evidence:create:{user.pk}",
+            kind=CandidateKind.EVIDENCE,
+            title="Start your evidence bank",
+            estimated_minutes=READINESS_BLOCK_MINUTES,
+            context_key="interview:evidence",
+            action_path=reverse("evidence:create"),
+            description=(
+                "Capture one project, work, coursework or leadership example "
+                "with your personal contribution and outcome."
+            ),
+        )
+
+    incomplete = next(
+        (
+            item
+            for item in evidence_items
+            if not item.summary.strip()
+            or not item.personal_contribution.strip()
+            or not item.outcomes.strip()
+        ),
+        None,
+    )
+    if incomplete is not None:
+        return PlanCandidate(
+            candidate_id=f"evidence:strengthen:{incomplete.pk}",
+            kind=CandidateKind.EVIDENCE,
+            title=f"Strengthen evidence: {incomplete.title}",
+            estimated_minutes=READINESS_BLOCK_MINUTES,
+            context_key="interview:evidence",
+            action_path=reverse("evidence:edit", args=[incomplete.pk]),
+            description=(
+                "Add the missing context, personal contribution and "
+                "measurable outcome so this example is interview-ready."
+            ),
+        )
+
+    return PlanCandidate(
+        candidate_id=f"evidence:review-pack:{user.pk}",
+        kind=CandidateKind.EVIDENCE,
+        title="Review your interview evidence pack",
+        estimated_minutes=READINESS_BLOCK_MINUTES,
+        context_key="interview:evidence",
+        action_path=reverse("evidence:interview_pack"),
+        description=(
+            "Check that your strongest examples cover the competencies and "
+            "technical decisions you are likely to discuss."
+        ),
+    )
+
+
+def _guide_candidate(*, user, plan_date):
+    guides = (
+        (
+            "General interview playbook",
+            "Review the built-in structure for clear, evidence-based answers.",
+            reverse("evidence:general_interview_playbook"),
+        ),
+        (
+            "Responsible AI-use guide",
+            "Prepare to explain how you use AI while preserving judgment and verification.",
+            reverse("evidence:ai_coding_prep"),
+        ),
+        (
+            "AI repository-task playbook",
+            "Review the workflow for debugging, testing and explaining AI-assisted changes.",
+            reverse("evidence:ai_repository_playbook"),
+        ),
+    )
+    index = (plan_date.toordinal() + (user.pk or 0)) % len(guides)
+    title, description, action_path = guides[index]
+    return PlanCandidate(
+        candidate_id=f"guide:{index}:{plan_date.isoformat()}",
+        kind=CandidateKind.GUIDE,
+        title=f"Review guide: {title}",
+        estimated_minutes=READINESS_BLOCK_MINUTES,
+        context_key="interview:guide",
+        action_path=action_path,
+        description=description,
+    )
+
+
+def _mock_candidate(*, user):
+    active = (
+        MockInterview.objects.filter(
+            user=user,
+            status__in=[
+                MockInterview.Status.READY,
+                MockInterview.Status.IN_PROGRESS,
+            ],
+        )
+        .order_by("-updated_at", "-pk")
+        .first()
+    )
+    if active is not None:
+        return PlanCandidate(
+            candidate_id=f"mock:continue:{active.pk}",
+            kind=CandidateKind.MOCK,
+            title="Continue your mock interview",
+            estimated_minutes=max(15, min(30, active.duration_minutes)),
+            context_key="interview:mock",
+            action_path=active.get_absolute_url(),
+            description=(
+                "Finish the interview you already started before creating "
+                "another practice session."
+            ),
+        )
+
+    return PlanCandidate(
+        candidate_id=f"mock:create:{user.pk}",
+        kind=CandidateKind.MOCK,
+        title="Run a focused mock interview",
+        estimated_minutes=READINESS_BLOCK_MINUTES,
+        context_key="interview:mock",
+        action_path=reverse("interviews:create"),
+        description=(
+            "Create a short mock that turns stored knowledge and evidence "
+            "into spoken interview performance."
+        ),
+    )
+
+
+def _build_readiness_candidates(
+    *,
+    user,
+    plan_date,
+    time_budget_minutes,
+    candidates,
+):
+    candidates.append(
+        _daily_star_candidate(
+            user=user,
+            time_budget_minutes=time_budget_minutes,
+        )
+    )
+    candidates.extend(
+        [
+            _evidence_candidate(user=user),
+            _guide_candidate(user=user, plan_date=plan_date),
+            _mock_candidate(user=user),
+        ]
+    )
+
+
 def _build_library_candidate(
     *,
     user,
@@ -461,7 +695,14 @@ def _build_library_candidate(
     candidates,
     question_by_id,
 ):
-    if candidates:
+    content_kinds = {
+        CandidateKind.REVIEW,
+        CandidateKind.ROADMAP,
+        CandidateKind.WEAK_AREA,
+        CandidateKind.PRACTICE,
+        CandidateKind.LIBRARY,
+    }
+    if any(candidate.kind in content_kinds for candidate in candidates):
         return
 
     incomplete_question = (
@@ -519,6 +760,26 @@ def _build_library_candidate(
     )
 
 
+def _apply_need_alignment(*, user, candidates):
+    aligned_candidates = []
+
+    for candidate in candidates:
+        bonus, explanation = need_alignment_for_kind(
+            primary=user.primary_need_type,
+            secondary=user.secondary_need_type,
+            kind=candidate.kind.value,
+        )
+        aligned_candidates.append(
+            replace(
+                candidate,
+                aim_alignment_bonus=bonus,
+                aim_alignment_explanation=explanation,
+            )
+        )
+
+    return aligned_candidates
+
+
 def build_plan_candidates(
     *,
     user,
@@ -530,6 +791,8 @@ def build_plan_candidates(
     policy = plan_policy_for_budget(
         time_budget_minutes=time_budget_minutes,
         due_count=len(due_states),
+        primary_need_type=user.primary_need_type,
+        secondary_need_type=user.secondary_need_type,
     )
     goal = _primary_goal(user=user)
 
@@ -537,6 +800,12 @@ def build_plan_candidates(
     question_by_id = {}
     topic_by_id = {}
 
+    _build_readiness_candidates(
+        user=user,
+        plan_date=plan_date,
+        time_budget_minutes=time_budget_minutes,
+        candidates=candidates,
+    )
     due_question_ids = _build_review_candidates(
         due_states=due_states,
         policy=policy,
@@ -577,8 +846,13 @@ def build_plan_candidates(
         question_by_id=question_by_id,
     )
 
+    aligned_candidates = _apply_need_alignment(
+        user=user,
+        candidates=candidates,
+    )
+
     return CandidateBuildResult(
-        candidates=tuple(candidates),
+        candidates=tuple(aligned_candidates),
         policy=policy,
         question_by_id=question_by_id,
         topic_by_id=topic_by_id,
@@ -657,6 +931,8 @@ def recommendation_payloads_from_selection(
             "rationale": candidate_explanation(scored_candidate),
             "estimated_minutes": candidate.estimated_minutes,
             "priority_score": BASE_SCORE_BY_KIND[candidate.kind],
+            "action_path": candidate.action_path,
+            "is_required": candidate.is_required,
         }
         if first_question_id is not None:
             payload["question"] = build_result.question_by_id[first_question_id]

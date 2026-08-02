@@ -90,7 +90,7 @@ def test_due_reviews_receive_highest_priority(user):
     assert plan_summary(plan=plan)["estimated_minutes"] <= 30
 
 
-def test_short_budget_with_due_reviews_stays_review_only(user):
+def test_short_budget_includes_reviews_and_daily_star(user):
     now = timezone.now()
     _ready_question(user)
     TechnicalQuestion.objects.create(
@@ -109,7 +109,10 @@ def test_short_budget_with_due_reviews_stays_review_only(user):
     )
 
     kinds = set(plan.recommendations.values_list("kind", flat=True))
-    assert kinds == {StudyRecommendation.Kind.REVIEW}
+    assert kinds == {
+        StudyRecommendation.Kind.REVIEW,
+        StudyRecommendation.Kind.STAR,
+    }
 
 
 def test_due_reviews_are_grouped_by_topic(user):
@@ -256,7 +259,9 @@ def test_fresh_built_in_question_is_used_for_practice(user):
 def test_empty_account_gets_question_library_starting_task(user):
     plan = generate_daily_plan(user=user, time_budget_minutes=30)
 
-    recommendation = plan.recommendations.get()
+    recommendation = plan.recommendations.get(
+        kind=StudyRecommendation.Kind.LIBRARY
+    )
     assert recommendation.kind == StudyRecommendation.Kind.LIBRARY
     assert recommendation.title == "Add one interview question"
 
@@ -279,24 +284,23 @@ def test_force_regeneration_replaces_recommendations_and_budget(user):
 
 def test_toggling_all_recommendations_completes_plan(user):
     plan = generate_daily_plan(user=user, time_budget_minutes=30)
-    recommendation = plan.recommendations.get()
-
-    updated = toggle_recommendation_completion(
-        recommendation=recommendation,
-    )
+    recommendations = list(plan.recommendations.all())
+    for recommendation in recommendations:
+        toggle_recommendation_completion(recommendation=recommendation)
     plan.refresh_from_db()
 
-    assert updated.completed_at is not None
     assert plan.status == StudyPlan.Status.COMPLETED
 
-    toggle_recommendation_completion(recommendation=updated)
+    updated = toggle_recommendation_completion(
+        recommendation=recommendations[0]
+    )
     plan.refresh_from_db()
     assert plan.status == StudyPlan.Status.ACTIVE
 
 
 def test_study_session_start_is_idempotent_and_finish_records_progress(user):
     plan = generate_daily_plan(user=user, time_budget_minutes=30)
-    recommendation = plan.recommendations.get()
+    recommendation = plan.recommendations.first()
     toggle_recommendation_completion(recommendation=recommendation)
 
     first_session, created = start_study_session(plan=plan)

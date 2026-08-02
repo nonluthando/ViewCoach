@@ -300,3 +300,12 @@
         grid-template-columns: 1fr;
     }
 }
+
+.planner-required-badge {
+    padding: 0.2rem 0.45rem;
+    border: 1px solid currentColor;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}

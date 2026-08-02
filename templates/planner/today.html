@@ -52,6 +52,9 @@
                     <article>
                         <div class="planner-recommendation-meta">
                             <span class="planner-kind planner-kind-{{ recommendation.kind|lower }}">{{ recommendation.get_kind_display }}</span>
+                            {% if recommendation.is_required %}
+                                <span class="planner-required-badge">Required today</span>
+                            {% endif %}
                             <span>{{ recommendation.estimated_minutes }} min</span>
                         </div>
                         <h2>{{ recommendation.title }}</h2>
@@ -97,7 +100,7 @@
                 <button class="button button-secondary button-full" type="submit">Rebuild today’s plan</button>
             </form>
             <p class="planner-settings-note">
-                Rebuilding uses deterministic priorities and scales the number of roadmap, weak-area and practice tasks to the time you enter. Due reviews still come first.
+                Rebuilding keeps daily STAR work, due reviews and your selected aims in view, then scales roadmap, readiness and practice blocks to the time you enter.
             </p>
         </section>
 
@@ -106,9 +109,10 @@
             <h2 id="planner-principles-heading">Priority order</h2>
             <ol>
                 <li>Time-sensitive due reviews</li>
-                <li>The next unfinished roadmap topic</li>
-                <li>Recent Again or Hard reviews</li>
-                <li>A fresh practice question</li>
+                <li>Daily STAR-story preparation</li>
+                <li>Tasks aligned with your primary and secondary aims</li>
+                <li>The next unfinished focused-roadmap topic</li>
+                <li>Weak areas, evidence, guides and mock practice</li>
             </ol>
         </section>
     </aside>

@@ -45,6 +45,7 @@ class _SelectionState:
         self.topic_count_by_roadmap = defaultdict(int)
         self.practice_blocks = 0
         self.weak_area_blocks = 0
+        self.readiness_blocks = 0
         self.selected_ids = set()
         self.last_context_key = ""
 
@@ -95,6 +96,13 @@ def _constraint_failure(*, candidate, state, policy):
     ):
         return "daily weak-area limit reached"
 
+    if candidate.kind in {
+        CandidateKind.EVIDENCE,
+        CandidateKind.GUIDE,
+        CandidateKind.MOCK,
+    } and state.readiness_blocks >= policy.max_readiness_blocks:
+        return "daily interview-readiness limit reached"
+
     return ""
 
 
@@ -116,6 +124,12 @@ def _select(*, scored_candidate, state):
     elif candidate.kind == CandidateKind.WEAK_AREA:
         state.weak_area_blocks += 1
         state.practice_minutes += candidate.estimated_minutes
+    elif candidate.kind in {
+        CandidateKind.EVIDENCE,
+        CandidateKind.GUIDE,
+        CandidateKind.MOCK,
+    }:
+        state.readiness_blocks += 1
 
     state.last_context_key = candidate.effective_context_key
 
@@ -178,14 +192,38 @@ def select_candidates(*, candidates, policy, time_budget_minutes=None):
     selected = []
     rejected = []
 
-    review_candidates = [item for item in ranked if item.candidate.kind == CandidateKind.REVIEW]
-    roadmap_candidates = [item for item in ranked if item.candidate.kind == CandidateKind.ROADMAP]
+    required_candidates = [
+        item for item in ranked if item.candidate.is_required
+    ]
+    review_candidates = [
+        item
+        for item in ranked
+        if item.candidate.kind == CandidateKind.REVIEW
+        and not item.candidate.is_required
+    ]
+    roadmap_candidates = [
+        item
+        for item in ranked
+        if item.candidate.kind == CandidateKind.ROADMAP
+        and not item.candidate.is_required
+    ]
     remaining_candidates = [
         item
         for item in ranked
-        if item.candidate.kind not in {CandidateKind.REVIEW, CandidateKind.ROADMAP}
+        if not item.candidate.is_required
+        and item.candidate.kind not in {
+            CandidateKind.REVIEW,
+            CandidateKind.ROADMAP,
+        }
     ]
 
+    _choose_from_pass(
+        candidates=required_candidates,
+        state=state,
+        policy=policy,
+        selected=selected,
+        rejected=rejected,
+    )
     _choose_from_pass(
         candidates=review_candidates,
         state=state,
