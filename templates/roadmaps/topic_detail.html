@@ -5,7 +5,11 @@
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+        <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
+    {% else %}
+        <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% endif %}
     <span aria-hidden="true">/</span>
     <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
     <span aria-hidden="true">/</span>
@@ -22,7 +26,17 @@
             <p class="lead">Use this workspace to keep the material, links and notes for this topic together.</p>
         {% endif %}
     </div>
-    <a class="topic-back-link" href="{% url 'roadmaps:detail' roadmap.slug %}#topic-{{ topic.pk }}">Back to roadmap</a>
+    <div>
+        {% if topic.external_url %}
+            <a class="button" href="{{ topic.external_url }}"
+               target="_blank" rel="noopener noreferrer">
+                Open original lesson
+            </a>
+        {% endif %}
+        <a class="topic-back-link" href="{% url 'roadmaps:detail' roadmap.slug %}#topic-{{ topic.pk }}">
+            Back to roadmap
+        </a>
+    </div>
 </section>
 
 <div class="topic-workspace-layout">

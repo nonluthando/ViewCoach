@@ -5,14 +5,24 @@
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+        <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
+    {% else %}
+        <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% endif %}
     <span aria-hidden="true">/</span>
     <span>{{ roadmap.title }}</span>
 </nav>
 
 <section class="roadmap-detail-header source-detail-header">
     <div class="roadmap-detail-copy">
-        <span class="source-badge is-viewcoach">ViewCoach curriculum</span>
+        {% if roadmap.source == "IBM" %}
+            <span class="source-badge">IBM SkillsBuild course</span>
+        {% elif roadmap.source == "CUSTOM" %}
+            <span class="source-badge">Imported course</span>
+        {% else %}
+            <span class="source-badge is-viewcoach">ViewCoach curriculum</span>
+        {% endif %}
         <p class="eyebrow">{{ roadmap.get_kind_display }}</p>
         <h1>{{ roadmap.title }}</h1>
         <p class="lead">{{ roadmap.description }}</p>
@@ -26,17 +36,37 @@
         {% if user_roadmap %}
             <strong>{{ user_roadmap.get_status_display }}</strong>
         {% endif %}
-        <form method="post" action="{% url 'roadmaps:focus' roadmap.slug %}">
-            {% csrf_token %}
-            <input type="hidden" name="focused" value="{% if user_roadmap.is_focused %}false{% else %}true{% endif %}">
-            <button class="button{% if user_roadmap.is_focused %} button-secondary{% endif %}" type="submit">
-                {% if user_roadmap.is_focused %}
-                    Remove from focus
-                {% else %}
-                    Add to focus ({{ focused_count }}/{{ focused_limit }})
-                {% endif %}
-            </button>
-        </form>
+        {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+            <form method="post" action="{% url 'roadmaps:course_focus' roadmap.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'roadmaps:detail' roadmap.slug %}">
+                <input type="hidden" name="focused" value="{% if user_roadmap.is_focused %}false{% else %}true{% endif %}">
+                <button class="button{% if user_roadmap.is_focused %} button-secondary{% endif %}" type="submit">
+                    {% if user_roadmap.is_focused %}
+                        Remove from planner
+                    {% else %}
+                        Add to planner
+                    {% endif %}
+                </button>
+            </form>
+            <a class="button button-secondary"
+               href="{{ roadmap.external_course.source_url }}"
+               target="_blank" rel="noopener noreferrer">
+                Open original course
+            </a>
+        {% else %}
+            <form method="post" action="{% url 'roadmaps:focus' roadmap.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="focused" value="{% if user_roadmap.is_focused %}false{% else %}true{% endif %}">
+                <button class="button{% if user_roadmap.is_focused %} button-secondary{% endif %}" type="submit">
+                    {% if user_roadmap.is_focused %}
+                        Remove from focus
+                    {% else %}
+                        Add to focus ({{ focused_count }}/{{ focused_limit }})
+                    {% endif %}
+                </button>
+            </form>
+        {% endif %}
     </div>
 </section>
 

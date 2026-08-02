@@ -1,11 +1,36 @@
 from django.urls import path
 
-from . import views, youtube_views
+from . import course_views, views, youtube_views
 
 app_name = "roadmaps"
 
 urlpatterns = [
     path("", views.roadmap_list, name="list"),
+    path(
+        "courses/import/ibm/confirm/",
+        course_views.ibm_course_confirm,
+        name="ibm_course_confirm",
+    ),
+    path(
+        "courses/import/ibm/",
+        course_views.ibm_course_import,
+        name="ibm_course_import",
+    ),
+    path(
+        "courses/",
+        course_views.course_roadmap_list,
+        name="course_list",
+    ),
+    path(
+        "courses/<slug:slug>/focus/",
+        course_views.toggle_course_focus,
+        name="course_focus",
+    ),
+    path(
+        "courses/<slug:slug>/delete/",
+        course_views.delete_course_roadmap,
+        name="course_delete",
+    ),
     path(
         "youtube/groups/create/",
         youtube_views.create_youtube_group,
