@@ -8,19 +8,28 @@ from .candidates import CandidateKind, PlanCandidate
 
 BASE_SCORE_BY_KIND = {
     CandidateKind.REVIEW: 100,
+    CandidateKind.STAR: 95,
     CandidateKind.ROADMAP: 80,
     CandidateKind.WEAK_AREA: 70,
+    CandidateKind.EVIDENCE: 65,
+    CandidateKind.MOCK: 65,
+    CandidateKind.GUIDE: 55,
     CandidateKind.PRACTICE: 50,
     CandidateKind.LIBRARY: 20,
 }
 
 KIND_ORDER = {
     CandidateKind.REVIEW: 0,
-    CandidateKind.ROADMAP: 1,
-    CandidateKind.WEAK_AREA: 2,
-    CandidateKind.PRACTICE: 3,
-    CandidateKind.LIBRARY: 4,
+    CandidateKind.STAR: 1,
+    CandidateKind.ROADMAP: 2,
+    CandidateKind.WEAK_AREA: 3,
+    CandidateKind.PRACTICE: 4,
+    CandidateKind.EVIDENCE: 5,
+    CandidateKind.GUIDE: 6,
+    CandidateKind.MOCK: 7,
+    CandidateKind.LIBRARY: 8,
 }
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,10 +83,30 @@ def score_candidate(candidate):
             points=BASE_SCORE_BY_KIND[candidate.kind],
             explanation={
                 CandidateKind.REVIEW: "Due review work receives first priority.",
-                CandidateKind.ROADMAP: "Focused roadmap learning advances active study.",
-                CandidateKind.WEAK_AREA: "Recent difficulty makes this useful recovery work.",
-                CandidateKind.PRACTICE: "Fresh practice strengthens retrieval and application.",
-                CandidateKind.LIBRARY: "Library preparation supports later study sessions.",
+                CandidateKind.STAR: (
+                    "Daily STAR practice keeps behavioural preparation active."
+                ),
+                CandidateKind.ROADMAP: (
+                    "Focused roadmap learning advances active study."
+                ),
+                CandidateKind.WEAK_AREA: (
+                    "Recent difficulty makes this useful recovery work."
+                ),
+                CandidateKind.PRACTICE: (
+                    "Fresh practice strengthens retrieval and application."
+                ),
+                CandidateKind.EVIDENCE: (
+                    "A stronger evidence bank improves interview answers."
+                ),
+                CandidateKind.GUIDE: (
+                    "A built-in guide closes a preparation knowledge gap."
+                ),
+                CandidateKind.MOCK: (
+                    "Mock practice turns preparation into interview performance."
+                ),
+                CandidateKind.LIBRARY: (
+                    "Library preparation supports later study sessions."
+                ),
             }[candidate.kind],
         )
     ]
@@ -115,6 +144,15 @@ def score_candidate(candidate):
                 key="continuity",
                 points=8,
                 explanation="It continues work that is already in progress.",
+            )
+        )
+
+    if candidate.aim_alignment_bonus:
+        components.append(
+            ScoreComponent(
+                key="selected_aim",
+                points=candidate.aim_alignment_bonus,
+                explanation=candidate.aim_alignment_explanation,
             )
         )
 

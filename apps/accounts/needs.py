@@ -32,20 +32,27 @@ NEED_TYPE_EXPERIENCES = {
 }
 
 NEED_KIND_BONUSES = {
-    User.NeedType.LEARN_ORGANISE: {"ROADMAP": 15, "LIBRARY": 10},
+    User.NeedType.LEARN_ORGANISE: {
+        "ROADMAP": 30,
+        "LIBRARY": 20,
+        "GUIDE": 5,
+    },
     User.NeedType.PRACTISE_RETAIN: {
-        "REVIEW": 8,
-        "WEAK_AREA": 20,
-        "PRACTICE": 25,
-        "LIBRARY": 10,
+        "REVIEW": 15,
+        "WEAK_AREA": 30,
+        "PRACTICE": 35,
+        "LIBRARY": 20,
     },
     User.NeedType.INTERVIEW_SKILLS: {
-        "REVIEW": 5,
-        "WEAK_AREA": 10,
-        "PRACTICE": 35,
-        "LIBRARY": 8,
+        "REVIEW": 10,
+        "STAR": 40,
+        "EVIDENCE": 35,
+        "GUIDE": 25,
+        "MOCK": 35,
+        "PRACTICE": 20,
     },
 }
+
 
 
 def need_type_experience(value):

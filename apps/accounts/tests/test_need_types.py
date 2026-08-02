@@ -77,7 +77,7 @@ def test_primary_aim_adds_explainable_planner_bonus():
         kind="PRACTICE",
     )
 
-    assert points == 35
+    assert points == 20
     assert "Build interview skills" in explanation
 
 
@@ -88,5 +88,5 @@ def test_secondary_aim_uses_reduced_bonus():
         kind="LIBRARY",
     )
 
-    assert points == 15
+    assert points == 30
     assert "both" in explanation

@@ -59,7 +59,8 @@ def test_user_cannot_toggle_someone_elses_recommendation(
         user=other_user,
         time_budget_minutes=30,
     )
-    recommendation = other_plan.recommendations.get()
+    recommendation = other_plan.recommendations.order_by("pk").first()
+    assert recommendation is not None
     client.force_login(user)
 
     response = client.post(
@@ -95,5 +96,9 @@ def test_dashboard_surfaces_today_plan(client, user):
     response = client.get(reverse("dashboard"))
 
     assert response.status_code == 200
-    assert response.context["today_plan"]["total_count"] == 1
+    plan = StudyPlan.objects.get(user=user)
+    total_count = response.context["today_plan"]["total_count"]
+
+    assert total_count == plan.recommendations.count()
+    assert plan.recommendations.filter(is_required=True).exists()
     assert reverse("planner:today") in response.content.decode()

@@ -91,7 +91,14 @@ def optimise_candidates(
         raise ValueError("Candidate identifiers must be unique.")
 
     model = cp_model.CpModel()
-    selected_vars = [model.new_bool_var(f"candidate_{index}") for index in range(len(ranked))]
+    selected_vars = [
+        model.new_bool_var(f"candidate_{index}")
+        for index in range(len(ranked))
+    ]
+
+    for index, item in enumerate(ranked):
+        if item.candidate.is_required:
+            model.add(selected_vars[index] == 1)
 
     model.add(
         sum(
@@ -176,7 +183,24 @@ def optimise_candidates(
     ]
     if weak_indices:
         model.add(
-            sum(selected_vars[index] for index in weak_indices) <= policy.max_weak_area_blocks
+            sum(selected_vars[index] for index in weak_indices)
+            <= policy.max_weak_area_blocks
+        )
+
+    readiness_indices = [
+        index
+        for index, item in enumerate(ranked)
+        if item.candidate.kind
+        in {
+            CandidateKind.EVIDENCE,
+            CandidateKind.GUIDE,
+            CandidateKind.MOCK,
+        }
+    ]
+    if readiness_indices:
+        model.add(
+            sum(selected_vars[index] for index in readiness_indices)
+            <= policy.max_readiness_blocks
         )
 
     context_indices = _group_indices(
