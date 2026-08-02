@@ -20,7 +20,7 @@
         </div>
         <a href="{% url 'questions:import_history' %}">Imports</a>
         <a href="{% url 'knowledge:help_assistant' %}">Help centre</a>
-        <span class="app-account-disabled">Settings <small>Coming soon</small></span>
+        <a href="{% url 'need_type_preferences' %}">Preparation aims</a>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit">Log out</button>
