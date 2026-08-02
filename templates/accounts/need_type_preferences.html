@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Preparation aims | ViewCoach{% endblock %}
+
+{% block content %}
+<section class="form-card need-preferences-card">
+    <p class="eyebrow">Personalisation</p>
+    <h1>What should ViewCoach prioritise?</h1>
+    <p class="lead">
+        Your aims influence dashboard prompts and planner scoring. They do
+        not hide any part of ViewCoach.
+    </p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <div class="need-preferences-actions">
+            <button class="button" type="submit">Save aims</button>
+            <a class="button button-secondary" href="{% url 'dashboard' %}">
+                Cancel
+            </a>
+        </div>
+    </form>
+</section>
+{% endblock %}

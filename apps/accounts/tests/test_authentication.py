@@ -13,14 +13,17 @@ def test_user_can_register_and_is_logged_in(client):
             "email": "Tee@Example.COM",
             "first_name": "Tee",
             "last_name": "",
+            "primary_need_type": User.NeedType.LEARN_ORGANISE,
+            "secondary_need_type": "",
             "password1": "A-safe-test-password-123",
             "password2": "A-safe-test-password-123",
         },
     )
 
     assert response.status_code == 302
-    assert response.url == reverse("dashboard")
-    assert User.objects.filter(email="tee@example.com").exists()
+    assert response.url == reverse("roadmaps:list")
+    created_user = User.objects.get(email="tee@example.com")
+    assert created_user.primary_need_type == User.NeedType.LEARN_ORGANISE
 
     dashboard_response = client.get(reverse("dashboard"))
     assert dashboard_response.status_code == 200
@@ -36,6 +39,8 @@ def test_registration_rejects_email_that_only_differs_by_case(client):
             "email": "TEE@example.com",
             "first_name": "Another",
             "last_name": "User",
+            "primary_need_type": User.NeedType.PRACTISE_RETAIN,
+            "secondary_need_type": "",
             "password1": "A-safe-test-password-123",
             "password2": "A-safe-test-password-123",
         },

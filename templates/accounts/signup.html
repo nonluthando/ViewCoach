@@ -6,6 +6,10 @@
 <section class="form-card">
     <p class="eyebrow">Account</p>
     <h1>Create your account</h1>
+    <p class="lead">
+        Tell ViewCoach what you need most. This sets your starting hub and
+        helps the daily planner prioritise useful work.
+    </p>
     <form method="post" novalidate>
         {% csrf_token %}
         {{ form.non_field_errors }}

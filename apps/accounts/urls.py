@@ -2,10 +2,15 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import path
 
 from .forms import EmailAuthenticationForm
-from .views import SignUpView
+from .views import SignUpView, need_type_preferences
 
 urlpatterns = [
     path("signup/", SignUpView.as_view(), name="signup"),
+    path(
+        "preferences/",
+        need_type_preferences,
+        name="need_type_preferences",
+    ),
     path(
         "login/",
         LoginView.as_view(

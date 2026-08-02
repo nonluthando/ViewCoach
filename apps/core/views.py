@@ -3,6 +3,7 @@ from django.db import OperationalError, connection
 from django.http import JsonResponse
 from django.shortcuts import render
 
+from apps.accounts.needs import need_type_experience
 from apps.evidence.services import evidence_dashboard_summary
 from apps.goals.services import primary_goal_for_user, readiness_report
 from apps.planner.services import generate_daily_plan, plan_summary
@@ -44,6 +45,7 @@ def dashboard(request):
     primary_goal = primary_goal_for_user(user=request.user)
     readiness = readiness_report(goal=primary_goal) if primary_goal else None
     evidence_summary = evidence_dashboard_summary(user=request.user)
+    need_focus = need_type_experience(request.user.primary_need_type)
     viewcoach_groups = grouped_viewcoach_roadmap_cards(user=request.user)
     youtube_cards = youtube_roadmap_cards(user=request.user, favourites_only=True)
 
