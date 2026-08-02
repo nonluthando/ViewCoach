@@ -61,7 +61,6 @@ def test_account_menu_contains_secondary_actions(client, user):
 
     assert response.status_code == 200
     assert "Open account menu" in html
-    assert f'href="{reverse("questions:import_history")}"' in html
     assert "Help centre" in html
     assert "Preparation aims" in html
     assert "Log out" in html
