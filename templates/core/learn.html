@@ -34,6 +34,17 @@
             Open course roadmaps <span aria-hidden="true">→</span>
         </strong>
     </a>
+    <a class="section-hub-card" href="{% url 'roadmaps:custom_list' %}">
+        <span class="section-hub-kicker">Your structure</span>
+        <h2>My roadmaps</h2>
+        <p>
+            Build private learning paths from your goals, job requirements,
+            courses or project plans.
+        </p>
+        <strong>
+            Open my roadmaps <span aria-hidden="true">→</span>
+        </strong>
+    </a>
     <a class="section-hub-card" href="{% url 'planner:today' %}">
         <span class="section-hub-kicker">Today</span>
         <h2>Your learning block</h2>
@@ -45,6 +56,10 @@
 <section class="section-hub-guidance">
     <p class="eyebrow">How this section works</p>
     <h2>Different learning sources, one progress engine.</h2>
-    <p>ViewCoach roadmaps remain canonical curriculum. YouTube roadmaps remain user-owned imports. Both can use notes, progress and planning without being presented as the same content.</p>
+    <p>
+        ViewCoach roadmaps remain canonical curriculum. Imported and personal
+        roadmaps stay user-owned. Every source can use the same notes, progress
+        and planning engines without being presented as the same content.
+    </p>
 </section>
 {% endblock %}

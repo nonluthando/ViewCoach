@@ -5,7 +5,9 @@
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+    {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+        <a href="{% url 'roadmaps:custom_list' %}">My roadmaps</a>
+    {% elif roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
         <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
     {% else %}
         <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
@@ -16,7 +18,9 @@
 
 <section class="roadmap-detail-header source-detail-header">
     <div class="roadmap-detail-copy">
-        {% if roadmap.source == "IBM" %}
+        {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+            <span class="source-badge">My roadmap</span>
+        {% elif roadmap.source == "IBM" %}
             <span class="source-badge">IBM SkillsBuild course</span>
         {% elif roadmap.source == "CUSTOM" %}
             <span class="source-badge">Imported course</span>
@@ -36,7 +40,24 @@
         {% if user_roadmap %}
             <strong>{{ user_roadmap.get_status_display }}</strong>
         {% endif %}
-        {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+        {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+            <a class="button button-secondary"
+               href="{% url 'roadmaps:custom_manage' roadmap.slug %}">
+                Manage roadmap
+            </a>
+            <form method="post" action="{% url 'roadmaps:custom_focus' roadmap.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'roadmaps:detail' roadmap.slug %}">
+                <input type="hidden" name="focused" value="{% if user_roadmap.is_focused %}false{% else %}true{% endif %}">
+                <button class="button{% if user_roadmap.is_focused %} button-secondary{% endif %}" type="submit">
+                    {% if user_roadmap.is_focused %}
+                        Remove from planner
+                    {% else %}
+                        Add to planner
+                    {% endif %}
+                </button>
+            </form>
+        {% elif roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
             <form method="post" action="{% url 'roadmaps:course_focus' roadmap.slug %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{% url 'roadmaps:detail' roadmap.slug %}">

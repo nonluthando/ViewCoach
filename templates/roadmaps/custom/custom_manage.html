@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Manage {{ roadmap.title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:custom_list' %}">My roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ roadmap.title }}</span>
+</nav>
+
+<section class="topic-workspace-header">
+    <div>
+        <p class="eyebrow">Private roadmap editor</p>
+        <h1>{{ roadmap.title }}</h1>
+        <p class="lead">
+            Build the sequence with modules and topics. Move controls change
+            order without requiring drag-and-drop or JavaScript.
+        </p>
+    </div>
+    <div class="generated-question-actions">
+        <a class="button"
+           href="{% url 'roadmaps:detail' roadmap.slug %}">
+            Open study view
+        </a>
+        <a class="button button-secondary"
+           href="{% url 'roadmaps:custom_edit' roadmap.slug %}">
+            Edit details
+        </a>
+        <a class="button button-secondary"
+           href="{% url 'roadmaps:custom_delete' roadmap.slug %}">
+            Delete roadmap
+        </a>
+    </div>
+</section>
+
+<section class="roadmap-summary-strip">
+    <span><strong>{{ sections|length }}</strong> modules</span>
+    <span>
+        Topics stay inside their modules and keep stable study links.
+    </span>
+    <a class="button" href="{% url 'roadmaps:custom_section_create' roadmap.slug %}">
+        Add module
+    </a>
+</section>
+
+<section class="roadmap-outline" aria-label="{{ roadmap.title }} editor">
+    {% for section in sections %}
+        <article class="topic-workspace-panel">
+            <div class="topic-panel-heading">
+                <div>
+                    <p class="eyebrow">Module {{ forloop.counter }}</p>
+                    <h2>{{ section.title }}</h2>
+                    {% if section.description %}
+                        <p>{{ section.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="generated-question-actions">
+                    <form method="post"
+                          action="{% url 'roadmaps:custom_section_move' roadmap.slug section.pk %}">
+                        {% csrf_token %}
+                        <button class="button button-secondary"
+                                type="submit"
+                                name="direction"
+                                value="up"
+                                aria-label="Move {{ section.title }} up">
+                            ↑
+                        </button>
+                        <button class="button button-secondary"
+                                type="submit"
+                                name="direction"
+                                value="down"
+                                aria-label="Move {{ section.title }} down">
+                            ↓
+                        </button>
+                    </form>
+                    <a class="button button-secondary"
+                       href="{% url 'roadmaps:custom_section_edit' roadmap.slug section.pk %}">
+                        Edit
+                    </a>
+                    <a class="button button-secondary"
+                       href="{% url 'roadmaps:custom_section_delete' roadmap.slug section.pk %}">
+                        Delete
+                    </a>
+                </div>
+            </div>
+
+            <div class="generated-question-list">
+                {% for topic in section.topic_items %}
+                    <article class="generated-question-card">
+                        <header>
+                            <div>
+                                <p class="eyebrow">Topic {{ forloop.counter }}</p>
+                                <h3>{{ topic.title }}</h3>
+                            </div>
+                            {% if topic.estimated_minutes %}
+                                <span class="badge badge-neutral">
+                                    {{ topic.estimated_minutes }} min
+                                </span>
+                            {% endif %}
+                        </header>
+                        {% if topic.description %}
+                            <p>{{ topic.description }}</p>
+                        {% endif %}
+                        {% if topic.external_url %}
+                            <p>
+                                <a href="{{ topic.external_url }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer">
+                                    Learning link ↗
+                                </a>
+                            </p>
+                        {% endif %}
+                        <div class="generated-question-actions">
+                            <form method="post"
+                                  action="{% url 'roadmaps:custom_topic_move' roadmap.slug topic.pk %}">
+                                {% csrf_token %}
+                                <button class="button button-secondary"
+                                        type="submit"
+                                        name="direction"
+                                        value="up"
+                                        aria-label="Move {{ topic.title }} up">
+                                    ↑
+                                </button>
+                                <button class="button button-secondary"
+                                        type="submit"
+                                        name="direction"
+                                        value="down"
+                                        aria-label="Move {{ topic.title }} down">
+                                    ↓
+                                </button>
+                            </form>
+                            <a class="button"
+                               href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">
+                                Study
+                            </a>
+                            <a class="button button-secondary"
+                               href="{% url 'roadmaps:custom_topic_edit' roadmap.slug topic.pk %}">
+                                Edit
+                            </a>
+                            <a class="button button-secondary"
+                               href="{% url 'roadmaps:custom_topic_delete' roadmap.slug topic.pk %}">
+                                Delete
+                            </a>
+                        </div>
+                    </article>
+                {% empty %}
+                    <div class="topic-empty-state">
+                        <strong>No topics in this module.</strong>
+                        <p>Add the first concrete learning outcome.</p>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <a class="button"
+               href="{% url 'roadmaps:custom_topic_create' roadmap.slug section.pk %}">
+                Add topic to {{ section.title }}
+            </a>
+        </article>
+    {% empty %}
+        <div class="topic-empty-state">
+            <strong>This roadmap is empty.</strong>
+            <p>
+                Add a module first, then break it into specific topics.
+            </p>
+            <a class="button"
+               href="{% url 'roadmaps:custom_section_create' roadmap.slug %}">
+                Add first module
+            </a>
+        </div>
+    {% endfor %}
+</section>
+{% endblock %}

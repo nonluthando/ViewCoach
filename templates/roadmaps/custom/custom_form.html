@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'roadmaps:custom_list' %}">My roadmaps</a>
+    <span aria-hidden="true">/</span>
+    <span>{{ form_title }}</span>
+</nav>
+
+<section class="form-card">
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>{{ form_title }}</h1>
+    <p class="lead">{{ form_intro }}</p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+            <div class="form-field">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                    <p class="help-text">{{ field.help_text }}</p>
+                {% endif %}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <div class="topic-form-actions">
+            <a class="button button-secondary" href="{{ cancel_url }}">
+                Cancel
+            </a>
+            <button class="button" type="submit">{{ submit_label }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
