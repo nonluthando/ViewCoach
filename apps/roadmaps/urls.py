@@ -1,11 +1,81 @@
 from django.urls import path
 
-from . import course_views, views, youtube_views
+from . import course_views, custom_views, views, youtube_views
 
 app_name = "roadmaps"
 
 urlpatterns = [
     path("", views.roadmap_list, name="list"),
+    path(
+        "custom/",
+        custom_views.custom_roadmap_list,
+        name="custom_list",
+    ),
+    path(
+        "custom/create/",
+        custom_views.create_custom_roadmap_view,
+        name="custom_create",
+    ),
+    path(
+        "custom/<slug:slug>/manage/",
+        custom_views.manage_custom_roadmap,
+        name="custom_manage",
+    ),
+    path(
+        "custom/<slug:slug>/edit/",
+        custom_views.edit_custom_roadmap,
+        name="custom_edit",
+    ),
+    path(
+        "custom/<slug:slug>/focus/",
+        custom_views.toggle_custom_roadmap_focus,
+        name="custom_focus",
+    ),
+    path(
+        "custom/<slug:slug>/delete/",
+        custom_views.delete_custom_roadmap_view,
+        name="custom_delete",
+    ),
+    path(
+        "custom/<slug:slug>/modules/create/",
+        custom_views.create_custom_section_view,
+        name="custom_section_create",
+    ),
+    path(
+        "custom/<slug:slug>/modules/<int:section_id>/edit/",
+        custom_views.edit_custom_section,
+        name="custom_section_edit",
+    ),
+    path(
+        "custom/<slug:slug>/modules/<int:section_id>/move/",
+        custom_views.move_custom_section_view,
+        name="custom_section_move",
+    ),
+    path(
+        "custom/<slug:slug>/modules/<int:section_id>/delete/",
+        custom_views.delete_custom_section_view,
+        name="custom_section_delete",
+    ),
+    path(
+        "custom/<slug:slug>/modules/<int:section_id>/topics/create/",
+        custom_views.create_custom_topic_view,
+        name="custom_topic_create",
+    ),
+    path(
+        "custom/<slug:slug>/topics/<int:topic_id>/edit/",
+        custom_views.edit_custom_topic,
+        name="custom_topic_edit",
+    ),
+    path(
+        "custom/<slug:slug>/topics/<int:topic_id>/move/",
+        custom_views.move_custom_topic_view,
+        name="custom_topic_move",
+    ),
+    path(
+        "custom/<slug:slug>/topics/<int:topic_id>/delete/",
+        custom_views.delete_custom_topic_view,
+        name="custom_topic_delete",
+    ),
     path(
         "courses/import/ibm/confirm/",
         course_views.ibm_course_confirm,

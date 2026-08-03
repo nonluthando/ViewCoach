@@ -5,7 +5,13 @@
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+        <a href="{% url 'roadmaps:custom_list' %}">My roadmaps</a>
+    {% elif roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+        <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
+    {% else %}
+        <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
+    {% endif %}
     <span aria-hidden="true">/</span>
     <a href="{% url 'roadmaps:detail' roadmap.slug %}">{{ roadmap.title }}</a>
     <span aria-hidden="true">/</span>
@@ -23,7 +29,18 @@
             repetition only after you mark it ready.
         </p>
     </div>
-    <a class="topic-back-link" href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">Back to topic</a>
+    <div class="generated-question-actions">
+        {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+            <a class="topic-back-link"
+               href="{% url 'roadmaps:custom_manage' roadmap.slug %}">
+                Manage roadmap
+            </a>
+        {% endif %}
+        <a class="topic-back-link"
+           href="{% url 'roadmaps:topic_detail' roadmap.slug topic.pk %}">
+            Back to topic
+        </a>
+    </div>
 </section>
 
 <section class="topic-workspace-panel">

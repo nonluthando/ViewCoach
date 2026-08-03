@@ -5,7 +5,9 @@
 
 {% block content %}
 <nav class="roadmap-breadcrumbs" aria-label="Breadcrumb">
-    {% if roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
+    {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+        <a href="{% url 'roadmaps:custom_list' %}">My roadmaps</a>
+    {% elif roadmap.source == "IBM" or roadmap.source == "CUSTOM" %}
         <a href="{% url 'roadmaps:course_list' %}">Course roadmaps</a>
     {% else %}
         <a href="{% url 'roadmaps:list' %}">ViewCoach roadmaps</a>
@@ -27,10 +29,20 @@
         {% endif %}
     </div>
     <div>
+        {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+            <a class="button button-secondary"
+               href="{% url 'roadmaps:custom_manage' roadmap.slug %}">
+                Manage roadmap
+            </a>
+        {% endif %}
         {% if topic.external_url %}
             <a class="button" href="{{ topic.external_url }}"
                target="_blank" rel="noopener noreferrer">
-                Open original lesson
+                {% if roadmap.source == "CUSTOM" and not roadmap.external_course %}
+                    Open learning link
+                {% else %}
+                    Open original lesson
+                {% endif %}
             </a>
         {% endif %}
         <a class="topic-back-link" href="{% url 'roadmaps:detail' roadmap.slug %}#topic-{{ topic.pk }}">

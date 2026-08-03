@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}My roadmaps | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<section class="section-hub-header">
+    <p class="eyebrow">Learn · My roadmaps</p>
+    <h1>Build the learning path you actually need.</h1>
+    <p>
+        Create private roadmaps from your own goals, courses, job requirements
+        or project plans. Only roadmaps you add to planner focus can compete for
+        space in a daily plan.
+    </p>
+    <a class="button" href="{% url 'roadmaps:custom_create' %}">
+        Create roadmap
+    </a>
+</section>
+
+<section class="roadmap-grid" aria-label="My roadmaps">
+    {% for item in custom_roadmaps %}
+        <article class="roadmap-card">
+            <p class="eyebrow">{{ item.roadmap.get_kind_display }}</p>
+            <h2>{{ item.roadmap.title }}</h2>
+            {% if item.roadmap.description %}
+                <p>{{ item.roadmap.description|truncatewords:32 }}</p>
+            {% else %}
+                <p>Add modules and topics to describe this learning path.</p>
+            {% endif %}
+            <p>
+                {{ item.progress.completed_count }} of
+                {{ item.progress.total_count }} topics complete
+                · {{ item.progress.percentage }}%
+            </p>
+            <div class="roadmap-card-actions">
+                <a class="button"
+                   href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+                    Open roadmap
+                </a>
+                <a class="button button-secondary"
+                   href="{% url 'roadmaps:custom_manage' item.roadmap.slug %}">
+                    Manage
+                </a>
+            </div>
+            {% if item.enrolment and item.enrolment.is_focused %}
+                <span class="badge badge-neutral">In planner focus</span>
+            {% endif %}
+        </article>
+    {% empty %}
+        <div class="topic-empty-state">
+            <strong>No personal roadmaps yet.</strong>
+            <p>
+                Create one for a technology, role, course or interview goal
+                that does not fit a built-in path.
+            </p>
+            <a class="button" href="{% url 'roadmaps:custom_create' %}">
+                Create your first roadmap
+            </a>
+        </div>
+    {% endfor %}
+</section>
+{% endblock %}

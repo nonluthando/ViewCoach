@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ object_name }} | ViewCoach{% endblock %}
+{% block body_class %}roadmap-source-page{% endblock %}
+
+{% block content %}
+<section class="form-card">
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>Delete {{ object_name }}?</h1>
+    <p class="lead">{{ warning }}</p>
+    <p>
+        This action cannot be undone.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="topic-form-actions">
+            <a class="button button-secondary" href="{{ cancel_url }}">
+                Keep it
+            </a>
+            <button class="button" type="submit">Delete permanently</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
