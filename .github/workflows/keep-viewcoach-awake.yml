@@ -1,0 +1,45 @@
+name: Keep ViewCoach awake
+
+on:
+  workflow_dispatch:
+  schedule:
+    # South Africa Standard Time (UTC+2), exactly 08:30–22:30.
+    - cron: "30,40,50 8 * * *"
+      timezone: "Africa/Johannesburg"
+    - cron: "*/10 9-21 * * *"
+      timezone: "Africa/Johannesburg"
+    - cron: "0,10,20,30 22 * * *"
+      timezone: "Africa/Johannesburg"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-viewcoach-awake
+  cancel-in-progress: true
+
+jobs:
+  ping-render:
+    name: Ping Render health endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Wake ViewCoach
+        env:
+          HEALTH_URL: "https://viewcoach.onrender.com/health/"
+        run: |
+          response="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --location \
+              --retry 4 \
+              --retry-delay 10 \
+              --retry-all-errors \
+              --max-time 120 \
+              "$HEALTH_URL"
+          )"
+
+          echo "ViewCoach health response: $response"
