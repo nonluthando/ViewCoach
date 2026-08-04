@@ -1,0 +1,2627 @@
+diff --git a/apps/core/management/__init__.py b/apps/core/management/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/core/management/commands/__init__.py b/apps/core/management/commands/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/apps/core/management/commands/cleanup_portfolio_demo_users.py b/apps/core/management/commands/cleanup_portfolio_demo_users.py
+new file mode 100644
+index 0000000..bbe9d56
+--- /dev/null
++++ b/apps/core/management/commands/cleanup_portfolio_demo_users.py
+@@ -0,0 +1,33 @@
++from django.core.management.base import BaseCommand
++
++from apps.core.portfolio_demo import (
++    cleanup_expired_portfolio_demo_users,
++    portfolio_demo_users,
++)
++
++
++class Command(BaseCommand):
++    help = "Delete expired temporary recruiter-demo users."
++
++    def add_arguments(self, parser):
++        parser.add_argument(
++            "--all",
++            action="store_true",
++            dest="delete_all",
++            help="Delete every temporary recruiter-demo user.",
++        )
++
++    def handle(self, *args, **options):
++        if options["delete_all"]:
++            users = portfolio_demo_users()
++            count = users.count()
++            users.delete()
++        else:
++            count = cleanup_expired_portfolio_demo_users()
++
++        self.stdout.write(
++            self.style.SUCCESS(
++                f"Deleted {count} temporary portfolio demo "
++                f"user{'s' if count != 1 else ''}."
++            )
++        )
+diff --git a/apps/core/portfolio_context.py b/apps/core/portfolio_context.py
+new file mode 100644
+index 0000000..4ab8fbc
+--- /dev/null
++++ b/apps/core/portfolio_context.py
+@@ -0,0 +1,130 @@
++from __future__ import annotations
++
++from django.conf import settings
++from django.urls import reverse
++
++from .portfolio_demo import is_portfolio_demo_user
++
++STEP_DEFINITIONS = (
++    (
++        "dashboard",
++        "Dashboard",
++        "See readiness, due reviews, learning and evidence in one place.",
++    ),
++    (
++        "plan",
++        "Daily plan",
++        "Inspect the selected work and why each task matters now.",
++    ),
++    (
++        "roadmap",
++        "User roadmap",
++        "Explore the complete create, organise and focus workflow.",
++    ),
++    (
++        "topic",
++        "Topic workspace",
++        "See notes, resources, progress, evidence and question generation.",
++    ),
++    (
++        "question",
++        "Question card",
++        "Inspect a complete interview answer and spaced-review state.",
++    ),
++    (
++        "evidence",
++        "Project evidence",
++        "Review architecture, decisions, trade-offs and a STAR story.",
++    ),
++    (
++        "mock",
++        "Mock interview",
++        "Open a completed mixed interview and its self-assessment.",
++    ),
++    (
++        "readiness",
++        "Goal readiness",
++        "See how learning and evidence connect to a target role.",
++    ),
++)
++
++
++def _target_url(*, step_key: str, assets: dict):
++    if step_key == "dashboard":
++        return reverse("dashboard")
++    if step_key == "plan":
++        return reverse("planner:today")
++    if step_key == "roadmap":
++        return reverse(
++            "roadmaps:custom_manage",
++            kwargs={"slug": assets["custom_roadmap_slug"]},
++        )
++    if step_key == "topic":
++        return reverse(
++            "roadmaps:topic_detail",
++            kwargs={
++                "slug": assets["custom_roadmap_slug"],
++                "topic_id": assets["featured_topic_id"],
++            },
++        )
++    if step_key == "question":
++        return reverse(
++            "questions:detail",
++            kwargs={"pk": assets["featured_question_id"]},
++        )
++    if step_key == "evidence":
++        return reverse(
++            "evidence:detail",
++            kwargs={"evidence_id": assets["featured_evidence_id"]},
++        )
++    if step_key == "mock":
++        return reverse(
++            "interviews:summary",
++            kwargs={"interview_id": assets["mock_interview_id"]},
++        )
++    if step_key == "readiness":
++        return reverse(
++            "goals:detail",
++            kwargs={"goal_id": assets["goal_id"]},
++        )
++    raise KeyError(step_key)
++
++
++def portfolio_demo_steps(request):
++    assets = request.session.get("portfolio_demo_assets", {})
++    completed = set(request.session.get("portfolio_demo_completed_steps", []))
++    steps = []
++    if not assets:
++        return steps
++    for key, label, description in STEP_DEFINITIONS:
++        steps.append(
++            {
++                "key": key,
++                "label": label,
++                "description": description,
++                "completed": key in completed,
++                "launch_url": reverse(
++                    "portfolio_demo_step",
++                    kwargs={"step_key": key},
++                ),
++                "target_url": _target_url(step_key=key, assets=assets),
++            }
++        )
++    return steps
++
++
++def portfolio_demo_context(request):
++    active = is_portfolio_demo_user(request.user)
++    steps = portfolio_demo_steps(request) if active else []
++    completed_count = sum(step["completed"] for step in steps)
++    return {
++        "portfolio_demo_enabled": settings.PORTFOLIO_DEMO_ENABLED,
++        "portfolio_demo_active": active,
++        "portfolio_demo_steps": steps,
++        "portfolio_demo_completed_count": completed_count,
++        "portfolio_demo_total_count": len(steps),
++        "portfolio_demo_expires_at": request.session.get(
++            "portfolio_demo_expires_at",
++            "",
++        ),
++    }
+diff --git a/apps/core/portfolio_demo.py b/apps/core/portfolio_demo.py
+new file mode 100644
+index 0000000..375c585
+--- /dev/null
++++ b/apps/core/portfolio_demo.py
+@@ -0,0 +1,991 @@
++from __future__ import annotations
++
++from dataclasses import dataclass
++from datetime import timedelta
++from decimal import Decimal
++from uuid import uuid4
++
++from django.conf import settings
++from django.db import transaction
++from django.utils import timezone
++
++from apps.accounts.models import User
++from apps.evidence.models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    GoalEvidenceLink,
++    ProjectExplanation,
++    QuestionEvidenceLink,
++    TopicEvidenceLink,
++    TopicEvidenceProfile,
++)
++from apps.goals.models import InterviewGoal, InterviewStage
++from apps.interviews.models import MockInterview, MockInterviewItem
++from apps.questions.models import (
++    BehaviouralQuestion,
++    ConceptQuestion,
++    DebugQuestion,
++    Question,
++    TechnicalQuestion,
++    UserQuestionNote,
++    UserQuestionState,
++)
++from apps.reviews.models import ReviewAttempt, ReviewState
++from apps.roadmaps.models import (
++    Roadmap,
++    RoadmapSection,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++    UserTopicResource,
++    YouTubePlaylistRoadmap,
++    YouTubePlaylistVideo,
++    YouTubeRoadmapGroup,
++)
++
++DEMO_EMAIL_SUFFIX = "@demo.viewcoach.local"
++
++
++@dataclass(frozen=True, slots=True)
++class PortfolioDemoWorkspace:
++    user: User
++    custom_roadmap: Roadmap
++    youtube_roadmap: Roadmap
++    featured_topic: RoadmapTopic
++    featured_question: Question
++    featured_evidence: EvidenceItem
++    goal: InterviewGoal
++    mock_interview: MockInterview
++
++    def session_assets(self) -> dict[str, int | str]:
++        return {
++            "custom_roadmap_slug": self.custom_roadmap.slug,
++            "youtube_roadmap_slug": self.youtube_roadmap.slug,
++            "featured_topic_id": self.featured_topic.pk,
++            "featured_question_id": self.featured_question.pk,
++            "featured_evidence_id": self.featured_evidence.pk,
++            "goal_id": self.goal.pk,
++            "mock_interview_id": self.mock_interview.pk,
++        }
++
++
++def is_portfolio_demo_user(user) -> bool:
++    return bool(
++        getattr(user, "is_authenticated", False)
++        and getattr(user, "email", "")
++        and user.email.endswith(DEMO_EMAIL_SUFFIX)
++    )
++
++
++def portfolio_demo_users():
++    return User.objects.filter(email__endswith=DEMO_EMAIL_SUFFIX)
++
++
++def cleanup_expired_portfolio_demo_users(*, now=None) -> int:
++    current_time = now or timezone.now()
++    cutoff = current_time - timedelta(hours=settings.PORTFOLIO_DEMO_TTL_HOURS)
++    expired = portfolio_demo_users().filter(date_joined__lt=cutoff)
++    count = expired.count()
++    expired.delete()
++    return count
++
++
++def delete_portfolio_demo_user(*, user_id: int) -> bool:
++    deleted_count, _ = portfolio_demo_users().filter(pk=user_id).delete()
++    return deleted_count > 0
++
++
++def _create_custom_roadmap(*, user: User, token: str):
++    roadmap = Roadmap.objects.create(
++        title="Backend and AI Interview Sprint",
++        slug=f"demo-backend-ai-sprint-{token}",
++        description=(
++            "A user-created learning path connecting backend fundamentals, "
++            "production data design and grounded AI application engineering."
++        ),
++        kind=Roadmap.Kind.SKILL,
++        source=Roadmap.Source.CUSTOM,
++        learning_format=Roadmap.LearningFormat.COURSE,
++        position=1,
++        is_system=False,
++        is_published=True,
++        created_by=user,
++    )
++    foundations = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Backend foundations",
++        slug="backend-foundations",
++        description="Production API and database reasoning.",
++        position=1,
++    )
++    ai_section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="AI application engineering",
++        slug="ai-application-engineering",
++        description="Grounding, evaluation and safe product integration.",
++        position=2,
++    )
++    interview_section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Interview explanation",
++        slug="interview-explanation",
++        description="Turn technical work into clear interview evidence.",
++        position=3,
++    )
++
++    topic_specs = (
++        (
++            foundations,
++            "REST API design",
++            "rest-api-design",
++            "Resource modelling, status codes, validation and idempotency.",
++            45,
++        ),
++        (
++            foundations,
++            "PostgreSQL data modelling",
++            "postgresql-data-modelling",
++            "Constraints, indexes, transactions and query trade-offs.",
++            60,
++        ),
++        (
++            foundations,
++            "Testing service boundaries",
++            "testing-service-boundaries",
++            "Unit, integration and regression tests around meaningful behaviour.",
++            45,
++        ),
++        (
++            ai_section,
++            "Retrieval-augmented generation",
++            "retrieval-augmented-generation",
++            "Chunking, retrieval, grounding and answer generation.",
++            60,
++        ),
++        (
++            ai_section,
++            "AI evaluation and guardrails",
++            "ai-evaluation-and-guardrails",
++            "Failure modes, quality checks and production controls.",
++            45,
++        ),
++        (
++            interview_section,
++            "Architecture explanation",
++            "architecture-explanation",
++            "Explain components, boundaries and data flow without hiding trade-offs.",
++            40,
++        ),
++        (
++            interview_section,
++            "Decision and trade-off stories",
++            "decision-and-trade-off-stories",
++            "Describe alternatives, rationale, outcome and what you would change.",
++            35,
++        ),
++    )
++    topics = []
++    section_positions: dict[int, int] = {}
++    for section, title, slug, description, minutes in topic_specs:
++        section_positions[section.pk] = section_positions.get(section.pk, 0) + 1
++        topics.append(
++            RoadmapTopic.objects.create(
++                section=section,
++                title=title,
++                slug=slug,
++                description=description,
++                estimated_minutes=minutes,
++                position=section_positions[section.pk],
++            )
++        )
++
++    now = timezone.now()
++    UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        is_focused=True,
++        started_at=now - timedelta(days=12),
++    )
++    progress_rows = (
++        (
++            topics[0],
++            UserTopicProgress.Status.COMPLETED,
++            (
++                "Idempotent operations can be retried without changing the intended "
++                "result after the first successful request. PUT is normally "
++                "idempotent; POST often needs an idempotency key."
++            ),
++        ),
++        (
++            topics[1],
++            UserTopicProgress.Status.IN_PROGRESS,
++            (
++                "Use database constraints for invariants, indexes for measured query "
++                "patterns and transactions when several writes must succeed together."
++            ),
++        ),
++        (
++            topics[2],
++            UserTopicProgress.Status.COMPLETED,
++            (
++                "Test behaviour at the service boundary. Mock unstable external "
++                "dependencies, but keep database integration tests for constraints "
++                "and transaction behaviour."
++            ),
++        ),
++        (
++            topics[3],
++            UserTopicProgress.Status.IN_PROGRESS,
++            (
++                "A RAG response is only as trustworthy as its retrieval and grounding. "
++                "Evaluate retrieval separately from final answer quality."
++            ),
++        ),
++        (
++            topics[5],
++            UserTopicProgress.Status.COMPLETED,
++            (
++                "Start with the user problem, then data flow, boundaries, important "
++                "decisions, failure handling, tests and scaling path."
++            ),
++        ),
++    )
++    for index, (topic, status, notes) in enumerate(progress_rows):
++        completed_at = now - timedelta(days=6 - index) if status == "COMPLETED" else None
++        UserTopicProgress.objects.create(
++            user=user,
++            topic=topic,
++            status=status,
++            notes=notes,
++            started_at=now - timedelta(days=11 - index),
++            completed_at=completed_at,
++        )
++
++    UserTopicResource.objects.create(
++        user=user,
++        topic=topics[1],
++        title="PostgreSQL transaction documentation",
++        url="https://www.postgresql.org/docs/current/tutorial-transactions.html",
++    )
++    UserTopicResource.objects.create(
++        user=user,
++        topic=topics[3],
++        title="ViewCoach RAG architecture notes",
++        url="https://github.com/nonluthando/ViewCoach",
++    )
++    return roadmap, topics
++
++
++def _create_youtube_roadmap(*, user: User, token: str):
++    group = YouTubeRoadmapGroup.objects.create(
++        user=user,
++        name="Backend interview revision",
++        position=1,
++    )
++    roadmap = Roadmap.objects.create(
++        title="System Design Revision Playlist",
++        slug=f"demo-system-design-playlist-{token}",
++        description=(
++            "A sample imported playlist demonstrating source-specific video "
++            "tracking without mixing ownership with ViewCoach curriculum."
++        ),
++        kind=Roadmap.Kind.PRACTICE,
++        source=Roadmap.Source.YOUTUBE,
++        learning_format=Roadmap.LearningFormat.VIDEO,
++        position=2,
++        is_system=False,
++        is_published=True,
++        created_by=user,
++    )
++    section = RoadmapSection.objects.create(
++        roadmap=roadmap,
++        title="Playlist videos",
++        slug="playlist-videos",
++        position=1,
++    )
++    source = YouTubePlaylistRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        group=group,
++        is_favourite=True,
++        playlist_id=f"demo-{token}",
++        source_url="https://www.youtube.com/",
++        channel_title="Demo engineering channel",
++        video_count=4,
++        available_video_count=4,
++        unavailable_video_count=0,
++        total_duration_seconds=3280,
++    )
++    videos = (
++        ("Load balancing fundamentals", "load-balancing", 720),
++        ("Caching and invalidation", "caching-and-invalidation", 860),
++        ("Database replication", "database-replication", 910),
++        ("Queues and background work", "queues-and-background-work", 790),
++    )
++    topics = []
++    for position, (title, slug, duration) in enumerate(videos, start=1):
++        topic = RoadmapTopic.objects.create(
++            section=section,
++            title=title,
++            slug=slug,
++            description="Imported video lesson with ViewCoach notes and progress.",
++            external_url="https://www.youtube.com/",
++            estimated_minutes=max(5, round(duration / 60)),
++            position=position,
++        )
++        topics.append(topic)
++        YouTubePlaylistVideo.objects.create(
++            playlist=source,
++            topic=topic,
++            playlist_item_id=f"demo-item-{token}-{position}",
++            video_id=f"demo-video-{position}",
++            title=title,
++            channel_title="Demo engineering channel",
++            duration_seconds=duration,
++            position=position,
++            available=True,
++            embeddable=True,
++            made_for_kids=False,
++            in_playlist=True,
++        )
++    now = timezone.now()
++    UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        is_focused=False,
++        started_at=now - timedelta(days=8),
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topics[0],
++        status=UserTopicProgress.Status.COMPLETED,
++        notes="Compare layer 4 and layer 7 balancing and explain health checks.",
++        started_at=now - timedelta(days=8),
++        completed_at=now - timedelta(days=7),
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topics[1],
++        status=UserTopicProgress.Status.IN_PROGRESS,
++        notes="Always discuss invalidation, consistency and cache ownership.",
++        started_at=now - timedelta(days=3),
++    )
++    return roadmap
++
++
++def _create_questions(*, user: User, source_topic: RoadmapTopic):
++    ready = Question.Status.READY_FOR_REVIEW
++    technical = TechnicalQuestion.objects.create(
++        owner=user,
++        source_topic=source_topic,
++        title="Two Sum: explain the trade-off",
++        prompt=(
++            "Given an array of integers and a target, return the indices of two "
++            "numbers that add to the target."
++        ),
++        difficulty=Question.Difficulty.EASY,
++        status=ready,
++        topic="Arrays and hashing",
++        first_hint="What information from earlier values would remove the inner loop?",
++        pattern="Hash map lookup",
++        data_structure="Dictionary / hash map",
++        intuition=(
++            "For every value, compute the complement and check whether it has "
++            "already been seen."
++        ),
++        brute_force="Compare every pair using two nested loops.",
++        brute_force_time_complexity="O(n²)",
++        brute_force_space_complexity="O(1)",
++        optimal_approach=(
++            "Store each value and index in a hash map. Return when the complement "
++            "already exists."
++        ),
++        optimal_time_complexity="O(n)",
++        optimal_space_complexity="O(n)",
++        mistakes=(
++            "Adding the current value before checking can allow the same element "
++            "to be used twice."
++        ),
++        progressive_hints=[
++            "Think about the complement target - value.",
++            "Store information from values you already visited.",
++        ],
++        code=(
++            "def two_sum(numbers, target):\n"
++            "    seen = {}\n"
++            "    for index, value in enumerate(numbers):\n"
++            "        complement = target - value\n"
++            "        if complement in seen:\n"
++            "            return [seen[complement], index]\n"
++            "        seen[value] = index\n"
++        ),
++    )
++    concept = ConceptQuestion.objects.create(
++        owner=user,
++        source_topic=source_topic,
++        title="Explain API idempotency",
++        prompt=(
++            "What does idempotency mean in an HTTP API, and why does it matter "
++            "when clients retry requests?"
++        ),
++        difficulty=Question.Difficulty.MEDIUM,
++        status=ready,
++        category=ConceptQuestion.Category.BACKEND,
++        canonical_answer=(
++            "An idempotent operation can be repeated with the same intended effect "
++            "as performing it once. It prevents retries from creating duplicate "
++            "business actions."
++        ),
++        key_points=[
++            "GET, PUT and DELETE are designed to be idempotent.",
++            "POST can be made retry-safe with an idempotency key.",
++            "The server must persist or derive the original outcome.",
++        ],
++        example=(
++            "A payment endpoint stores an idempotency key and returns the original "
++            "result instead of charging the customer twice."
++        ),
++        common_misconception=(
++            "Idempotent does not mean every response body must be identical."
++        ),
++    )
++    behavioural = BehaviouralQuestion.objects.create(
++        owner=user,
++        title="Describe a difficult technical decision",
++        prompt=(
++            "Tell me about a technical decision where several reasonable options "
++            "had meaningful trade-offs."
++        ),
++        difficulty=Question.Difficulty.MEDIUM,
++        status=ready,
++        star_answer=(
++            "I kept curated, imported and user-created roadmaps separate by source "
++            "and ownership while reusing one shared progress engine. This required "
++            "source-aware routing, but avoided duplicated learning logic and made "
++            "planner behaviour consistent."
++        ),
++        leadership_principles="Ownership, judgement, simplification",
++        stories="ViewCoach roadmap architecture",
++        follow_ups=(
++            "What alternatives did you reject?\n"
++            "What new complexity did the decision introduce?"
++        ),
++        competencies=["Architecture", "Trade-off reasoning", "Ownership"],
++        star_outline={
++            "situation": "Several learning sources needed progress and planning.",
++            "task": "Preserve ownership without duplicating the learning backend.",
++            "action": "Use shared roadmap domain objects with source metadata.",
++            "result": "Every source participates in one progress and planner engine.",
++        },
++        follow_up_questions=[
++            "How are permissions enforced?",
++            "What would you change at larger scale?",
++        ],
++        common_mistakes=[
++            "Explaining only the final design without the rejected alternatives."
++        ],
++    )
++    debug = DebugQuestion.objects.create(
++        owner=user,
++        title="Fix a transaction locking failure",
++        prompt=(
++            "A PostgreSQL test fails with 'FOR UPDATE cannot be applied to the "
++            "nullable side of an outer join'. Diagnose and fix it."
++        ),
++        difficulty=Question.Difficulty.HARD,
++        status=ready,
++        repository="Django service using select_for_update and a nullable relation.",
++        bug_type=DebugQuestion.BugType.OTHER,
++        failing_test_or_symptom=(
++            "The service raises django.db.utils.NotSupportedError on PostgreSQL."
++        ),
++        broken_code=(
++            "Roadmap.objects.select_for_update().get(\n"
++            "    pk=roadmap.pk,\n"
++            "    external_course__isnull=True,\n"
++            ")"
++        ),
++        likely_bug=(
++            "The nullable relation introduces an outer join, and PostgreSQL refuses "
++            "to lock the nullable side."
++        ),
++        reasoning=(
++            "Lock the concrete Roadmap row first. Check the optional relation in a "
++            "separate query."
++        ),
++        fix=(
++            "Remove the nullable relation filter from the locking query, then use "
++            "ExternalCourseRoadmap.objects.filter(roadmap=locked).exists()."
++        ),
++        tests=(
++            "Run the service and view suites on PostgreSQL and preserve the "
++            "ownership assertions."
++        ),
++        common_mistake="Assuming SQLite reproduces PostgreSQL row-lock semantics.",
++    )
++
++    questions = [technical, concept, behavioural, debug]
++    now = timezone.now()
++    due_offsets = (-2, 3, -1, 6)
++    for index, question in enumerate(questions):
++        UserQuestionState.objects.create(
++            user=user,
++            question=question,
++            status=UserQuestionState.Status.READY_FOR_REVIEW,
++            bookmarked=index in {1, 2},
++            started_at=now - timedelta(days=10 - index),
++            ready_at=now - timedelta(days=8 - index),
++        )
++        UserQuestionNote.objects.create(
++            user=user,
++            question=question,
++            notes="Demo notes showing how a candidate refines an interview answer.",
++            mistakes=(
++                "Lead with the core idea before details; name the trade-off explicitly."
++            ),
++            code_notes=(
++                "Trace the example manually before discussing complexity."
++                if question.question_type == Question.Type.TECHNICAL
++                else ""
++            ),
++            behavioural_notes=(
++                "Keep the action section focused on personal contribution."
++                if question.question_type == Question.Type.BEHAVIOURAL
++                else ""
++            ),
++        )
++        ReviewState.objects.create(
++            user=user,
++            question=question,
++            due_at=now + timedelta(days=due_offsets[index]),
++            interval_days=max(1, index + 1),
++            ease_factor=Decimal("2.50"),
++            repetitions=index,
++            lapses=1 if index == 3 else 0,
++            last_reviewed_at=now - timedelta(days=5 - index),
++        )
++
++    concept_state = ReviewState.objects.get(user=user, question=concept)
++    previous_due = now - timedelta(days=5)
++    ReviewAttempt.objects.create(
++        state=concept_state,
++        rating=ReviewAttempt.Rating.GOOD,
++        reviewed_at=now - timedelta(days=4),
++        previous_due_at=previous_due,
++        scheduled_due_at=now + timedelta(days=3),
++        previous_interval_days=1,
++        scheduled_interval_days=7,
++        previous_ease_factor=Decimal("2.50"),
++        scheduled_ease_factor=Decimal("2.50"),
++    )
++    return questions
++
++
++def _create_evidence(*, user: User):
++    viewcoach = EvidenceItem.objects.create(
++        owner=user,
++        source_type=EvidenceItem.SourceType.PROJECT,
++        title="ViewCoach",
++        role_or_context="Product designer and full-stack developer",
++        summary=(
++            "An adaptive interview-preparation platform connecting learning, "
++            "retrieval practice, evidence and explainable daily planning."
++        ),
++        problem=(
++            "Interview preparation is fragmented across notes, courses, question "
++            "lists and calendars, leaving candidates unsure what matters next."
++        ),
++        personal_contribution=(
++            "Designed the product architecture and implemented Django domains, "
++            "PostgreSQL data design, roadmap workflows, planning logic, AI "
++            "boundaries, tests and the interface."
++        ),
++        technologies=(
++            "Python, Django, PostgreSQL, pgvector, OR-Tools, Gemini, HTML, CSS"
++        ),
++        outcomes=(
++            "Built an end-to-end system where goals, learning progress, reviews "
++            "and evidence influence one explainable plan."
++        ),
++        lessons=(
++            "Keep ownership explicit, make AI output reviewable and prefer shared "
++            "domain behaviour over duplicated feature-specific backends."
++        ),
++        evidence_url="https://github.com/nonluthando/ViewCoach",
++    )
++    scorerent = EvidenceItem.objects.create(
++        owner=user,
++        source_type=EvidenceItem.SourceType.PROJECT,
++        title="ScoreRent",
++        role_or_context="Backend and product developer",
++        summary=(
++            "A FastAPI and PostgreSQL rental decision-support tool that turns "
++            "affordability and application conditions into an explainable score."
++        ),
++        problem=(
++            "Rental applicants often cannot tell whether a listing is realistically "
++            "affordable or which application weaknesses they can address."
++        ),
++        personal_contribution=(
++            "Designed the scoring rules, authentication flow, persistence and "
++            "explainable results experience."
++        ),
++        technologies="Python, FastAPI, PostgreSQL, Jinja2, Render",
++        outcomes=(
++            "Produced a score, confidence level, reasons and practical next actions."
++        ),
++        lessons=(
++            "Decision-support outputs need transparent rules and bounded claims."
++        ),
++        evidence_url="https://scorerent.onrender.com",
++    )
++    work = EvidenceItem.objects.create(
++        owner=user,
++        source_type=EvidenceItem.SourceType.WORK,
++        title="Production AI application support",
++        organisation="Foondamate",
++        role_or_context="Junior software and AI application work",
++        summary=(
++            "Supported production features involving document replies, curriculum "
++            "retrieval, automated tests and application integrations."
++        ),
++        personal_contribution=(
++            "Implemented and tested backend behaviour across Python and PHP services."
++        ),
++        technologies="Python, Flask, PHP, Laravel, pytest, ChromaDB",
++        outcomes=(
++            "Improved regression coverage and delivered production-facing feature work."
++        ),
++        lessons=(
++            "Small production changes require careful dependency, version and "
++            "failure-path reasoning."
++        ),
++    )
++
++    ProjectExplanation.objects.create(
++        evidence=viewcoach,
++        quick_pitch=(
++            "ViewCoach tells a candidate what to study next and why while keeping "
++            "their learning, practice and interview evidence connected."
++        ),
++        two_minute_answer=(
++            "The platform is organised into Django domains for accounts, goals, "
++            "roadmaps, questions, reviews, evidence, interviews and planning. "
++            "Services connect those domains without placing business rules in "
++            "templates. The planner builds candidate tasks, scores them against "
++            "urgency and user aims, then selects work that fits the available time."
++        ),
++        architecture=(
++            "Modular Django apps, PostgreSQL persistence, pgvector retrieval, "
++            "service-layer orchestration and OR-Tools plan optimisation."
++        ),
++        key_decisions=(
++            "Use one roadmap backend across sources; retain source ownership; "
++            "require approval before generated cards enter review."
++        ),
++        difficult_bug=(
++            "A PostgreSQL row-lock query failed because a nullable relation created "
++            "an outer join. The fix separated the concrete row lock from the "
++            "optional-relation check."
++        ),
++        testing_and_verification=(
++            "Model, service, view, migration and planner-policy tests run through pytest."
++        ),
++        ai_use=(
++            "AI supports grounded help and editable draft generation; it does not "
++            "silently become the source of truth."
++        ),
++        tradeoffs=(
++            "A richer connected model increases implementation complexity, but "
++            "produces more explainable recommendations and less duplicated logic."
++        ),
++        improvements=(
++            "Add stronger retrieval evaluation, queue expensive generation work "
++            "and add demo analytics that preserve visitor privacy."
++        ),
++        scaling=(
++            "Use background jobs, cache stable retrieval results and isolate "
++            "high-volume demo data from long-lived user records."
++        ),
++        likely_follow_ups=(
++            "Why Django?\nHow is planner scoring explained?\n"
++            "What happens when the optimiser is unavailable?"
++        ),
++    )
++    ProjectExplanation.objects.create(
++        evidence=scorerent,
++        quick_pitch=(
++            "ScoreRent helps a renter judge whether a listing is a realistic match "
++            "and explains the result instead of returning a black-box score."
++        ),
++        two_minute_answer=(
++            "FastAPI handles the application workflow, PostgreSQL stores profiles "
++            "and evaluations, and explicit rules produce the score, verdict, "
++            "confidence, reasons and next actions."
++        ),
++        architecture="FastAPI services, PostgreSQL persistence and server-rendered views.",
++        key_decisions=(
++            "Use explicit scoring rules before adding a predictive model so every "
++            "penalty and recommendation remains auditable."
++        ),
++        testing_and_verification="Boundary tests cover score bands and rule interactions.",
++        tradeoffs=(
++            "Rules are easier to audit but require deliberate maintenance as the "
++            "product learns from real outcomes."
++        ),
++        improvements="Add calibrated data-driven components after collecting outcomes.",
++        scaling="Separate evaluation jobs and cache listing metadata.",
++    )
++    DecisionRecord.objects.create(
++        evidence=viewcoach,
++        title="Use one roadmap backend for every learning source",
++        context=(
++            "Curated roadmaps, YouTube imports and personal roadmaps all need "
++            "progress, notes and planner integration."
++        ),
++        alternatives=(
++            "Build separate progress systems for each source; or flatten every "
++            "source into one catalogue with no ownership distinction."
++        ),
++        decision=(
++            "Keep source-specific ownership and import metadata while sharing the "
++            "Roadmap, Section, Topic and Progress domain."
++        ),
++        rationale=(
++            "This reuses stable learning behaviour without pretending every source "
++            "has the same owner or update lifecycle."
++        ),
++        tradeoffs=(
++            "Routing and permissions become more explicit, but duplicated progress "
++            "logic and inconsistent planner behaviour are avoided."
++        ),
++        outcome="New roadmap sources can participate in the same planning engine.",
++        would_choose_again=DecisionRecord.RepeatChoice.YES,
++        reflection=(
++            "I would establish the source boundaries earlier and document them as "
++            "part of the domain model."
++        ),
++    )
++    BehaviouralStory.objects.create(
++        evidence=viewcoach,
++        title="Recovering a deployment-blocking migration",
++        situation=(
++            "A PostgreSQL migration failed during deployment because schema and "
++            "index operations were grouped inside one transaction."
++        ),
++        task="Restore deployment safely without losing existing roadmap data.",
++        actions=(
++            "Traced the error to pending trigger events, made the migration "
++            "non-atomic and kept the data-preservation operation explicitly atomic."
++        ),
++        result=(
++            "The deployment could rerun safely and current user learning choices "
++            "were preserved."
++        ),
++        reflection=(
++            "Database-specific behaviour must be tested as part of deployment "
++            "design, not treated as an environment detail."
++        ),
++        competencies="Debugging, ownership, database reasoning, risk management",
++        follow_up_questions=(
++            "Why was the migration originally atomic?\n"
++            "How did you verify existing data would survive?\n"
++            "What would you automate next?"
++        ),
++    )
++    return viewcoach, scorerent, work
++
++
++def _create_goal_and_links(
++    *,
++    user: User,
++    roadmaps: list[Roadmap],
++    evidence: list[EvidenceItem],
++):
++    goal = InterviewGoal.objects.create(
++        user=user,
++        title="Junior Software and AI Engineering Interviews",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Junior Software / AI Engineer",
++        weekly_minutes=600,
++        status=InterviewGoal.Status.ACTIVE,
++        is_primary=True,
++    )
++    goal.roadmaps.add(*roadmaps)
++    InterviewStage.objects.create(
++        goal=goal,
++        stage_type=InterviewStage.StageType.OA,
++        position=1,
++        completed_at=timezone.now() - timedelta(days=5),
++    )
++    InterviewStage.objects.create(
++        goal=goal,
++        stage_type=InterviewStage.StageType.TECHNICAL,
++        is_current=True,
++        scheduled_for=timezone.localdate() + timedelta(days=9),
++        position=2,
++    )
++    InterviewStage.objects.create(
++        goal=goal,
++        stage_type=InterviewStage.StageType.BEHAVIOURAL,
++        scheduled_for=timezone.localdate() + timedelta(days=14),
++        position=3,
++    )
++    GoalEvidenceLink.objects.create(
++        user=user,
++        goal=goal,
++        evidence=evidence[0],
++        relevance=GoalEvidenceLink.Relevance.CORE,
++        framing_notes=(
++            "Use ViewCoach to explain architecture, planning and engineering trade-offs."
++        ),
++    )
++    GoalEvidenceLink.objects.create(
++        user=user,
++        goal=goal,
++        evidence=evidence[1],
++        relevance=GoalEvidenceLink.Relevance.SUPPORTING,
++        framing_notes=(
++            "Use ScoreRent to explain rules, API design and transparent decision support."
++        ),
++    )
++    return goal
++
++
++def _link_evidence(
++    *,
++    user: User,
++    topic: RoadmapTopic,
++    question: Question,
++    evidence: EvidenceItem,
++):
++    profile = TopicEvidenceProfile.objects.create(
++        user=user,
++        topic=topic,
++        readiness=TopicEvidenceProfile.Readiness.INTERVIEW_READY,
++        personal_angle=(
++            "I implemented this boundary in ViewCoach and diagnosed a PostgreSQL "
++            "locking failure around it."
++        ),
++        interview_angle=(
++            "Explain why database semantics must be tested on the production engine."
++        ),
++        evidence_gap="Add a small performance benchmark for concurrent writes.",
++        follow_up_questions=(
++            "Why not rely on application validation alone?\n"
++            "How would this behave under concurrent requests?"
++        ),
++    )
++    TopicEvidenceLink.objects.create(
++        profile=profile,
++        evidence=evidence,
++        connection_note="The project contains the concrete implementation and fix.",
++    )
++    QuestionEvidenceLink.objects.create(
++        user=user,
++        question=question,
++        evidence=evidence,
++        answer_angle=(
++            "Use the roadmap-domain decision to show alternatives, rationale and outcome."
++        ),
++    )
++
++
++def _create_mock_interview(
++    *,
++    user: User,
++    goal: InterviewGoal,
++    questions: list[Question],
++):
++    started = timezone.now() - timedelta(days=2, minutes=35)
++    completed = started + timedelta(minutes=31)
++    interview = MockInterview.objects.create(
++        user=user,
++        goal=goal,
++        focus=MockInterview.Focus.MIXED,
++        duration_minutes=30,
++        question_count=3,
++        status=MockInterview.Status.COMPLETED,
++        started_at=started,
++        completed_at=completed,
++    )
++    assessments = (
++        MockInterviewItem.Assessment.CONFIDENT,
++        MockInterviewItem.Assessment.PARTIAL,
++        MockInterviewItem.Assessment.CONFIDENT,
++    )
++    response_notes = (
++        "Explained the hash-map approach and both complexity trade-offs clearly.",
++        "Good definition; add a sharper payment-retry example earlier.",
++        "Strong ownership story. Keep the result section more measurable.",
++    )
++    for position, question in enumerate(questions[:3], start=1):
++        specific = question.specific
++        answer = getattr(
++            specific,
++            "canonical_answer",
++            getattr(specific, "star_answer", getattr(specific, "optimal_approach", "")),
++        )
++        MockInterviewItem.objects.create(
++            interview=interview,
++            question=question,
++            position=position,
++            question_title=question.title,
++            prompt_snapshot=question.prompt,
++            answer_snapshot=answer,
++            guidance_snapshot=(
++                "Lead with the core idea, give one concrete example and name the trade-off."
++            ),
++            question_type=question.question_type,
++            difficulty=question.difficulty,
++            response_notes=response_notes[position - 1],
++            assessment=assessments[position - 1],
++            answered_at=started + timedelta(minutes=position * 9),
++        )
++    return interview
++
++
++@transaction.atomic
++def create_portfolio_demo_workspace() -> PortfolioDemoWorkspace:
++    token = uuid4().hex[:12]
++    user = User.objects.create_user(
++        email=f"recruiter-{token}{DEMO_EMAIL_SUFFIX}",
++        password=None,
++        first_name="Recruiter",
++        last_name="Demo",
++        primary_need_type=User.NeedType.INTERVIEW_SKILLS,
++        secondary_need_type=User.NeedType.PRACTISE_RETAIN,
++    )
++    custom_roadmap, custom_topics = _create_custom_roadmap(user=user, token=token)
++    youtube_roadmap = _create_youtube_roadmap(user=user, token=token)
++    questions = _create_questions(user=user, source_topic=custom_topics[0])
++    evidence = list(_create_evidence(user=user))
++    goal = _create_goal_and_links(
++        user=user,
++        roadmaps=[custom_roadmap, youtube_roadmap],
++        evidence=evidence,
++    )
++    _link_evidence(
++        user=user,
++        topic=custom_topics[1],
++        question=questions[2],
++        evidence=evidence[0],
++    )
++    mock_interview = _create_mock_interview(
++        user=user,
++        goal=goal,
++        questions=questions,
++    )
++    return PortfolioDemoWorkspace(
++        user=user,
++        custom_roadmap=custom_roadmap,
++        youtube_roadmap=youtube_roadmap,
++        featured_topic=custom_topics[1],
++        featured_question=questions[1],
++        featured_evidence=evidence[0],
++        goal=goal,
++        mock_interview=mock_interview,
++    )
+diff --git a/apps/core/portfolio_middleware.py b/apps/core/portfolio_middleware.py
+new file mode 100644
+index 0000000..1ffcee7
+--- /dev/null
++++ b/apps/core/portfolio_middleware.py
+@@ -0,0 +1,65 @@
++from datetime import timedelta
++
++from django.conf import settings
++from django.contrib import messages
++from django.contrib.auth import logout
++from django.shortcuts import redirect
++from django.utils import timezone
++
++from .portfolio_demo import delete_portfolio_demo_user, is_portfolio_demo_user
++
++BLOCKED_DEMO_POST_VIEWS = {
++    "knowledge:help_assistant",
++    "questions:import_confirm",
++    "questions:import_start",
++    "roadmaps:generate_topic_questions",
++    "roadmaps:ibm_course_confirm",
++    "roadmaps:ibm_course_import",
++    "roadmaps:youtube_import",
++    "roadmaps:youtube_import_confirm",
++}
++
++
++class PortfolioDemoMiddleware:
++    """Apply expiry and cost-safety rules to temporary demo accounts."""
++
++    def __init__(self, get_response):
++        self.get_response = get_response
++
++    def __call__(self, request):
++        if is_portfolio_demo_user(request.user):
++            cutoff = timezone.now() - timedelta(
++                hours=settings.PORTFOLIO_DEMO_TTL_HOURS
++            )
++            if request.user.date_joined < cutoff:
++                user_id = request.user.pk
++                logout(request)
++                delete_portfolio_demo_user(user_id=user_id)
++                messages.info(
++                    request,
++                    "That temporary demo expired. Start a fresh workspace to continue.",
++                )
++                return redirect("project_showcase")
++
++        response = self.get_response(request)
++        if is_portfolio_demo_user(request.user):
++            response["Cache-Control"] = "private, no-store, max-age=0"
++            response["Pragma"] = "no-cache"
++        return response
++
++    def process_view(self, request, view_func, view_args, view_kwargs):
++        if (
++            is_portfolio_demo_user(request.user)
++            and request.method == "POST"
++            and request.resolver_match
++            and request.resolver_match.view_name in BLOCKED_DEMO_POST_VIEWS
++        ):
++            messages.warning(
++                request,
++                (
++                    "External imports and AI generation are disabled in the public "
++                    "demo. The seeded examples remain fully available to inspect."
++                ),
++            )
++            return redirect("portfolio_demo_guide")
++        return None
+diff --git a/apps/core/portfolio_views.py b/apps/core/portfolio_views.py
+new file mode 100644
+index 0000000..5b81785
+--- /dev/null
++++ b/apps/core/portfolio_views.py
+@@ -0,0 +1,132 @@
++from datetime import timedelta
++
++from django.conf import settings
++from django.contrib import messages
++from django.contrib.auth import login, logout
++from django.contrib.auth.decorators import login_required
++from django.http import Http404
++from django.shortcuts import redirect, render
++from django.utils import timezone
++from django.views.decorators.http import require_POST
++
++from .portfolio_context import STEP_DEFINITIONS, portfolio_demo_steps
++from .portfolio_demo import (
++    cleanup_expired_portfolio_demo_users,
++    create_portfolio_demo_workspace,
++    delete_portfolio_demo_user,
++    is_portfolio_demo_user,
++    portfolio_demo_users,
++)
++
++
++def project_showcase(request):
++    return render(request, "core/project_showcase.html")
++
++
++def _activate_workspace(request, workspace):
++    login(
++        request,
++        workspace.user,
++        backend="django.contrib.auth.backends.ModelBackend",
++    )
++    request.session.set_expiry(settings.PORTFOLIO_DEMO_SESSION_SECONDS)
++    started_at = timezone.now()
++    request.session["portfolio_demo"] = True
++    request.session["portfolio_demo_started_at"] = started_at.isoformat()
++    request.session["portfolio_demo_expires_at"] = (
++        started_at + timedelta(seconds=settings.PORTFOLIO_DEMO_SESSION_SECONDS)
++    ).isoformat()
++    request.session["portfolio_demo_assets"] = workspace.session_assets()
++    request.session["portfolio_demo_completed_steps"] = []
++
++
++@require_POST
++def portfolio_demo_start(request):
++    if not settings.PORTFOLIO_DEMO_ENABLED:
++        raise Http404("The recruiter demo is not enabled.")
++
++    if request.user.is_authenticated:
++        if is_portfolio_demo_user(request.user):
++            return redirect("portfolio_demo_guide")
++        messages.info(
++            request,
++            "You are already signed in. Your own workspace remains separate.",
++        )
++        return redirect("dashboard")
++
++    cleanup_expired_portfolio_demo_users()
++    if portfolio_demo_users().count() >= settings.PORTFOLIO_DEMO_MAX_ACTIVE:
++        return render(
++            request,
++            "core/portfolio_demo_unavailable.html",
++            status=503,
++        )
++
++    workspace = create_portfolio_demo_workspace()
++    _activate_workspace(request, workspace)
++    messages.success(
++        request,
++        (
++            "Your isolated recruiter demo is ready. Changes affect only this "
++            "temporary workspace."
++        ),
++    )
++    return redirect("portfolio_demo_guide")
++
++
++@login_required
++def portfolio_demo_guide(request):
++    if not is_portfolio_demo_user(request.user):
++        return redirect("project_showcase")
++    return render(
++        request,
++        "core/portfolio_demo_guide.html",
++        {"steps": portfolio_demo_steps(request)},
++    )
++
++
++@login_required
++def portfolio_demo_step(request, step_key):
++    if not is_portfolio_demo_user(request.user):
++        return redirect("project_showcase")
++
++    valid_keys = {key for key, _, _ in STEP_DEFINITIONS}
++    if step_key not in valid_keys:
++        raise Http404("Unknown demo step.")
++
++    steps = {step["key"]: step for step in portfolio_demo_steps(request)}
++    completed = list(request.session.get("portfolio_demo_completed_steps", []))
++    if step_key not in completed:
++        completed.append(step_key)
++        request.session["portfolio_demo_completed_steps"] = completed
++        request.session.modified = True
++    return redirect(steps[step_key]["target_url"])
++
++
++@login_required
++@require_POST
++def portfolio_demo_reset(request):
++    if not is_portfolio_demo_user(request.user):
++        raise Http404("No temporary demo workspace is active.")
++
++    old_user_id = request.user.pk
++    logout(request)
++    delete_portfolio_demo_user(user_id=old_user_id)
++
++    workspace = create_portfolio_demo_workspace()
++    _activate_workspace(request, workspace)
++    messages.success(request, "The demo was reset to its original seeded state.")
++    return redirect("portfolio_demo_guide")
++
++
++@login_required
++@require_POST
++def portfolio_demo_end(request):
++    if not is_portfolio_demo_user(request.user):
++        raise Http404("No temporary demo workspace is active.")
++
++    user_id = request.user.pk
++    logout(request)
++    delete_portfolio_demo_user(user_id=user_id)
++    messages.info(request, "The temporary demo workspace was deleted.")
++    return redirect("project_showcase")
+diff --git a/apps/core/tests/test_portfolio_demo.py b/apps/core/tests/test_portfolio_demo.py
+new file mode 100644
+index 0000000..d306bb2
+--- /dev/null
++++ b/apps/core/tests/test_portfolio_demo.py
+@@ -0,0 +1,227 @@
++from datetime import timedelta
++from io import StringIO
++
++import pytest
++from django.core.management import call_command
++from django.test import Client, override_settings
++from django.urls import reverse
++from django.utils import timezone
++
++from apps.accounts.models import User
++from apps.evidence.models import (
++    BehaviouralStory,
++    DecisionRecord,
++    EvidenceItem,
++    ProjectExplanation,
++)
++from apps.goals.models import InterviewGoal
++from apps.interviews.models import MockInterview
++from apps.questions.models import Question
++from apps.reviews.models import ReviewAttempt, ReviewState
++from apps.roadmaps.models import (
++    Roadmap,
++    UserRoadmap,
++    YouTubePlaylistRoadmap,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def _start_demo(client):
++    return client.post(reverse("portfolio_demo_start"))
++
++
++def test_project_showcase_is_public(client):
++    response = client.get(reverse("project_showcase"))
++
++    assert response.status_code == 200
++    content = response.content.decode()
++    assert "ViewCoach turns scattered interview preparation" in content
++    assert "Engineering decisions" in content
++
++
++@override_settings(PORTFOLIO_DEMO_ENABLED=False)
++def test_demo_start_returns_404_when_disabled(client):
++    response = _start_demo(client)
++
++    assert response.status_code == 404
++    assert not User.objects.filter(
++        email__endswith="@demo.viewcoach.local"
++    ).exists()
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_demo_start_creates_complete_isolated_workspace(client):
++    response = _start_demo(client)
++
++    assert response.status_code == 302
++    assert response.url == reverse("portfolio_demo_guide")
++
++    demo_user = User.objects.get(email__endswith="@demo.viewcoach.local")
++    assert client.session["_auth_user_id"] == str(demo_user.pk)
++    assert client.session["portfolio_demo"] is True
++
++    assert Roadmap.objects.filter(created_by=demo_user).count() == 2
++    assert Roadmap.objects.filter(
++        created_by=demo_user,
++        source=Roadmap.Source.CUSTOM,
++    ).exists()
++    assert YouTubePlaylistRoadmap.objects.filter(
++        user=demo_user,
++        is_favourite=True,
++    ).exists()
++    assert UserRoadmap.objects.filter(
++        user=demo_user,
++        is_focused=True,
++    ).exists()
++
++    assert Question.objects.filter(owner=demo_user).count() == 4
++    assert ReviewState.objects.filter(user=demo_user).count() == 4
++    assert ReviewAttempt.objects.filter(state__user=demo_user).exists()
++    assert EvidenceItem.objects.filter(owner=demo_user).count() == 3
++    assert ProjectExplanation.objects.filter(
++        evidence__owner=demo_user
++    ).count() == 2
++    assert DecisionRecord.objects.filter(evidence__owner=demo_user).exists()
++    assert BehaviouralStory.objects.filter(evidence__owner=demo_user).exists()
++    assert InterviewGoal.objects.filter(
++        user=demo_user,
++        is_primary=True,
++    ).exists()
++    assert MockInterview.objects.filter(
++        user=demo_user,
++        status=MockInterview.Status.COMPLETED,
++    ).exists()
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_each_browser_receives_a_different_demo_account():
++    first_client = Client()
++    second_client = Client()
++
++    _start_demo(first_client)
++    _start_demo(second_client)
++
++    assert first_client.session["_auth_user_id"] != second_client.session[
++        "_auth_user_id"
++    ]
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_tour_step_records_progress_and_redirects(client):
++    _start_demo(client)
++
++    response = client.get(
++        reverse(
++            "portfolio_demo_step",
++            kwargs={"step_key": "dashboard"},
++        )
++    )
++
++    assert response.status_code == 302
++    assert response.url == reverse("dashboard")
++    assert "dashboard" in client.session["portfolio_demo_completed_steps"]
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_demo_reset_replaces_user_and_restores_seeded_data(client):
++    _start_demo(client)
++    old_user_id = int(client.session["_auth_user_id"])
++    Question.objects.filter(owner_id=old_user_id).delete()
++
++    response = client.post(reverse("portfolio_demo_reset"))
++
++    new_user_id = int(client.session["_auth_user_id"])
++    assert response.status_code == 302
++    assert new_user_id != old_user_id
++    assert not User.objects.filter(pk=old_user_id).exists()
++    assert Question.objects.filter(owner_id=new_user_id).count() == 4
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_demo_end_logs_out_and_deletes_user(client):
++    _start_demo(client)
++    user_id = int(client.session["_auth_user_id"])
++
++    response = client.post(reverse("portfolio_demo_end"))
++
++    assert response.status_code == 302
++    assert response.url == reverse("project_showcase")
++    assert not User.objects.filter(pk=user_id).exists()
++    assert "_auth_user_id" not in client.session
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=0,
++)
++def test_capacity_limit_returns_friendly_503(client):
++    response = _start_demo(client)
++
++    assert response.status_code == 503
++    assert "currently in use" in response.content.decode()
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_demo_middleware_blocks_live_ai_generation(client):
++    _start_demo(client)
++    assets = client.session["portfolio_demo_assets"]
++
++    response = client.post(
++        reverse(
++            "roadmaps:generate_topic_questions",
++            kwargs={
++                "slug": assets["custom_roadmap_slug"],
++                "topic_id": assets["featured_topic_id"],
++            },
++        ),
++        {"count": 3},
++    )
++
++    assert response.status_code == 302
++    assert response.url == reverse("portfolio_demo_guide")
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++    PORTFOLIO_DEMO_TTL_HOURS=24,
++)
++def test_cleanup_command_deletes_expired_demo_users(client):
++    _start_demo(client)
++    user_id = int(client.session["_auth_user_id"])
++    User.objects.filter(pk=user_id).update(
++        date_joined=timezone.now() - timedelta(hours=25)
++    )
++    output = StringIO()
++
++    call_command("cleanup_portfolio_demo_users", stdout=output)
++
++    assert not User.objects.filter(pk=user_id).exists()
++    assert "Deleted 1 temporary portfolio demo user." in output.getvalue()
+diff --git a/apps/core/urls.py b/apps/core/urls.py
+index 19a7faa..87bf7c9 100644
+--- a/apps/core/urls.py
++++ b/apps/core/urls.py
+@@ -1,9 +1,35 @@
+ from django.urls import path
+ 
+-from . import views
++from . import portfolio_views, views
+ 
+ urlpatterns = [
+     path("", views.landing_page, name="home"),
++    path("project/", portfolio_views.project_showcase, name="project_showcase"),
++    path(
++        "project/demo/",
++        portfolio_views.portfolio_demo_guide,
++        name="portfolio_demo_guide",
++    ),
++    path(
++        "project/demo/start/",
++        portfolio_views.portfolio_demo_start,
++        name="portfolio_demo_start",
++    ),
++    path(
++        "project/demo/reset/",
++        portfolio_views.portfolio_demo_reset,
++        name="portfolio_demo_reset",
++    ),
++    path(
++        "project/demo/end/",
++        portfolio_views.portfolio_demo_end,
++        name="portfolio_demo_end",
++    ),
++    path(
++        "project/demo/step/<slug:step_key>/",
++        portfolio_views.portfolio_demo_step,
++        name="portfolio_demo_step",
++    ),
+     path("dashboard/", views.dashboard, name="dashboard"),
+     path("learn/", views.learn, name="learn"),
+     path("prepare/", views.prepare, name="prepare"),
+diff --git a/config/settings/base.py b/config/settings/base.py
+index a664e3f..c892529 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -38,6 +38,7 @@ MIDDLEWARE = [
+     "django.middleware.csrf.CsrfViewMiddleware",
+     "django.contrib.auth.middleware.AuthenticationMiddleware",
+     "django.contrib.messages.middleware.MessageMiddleware",
++    "apps.core.portfolio_middleware.PortfolioDemoMiddleware",
+     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+ ]
+ 
+@@ -53,6 +54,7 @@ TEMPLATES = [
+                 "django.template.context_processors.request",
+                 "django.contrib.auth.context_processors.auth",
+                 "django.contrib.messages.context_processors.messages",
++                "apps.core.portfolio_context.portfolio_demo_context",
+             ],
+         },
+     },
+@@ -185,3 +187,22 @@ QUESTION_GENERATION_MAX_OUTPUT_TOKENS = int(
+ QUESTION_GENERATION_MIN_NOTE_CHARACTERS = int(
+     os.getenv("QUESTION_GENERATION_MIN_NOTE_CHARACTERS", "80")
+ )
++
++PORTFOLIO_DEMO_ENABLED = os.getenv(
++    "PORTFOLIO_DEMO_ENABLED",
++    "false",
++).strip().casefold() in {
++    "1",
++    "true",
++    "yes",
++    "on",
++}
++PORTFOLIO_DEMO_SESSION_SECONDS = int(
++    os.getenv("PORTFOLIO_DEMO_SESSION_SECONDS", "7200")
++)
++PORTFOLIO_DEMO_TTL_HOURS = int(
++    os.getenv("PORTFOLIO_DEMO_TTL_HOURS", "24")
++)
++PORTFOLIO_DEMO_MAX_ACTIVE = int(
++    os.getenv("PORTFOLIO_DEMO_MAX_ACTIVE", "25")
++)
+diff --git a/docs/features/portfolio-recruiter-demo.md b/docs/features/portfolio-recruiter-demo.md
+new file mode 100644
+index 0000000..be402cc
+--- /dev/null
++++ b/docs/features/portfolio-recruiter-demo.md
+@@ -0,0 +1,64 @@
++# Recruiter portfolio demo
++
++## Journey
++
++```text
++Public landing page
++→ project case study
++→ create isolated temporary workspace
++→ guided eight-step tour
++→ reset or delete workspace
++```
++
++## Included demo data
++
++- user-created roadmap with modules, topics, notes, resources and progress
++- favourite YouTube roadmap with video metadata and progress
++- technical, concept, behavioural and debugging questions
++- spaced-review states and review history
++- three evidence items
++- project explanations
++- architecture decision record
++- interview-ready STAR story
++- topic, question and goal evidence links
++- active interview goal with stages
++- completed mixed mock interview
++
++## Safety
++
++- demo creation uses POST and CSRF protection
++- each visitor receives a separate user with an unusable password
++- live AI generation and external imports are blocked
++- demo responses use `Cache-Control: no-store`
++- a capacity limit prevents unlimited active demo accounts
++- reset and end actions delete the old account
++- an expiry command removes abandoned accounts
++
++## Environment
++
++```text
++PORTFOLIO_DEMO_ENABLED=true
++PORTFOLIO_DEMO_SESSION_SECONDS=7200
++PORTFOLIO_DEMO_TTL_HOURS=24
++PORTFOLIO_DEMO_MAX_ACTIVE=25
++```
++
++## Cleanup
++
++Run periodically:
++
++```bash
++python manage.py cleanup_portfolio_demo_users
++```
++
++Delete every demo account during maintenance:
++
++```bash
++python manage.py cleanup_portfolio_demo_users --all
++```
++
++## Decision
++
++The implementation uses isolated temporary accounts rather than one shared
++credential. This costs more database rows, but protects the recruiter experience
++from previous visitors' edits and makes reset behaviour deterministic.
+diff --git a/static/css/portfolio-demo.css b/static/css/portfolio-demo.css
+new file mode 100644
+index 0000000..5978efe
+--- /dev/null
++++ b/static/css/portfolio-demo.css
+@@ -0,0 +1,422 @@
++.portfolio-public-page {
++    background: #f5f3ef;
++}
++
++.portfolio-home-hero,
++.portfolio-case-hero {
++    align-items: start;
++    display: grid;
++    gap: 2rem;
++    padding: clamp(3rem, 8vw, 7rem) 0;
++}
++
++.portfolio-home-copy,
++.portfolio-case-hero > div {
++    max-width: 850px;
++}
++
++.portfolio-home-hero h1,
++.portfolio-case-hero h1 {
++    font-size: clamp(2.6rem, 7vw, 5.7rem);
++    letter-spacing: -0.055em;
++    line-height: 0.98;
++    margin: 0.35rem 0 1.25rem;
++}
++
++.portfolio-home-proof,
++.portfolio-case-summary {
++    background: #20282c;
++    border-radius: 8px;
++    color: #fff;
++    padding: 1.5rem;
++}
++
++.portfolio-home-proof > span,
++.portfolio-case-summary > span {
++    color: #d99a7e;
++    display: block;
++    font-size: 0.78rem;
++    font-weight: 700;
++    letter-spacing: 0.08em;
++    margin-bottom: 0.55rem;
++    text-transform: uppercase;
++}
++
++.portfolio-home-proof > strong {
++    display: block;
++    font-size: 1.35rem;
++    line-height: 1.25;
++}
++
++.portfolio-home-proof ul {
++    color: #d6dcdf;
++    margin: 1.25rem 0 0;
++    padding-left: 1.2rem;
++}
++
++.portfolio-case-summary dl {
++    display: grid;
++    gap: 0.9rem;
++    margin: 1rem 0 0;
++}
++
++.portfolio-case-summary dl div {
++    border-top: 1px solid #455057;
++    display: grid;
++    gap: 0.15rem;
++    padding-top: 0.75rem;
++}
++
++.portfolio-case-summary dt {
++    color: #aeb8bd;
++    font-size: 0.78rem;
++    text-transform: uppercase;
++}
++
++.portfolio-case-summary dd {
++    font-weight: 700;
++    margin: 0;
++}
++
++.portfolio-metric-strip {
++    background: #20282c;
++    color: #fff;
++    display: grid;
++    gap: 1px;
++    grid-template-columns: repeat(2, 1fr);
++    margin-bottom: 5rem;
++}
++
++.portfolio-metric-strip article {
++    background: #20282c;
++    border: 1px solid #3a454b;
++    display: grid;
++    gap: 0.25rem;
++    padding: 1.4rem;
++}
++
++.portfolio-metric-strip strong {
++    color: #d57952;
++    font-size: 2.2rem;
++}
++
++.portfolio-metric-strip span {
++    color: #c7cfd3;
++    font-size: 0.9rem;
++}
++
++.portfolio-case-section {
++    border-top: 1px solid #d5d7d5;
++    padding: 4rem 0;
++}
++
++.portfolio-case-section > header {
++    max-width: 850px;
++    margin-bottom: 2rem;
++}
++
++.portfolio-case-section h2,
++.portfolio-case-cta h2 {
++    font-size: clamp(2rem, 5vw, 3.5rem);
++    letter-spacing: -0.045em;
++    line-height: 1.05;
++    margin: 0.4rem 0 0.8rem;
++}
++
++.portfolio-problem-grid,
++.portfolio-architecture-grid,
++.portfolio-decision-grid {
++    display: grid;
++    gap: 1rem;
++}
++
++.portfolio-problem-grid article,
++.portfolio-architecture-grid article,
++.portfolio-decision-grid article {
++    background: #fff;
++    border: 1px solid #dadcda;
++    border-radius: 7px;
++    padding: 1.35rem;
++}
++
++.portfolio-problem-grid article > span {
++    color: #a84f2a;
++    font-weight: 800;
++}
++
++.portfolio-problem-grid h3,
++.portfolio-architecture-grid h3,
++.portfolio-decision-grid h3 {
++    margin: 0.6rem 0;
++}
++
++.portfolio-decision-grid small {
++    border-top: 1px solid #ece7e3;
++    color: #7b4936;
++    display: block;
++    margin-top: 1rem;
++    padding-top: 0.8rem;
++}
++
++.portfolio-flow {
++    display: grid;
++    gap: 0.75rem;
++}
++
++.portfolio-flow article {
++    align-items: center;
++    background: #fff;
++    border-left: 4px solid #a84f2a;
++    display: grid;
++    gap: 0.25rem 0.8rem;
++    grid-template-columns: auto 1fr;
++    padding: 1rem;
++}
++
++.portfolio-flow article > span {
++    color: #a84f2a;
++    font-size: 1.25rem;
++    font-weight: 800;
++    grid-row: span 2;
++}
++
++.portfolio-flow small {
++    color: #626b70;
++}
++
++.portfolio-demo-preview {
++    display: grid;
++    gap: 0.7rem;
++    list-style: none;
++    margin: 0;
++    padding: 0;
++}
++
++.portfolio-demo-preview li {
++    background: #fff;
++    border: 1px solid #dadcda;
++    display: grid;
++    gap: 0.25rem;
++    padding: 1rem 1.1rem;
++}
++
++.portfolio-demo-preview span {
++    color: #626b70;
++}
++
++.portfolio-case-cta {
++    align-items: center;
++    background: #20282c;
++    border-radius: 8px;
++    color: #fff;
++    display: flex;
++    flex-wrap: wrap;
++    gap: 1.5rem;
++    justify-content: space-between;
++    margin: 3rem 0;
++    padding: clamp(1.5rem, 5vw, 3rem);
++}
++
++.portfolio-case-cta .eyebrow {
++    color: #d99a7e;
++}
++
++.portfolio-demo-status {
++    align-self: center;
++    color: #687278;
++}
++
++.portfolio-demo-banner {
++    background: #f7e9e2;
++    border: 1px solid #ddb8a7;
++    border-radius: 7px;
++    display: grid;
++    gap: 0.8rem;
++    margin-bottom: 1.25rem;
++    padding: 0.9rem 1rem;
++}
++
++.portfolio-demo-banner-heading {
++    display: grid;
++    gap: 0.15rem;
++}
++
++.portfolio-demo-banner-heading span {
++    color: #913f21;
++    font-size: 0.72rem;
++    font-weight: 800;
++    letter-spacing: 0.08em;
++    text-transform: uppercase;
++}
++
++.portfolio-demo-banner nav {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 0.4rem;
++}
++
++.portfolio-demo-banner nav a {
++    background: #fff;
++    border: 1px solid #dfc3b7;
++    border-radius: 4px;
++    color: #20282c;
++    font-size: 0.78rem;
++    padding: 0.38rem 0.52rem;
++    text-decoration: none;
++}
++
++.portfolio-demo-banner nav a.is-complete::before {
++    color: #35734a;
++    content: "✓ ";
++    font-weight: 800;
++}
++
++.portfolio-demo-banner-actions {
++    display: flex;
++    gap: 0.8rem;
++}
++
++.portfolio-demo-banner-actions form {
++    margin: 0;
++}
++
++.portfolio-demo-banner-actions button {
++    background: transparent;
++    border: 0;
++    color: #913f21;
++    cursor: pointer;
++    font: inherit;
++    font-size: 0.82rem;
++    font-weight: 800;
++    padding: 0;
++}
++
++.portfolio-demo-guide-header {
++    align-items: end;
++    display: flex;
++    flex-wrap: wrap;
++    gap: 1.5rem;
++    justify-content: space-between;
++    margin-bottom: 2rem;
++}
++
++.portfolio-demo-guide-header > div:first-child {
++    max-width: 800px;
++}
++
++.portfolio-demo-guide-progress {
++    background: #20282c;
++    border-radius: 7px;
++    color: #fff;
++    display: grid;
++    min-width: 150px;
++    padding: 1.1rem;
++}
++
++.portfolio-demo-guide-progress strong {
++    color: #d57952;
++    font-size: 2rem;
++}
++
++.portfolio-demo-guide-progress span {
++    color: #c6ced2;
++    font-size: 0.8rem;
++}
++
++.portfolio-demo-guide-grid {
++    display: grid;
++    gap: 0.9rem;
++}
++
++.portfolio-demo-guide-grid article {
++    align-items: center;
++    background: #fff;
++    border: 1px solid #d9dddf;
++    border-radius: 7px;
++    display: grid;
++    gap: 1rem;
++    grid-template-columns: auto 1fr auto;
++    padding: 1rem;
++}
++
++.portfolio-demo-guide-grid article.is-complete {
++    border-color: #9ac0a6;
++}
++
++.portfolio-demo-step-number {
++    color: #a84f2a;
++    font-size: 1.15rem;
++    font-weight: 800;
++}
++
++.portfolio-demo-guide-grid h2 {
++    font-size: 1.05rem;
++    margin: 0 0 0.25rem;
++}
++
++.portfolio-demo-guide-grid p {
++    color: #626b70;
++    margin: 0;
++}
++
++.portfolio-demo-control-panel {
++    align-items: center;
++    background: #f1f0ed;
++    border: 1px solid #d6d8d6;
++    border-radius: 7px;
++    display: flex;
++    flex-wrap: wrap;
++    gap: 1.5rem;
++    justify-content: space-between;
++    margin-top: 2rem;
++    padding: 1.3rem;
++}
++
++.portfolio-demo-control-panel > div:first-child {
++    max-width: 700px;
++}
++
++.portfolio-demo-unavailable {
++    max-width: 780px;
++    padding: 5rem 0;
++}
++
++@media (min-width: 760px) {
++    .portfolio-home-hero,
++    .portfolio-case-hero {
++        grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.75fr);
++    }
++
++    .portfolio-metric-strip {
++        grid-template-columns: repeat(4, 1fr);
++    }
++
++    .portfolio-problem-grid {
++        grid-template-columns: repeat(3, 1fr);
++    }
++
++    .portfolio-architecture-grid,
++    .portfolio-decision-grid {
++        grid-template-columns: repeat(2, 1fr);
++    }
++
++    .portfolio-flow {
++        grid-template-columns: repeat(3, 1fr);
++    }
++
++    .portfolio-demo-preview {
++        grid-template-columns: repeat(2, 1fr);
++    }
++}
++
++@media (max-width: 700px) {
++    .portfolio-demo-guide-grid article {
++        align-items: start;
++        grid-template-columns: auto 1fr;
++    }
++
++    .portfolio-demo-guide-grid .button {
++        grid-column: 1 / -1;
++        text-align: center;
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 3ed714d..17ab513 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -20,6 +20,7 @@
+     <link rel="stylesheet" href="{% static 'css/dashboard-v2.css' %}">
+     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
+     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
++    <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
+ </head>
+ <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+ {% if user.is_authenticated %}
+@@ -64,6 +65,7 @@
+         <nav class="nav container" aria-label="Primary navigation">
+             <a class="brand" href="{% url 'home' %}">ViewCoach</a>
+             <div class="nav-actions">
++                <a href="{% url 'project_showcase' %}">Project</a>
+                 <a href="{% url 'login' %}">Log in</a>
+                 <a class="button button-small" href="{% url 'signup' %}">Create account</a>
+             </div>
+@@ -72,6 +74,9 @@
+ 
+     <main class="container page-content">
+ {% endif %}
++        {% if portfolio_demo_active %}
++            {% include "includes/portfolio_demo_banner.html" %}
++        {% endif %}
+         {% if messages %}
+             <div class="message-region" aria-live="polite">
+                 {% for message in messages %}
+diff --git a/templates/core/landing_page.html b/templates/core/landing_page.html
+index fa3b8f6..b343c74 100644
+--- a/templates/core/landing_page.html
++++ b/templates/core/landing_page.html
+@@ -1,22 +1,44 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Adaptive Interview Coach{% endblock %}
++{% block title %}ViewCoach | Adaptive interview preparation{% endblock %}
++{% block body_class %}portfolio-public-page{% endblock %}
+ 
+ {% block content %}
+-<section class="hero">
+-    <p class="eyebrow">Structured interview preparation</p>
+-    <h1>Know what to study next, and why.</h1>
+-    <p class="lead">
+-        Build interview goals, practise deliberately, record mistakes and follow an
+-        explainable study plan.
+-    </p>
+-    <div class="button-row">
+-        {% if user.is_authenticated %}
+-            <a class="button" href="{% url 'dashboard' %}">Open dashboard</a>
+-        {% else %}
+-            <a class="button" href="{% url 'signup' %}">Create account</a>
+-            <a class="button button-secondary" href="{% url 'login' %}">Log in</a>
+-        {% endif %}
++<section class="portfolio-home-hero">
++    <div class="portfolio-home-copy">
++        <p class="eyebrow">Adaptive interview preparation</p>
++        <h1>Know what to study next, practise it, and explain it under pressure.</h1>
++        <p class="lead">
++            ViewCoach connects learning roadmaps, interview questions, spaced
++            review, project evidence and an explainable daily plan.
++        </p>
++        <div class="button-row">
++            {% if user.is_authenticated %}
++                <a class="button" href="{% url 'dashboard' %}">Open dashboard</a>
++            {% else %}
++                {% if portfolio_demo_enabled %}
++                    <form method="post" action="{% url 'portfolio_demo_start' %}">
++                        {% csrf_token %}
++                        <button class="button" type="submit">Try the recruiter demo</button>
++                    </form>
++                {% endif %}
++                <a class="button button-secondary" href="{% url 'project_showcase' %}">
++                    Explore the project
++                </a>
++                <a class="button button-secondary" href="{% url 'signup' %}">
++                    Create account
++                </a>
++            {% endif %}
++        </div>
+     </div>
++    <aside class="portfolio-home-proof" aria-label="ViewCoach capabilities">
++        <span>One connected workspace</span>
++        <strong>Learning → practice → evidence → interview readiness</strong>
++        <ul>
++            <li>Explainable planning instead of a generic checklist</li>
++            <li>Human-reviewed AI drafts instead of silent automation</li>
++            <li>Source-aware roadmaps with one progress engine</li>
++        </ul>
++    </aside>
+ </section>
+ {% endblock %}
+diff --git a/templates/core/portfolio_demo_guide.html b/templates/core/portfolio_demo_guide.html
+new file mode 100644
+index 0000000..a6ad7ce
+--- /dev/null
++++ b/templates/core/portfolio_demo_guide.html
+@@ -0,0 +1,63 @@
++{% extends "base.html" %}
++
++{% block title %}Recruiter demo | ViewCoach{% endblock %}
++{% block body_class %}portfolio-demo-page{% endblock %}
++
++{% block content %}
++<section class="portfolio-demo-guide-header">
++    <div>
++        <p class="eyebrow">Temporary recruiter workspace</p>
++        <h1>Explore the strongest ViewCoach workflows.</h1>
++        <p class="lead">
++            This account contains realistic roadmaps, questions, review history,
++            project evidence, a mock interview and a target role. Changes are safe:
++            they affect only this temporary workspace.
++        </p>
++    </div>
++    <div class="portfolio-demo-guide-progress">
++        <strong>{{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}</strong>
++        <span>tour areas opened</span>
++    </div>
++</section>
++
++<section class="portfolio-demo-guide-grid" aria-label="Guided product tour">
++    {% for step in steps %}
++        <article class="{% if step.completed %}is-complete{% endif %}">
++            <span class="portfolio-demo-step-number">{{ forloop.counter|stringformat:"02d" }}</span>
++            <div>
++                <h2>{{ step.label }}</h2>
++                <p>{{ step.description }}</p>
++            </div>
++            <a class="button{% if step.completed %} button-secondary{% endif %}"
++               href="{{ step.launch_url }}">
++                {% if step.completed %}Open again{% else %}Explore{% endif %}
++            </a>
++        </article>
++    {% endfor %}
++</section>
++
++<section class="portfolio-demo-control-panel">
++    <div>
++        <p class="eyebrow">Demo controls</p>
++        <h2>Experiment freely, then restore the original state.</h2>
++        <p>
++            External imports and live AI generation are disabled to protect the
++            public service. Every seeded result remains available to inspect.
++        </p>
++    </div>
++    <div class="button-row">
++        <form method="post" action="{% url 'portfolio_demo_reset' %}">
++            {% csrf_token %}
++            <button class="button button-secondary" type="submit">
++                Reset demo data
++            </button>
++        </form>
++        <form method="post" action="{% url 'portfolio_demo_end' %}">
++            {% csrf_token %}
++            <button class="button button-secondary" type="submit">
++                End and delete demo
++            </button>
++        </form>
++    </div>
++</section>
++{% endblock %}
+diff --git a/templates/core/portfolio_demo_unavailable.html b/templates/core/portfolio_demo_unavailable.html
+new file mode 100644
+index 0000000..9a00dae
+--- /dev/null
++++ b/templates/core/portfolio_demo_unavailable.html
+@@ -0,0 +1,25 @@
++{% extends "base.html" %}
++
++{% block title %}Demo temporarily full | ViewCoach{% endblock %}
++{% block body_class %}portfolio-public-page{% endblock %}
++
++{% block content %}
++<section class="portfolio-demo-unavailable">
++    <p class="eyebrow">Recruiter demo</p>
++    <h1>All temporary demo workspaces are currently in use.</h1>
++    <p class="lead">
++        This capacity limit protects the free deployment and its database.
++        Please try again after an older demo expires.
++    </p>
++    <div class="button-row">
++        <a class="button" href="{% url 'project_showcase' %}">
++            Return to project case study
++        </a>
++        <a class="button button-secondary"
++           href="https://github.com/nonluthando/ViewCoach"
++           target="_blank" rel="noopener noreferrer">
++            View source code
++        </a>
++    </div>
++</section>
++{% endblock %}
+diff --git a/templates/core/project_showcase.html b/templates/core/project_showcase.html
+new file mode 100644
+index 0000000..42769f2
+--- /dev/null
++++ b/templates/core/project_showcase.html
+@@ -0,0 +1,191 @@
++{% extends "base.html" %}
++
++{% block title %}ViewCoach project | Portfolio case study{% endblock %}
++{% block body_class %}portfolio-public-page portfolio-showcase-page{% endblock %}
++
++{% block content %}
++<section class="portfolio-case-hero">
++    <div>
++        <p class="eyebrow">Portfolio case study</p>
++        <h1>ViewCoach turns scattered interview preparation into one explainable system.</h1>
++        <p class="lead">
++            A full-stack Django product connecting learning roadmaps, retrieval
++            practice, spaced review, project evidence, mock interviews and
++            goal-aware daily planning.
++        </p>
++        <div class="button-row">
++            {% if portfolio_demo_active %}
++                <a class="button" href="{% url 'portfolio_demo_guide' %}">
++                    Continue recruiter demo
++                </a>
++            {% elif user.is_authenticated %}
++                <a class="button" href="{% url 'dashboard' %}">Open my workspace</a>
++            {% elif portfolio_demo_enabled %}
++                <form method="post" action="{% url 'portfolio_demo_start' %}">
++                    {% csrf_token %}
++                    <button class="button" type="submit">
++                        Create isolated demo workspace
++                    </button>
++                </form>
++            {% else %}
++                <span class="portfolio-demo-status">
++                    Interactive demo is temporarily disabled.
++                </span>
++            {% endif %}
++            <a class="button button-secondary"
++               href="https://github.com/nonluthando/ViewCoach"
++               target="_blank" rel="noopener noreferrer">
++                View GitHub repository
++            </a>
++        </div>
++    </div>
++    <aside class="portfolio-case-summary">
++        <span>Built by Luthando Mbuyane</span>
++        <dl>
++            <div><dt>Backend</dt><dd>Django + PostgreSQL</dd></div>
++            <div><dt>Planning</dt><dd>Explainable scoring + OR-Tools</dd></div>
++            <div><dt>AI</dt><dd>Gemini + pgvector RAG</dd></div>
++            <div><dt>Quality</dt><dd>pytest regression suites</dd></div>
++        </dl>
++    </aside>
++</section>
++
++<section class="portfolio-metric-strip" aria-label="Project scope">
++    <article><strong>9</strong><span>connected product domains</span></article>
++    <article><strong>3</strong><span>roadmap ownership models</span></article>
++    <article><strong>4</strong><span>interview question types</span></article>
++    <article><strong>1</strong><span>explainable planning engine</span></article>
++</section>
++
++<section class="portfolio-case-section">
++    <header>
++        <p class="eyebrow">Problem</p>
++        <h2>Preparation tools store information. They rarely decide what deserves attention.</h2>
++    </header>
++    <div class="portfolio-problem-grid">
++        <article>
++            <span>01</span>
++            <h3>Learning is fragmented</h3>
++            <p>Courses, playlists, notes and personal roadmaps live in separate places.</p>
++        </article>
++        <article>
++            <span>02</span>
++            <h3>Practice loses context</h3>
++            <p>Question banks are disconnected from mistakes, evidence and real goals.</p>
++        </article>
++        <article>
++            <span>03</span>
++            <h3>Planning becomes guesswork</h3>
++            <p>A candidate still has to decide what to study today and why.</p>
++        </article>
++    </div>
++</section>
++
++<section class="portfolio-case-section">
++    <header>
++        <p class="eyebrow">Product response</p>
++        <h2>One preparation loop, with explicit boundaries between its parts.</h2>
++    </header>
++    <div class="portfolio-flow" aria-label="ViewCoach preparation loop">
++        <article><span>1</span><strong>Set a goal</strong><small>Role, stage and time available</small></article>
++        <article><span>2</span><strong>Build knowledge</strong><small>Curated, imported and personal roadmaps</small></article>
++        <article><span>3</span><strong>Practise recall</strong><small>Questions, notes and spaced review</small></article>
++        <article><span>4</span><strong>Connect evidence</strong><small>Projects, decisions and STAR stories</small></article>
++        <article><span>5</span><strong>Rehearse</strong><small>Mixed mock interviews and reflection</small></article>
++        <article><span>6</span><strong>Plan next</strong><small>Explainable daily recommendations</small></article>
++    </div>
++</section>
++
++<section class="portfolio-case-section">
++    <header>
++        <p class="eyebrow">Recruiter demo</p>
++        <h2>A complete seeded product journey—not an empty account.</h2>
++        <p>
++            Every visitor receives a private temporary workspace. They can edit,
++            complete and delete data without affecting another visitor, then reset
++            everything in one click.
++        </p>
++    </header>
++    <ol class="portfolio-demo-preview">
++        <li><strong>Dashboard</strong><span>Readiness, reviews, evidence and the next task</span></li>
++        <li><strong>Daily plan</strong><span>Optimised work with visible rationale</span></li>
++        <li><strong>User roadmap</strong><span>Create, edit, reorder and focus topics</span></li>
++        <li><strong>Topic workspace</strong><span>Notes, links, progress and evidence</span></li>
++        <li><strong>Question card</strong><span>A complete answer with review history</span></li>
++        <li><strong>Project evidence</strong><span>Architecture, decisions and trade-offs</span></li>
++        <li><strong>Mock interview</strong><span>Completed answers and confidence ratings</span></li>
++        <li><strong>Goal readiness</strong><span>Preparation connected to a target role</span></li>
++    </ol>
++</section>
++
++<section class="portfolio-case-section">
++    <header>
++        <p class="eyebrow">Architecture</p>
++        <h2>Modular Django domains joined through services, not template logic.</h2>
++    </header>
++    <div class="portfolio-architecture-grid">
++        <article>
++            <h3>Application layer</h3>
++            <p>Accounts, goals, roadmaps, questions, reviews, planner, evidence, interviews and knowledge.</p>
++        </article>
++        <article>
++            <h3>Persistence</h3>
++            <p>PostgreSQL relational integrity, transactional workflows and pgvector retrieval.</p>
++        </article>
++        <article>
++            <h3>Planning</h3>
++            <p>Candidate generation, explainable scoring, compulsory work and OR-Tools optimisation.</p>
++        </article>
++        <article>
++            <h3>AI boundary</h3>
++            <p>Grounded assistance and editable drafts that remain outside review until approved.</p>
++        </article>
++    </div>
++</section>
++
++<section class="portfolio-case-section">
++    <header>
++        <p class="eyebrow">Engineering decisions</p>
++        <h2>The trade-offs are part of the product story.</h2>
++    </header>
++    <div class="portfolio-decision-grid">
++        <article>
++            <h3>One roadmap domain, several source types</h3>
++            <p>Curated, imported and personal paths reuse progress and planning while retaining ownership.</p>
++            <small>Trade-off: stricter source-aware routing for far less duplicated behaviour.</small>
++        </article>
++        <article>
++            <h3>Human approval before AI content enters review</h3>
++            <p>Generated cards remain editable drafts until the candidate confirms them.</p>
++            <small>Trade-off: one extra step for better trust and retrieval quality.</small>
++        </article>
++        <article>
++            <h3>Optimisation with a deterministic fallback</h3>
++            <p>The planner can optimise within a time budget but still works when the solver is unavailable.</p>
++            <small>Trade-off: two selection paths that require shared policy tests.</small>
++        </article>
++        <article>
++            <h3>Isolated recruiter demos</h3>
++            <p>Visitors receive temporary accounts instead of sharing mutable credentials.</p>
++            <small>Trade-off: cleanup and capacity controls for a reliable portfolio experience.</small>
++        </article>
++    </div>
++</section>
++
++<section class="portfolio-case-cta">
++    <div>
++        <p class="eyebrow">Explore the implementation</p>
++        <h2>See the connected workflows with realistic data already in place.</h2>
++    </div>
++    {% if portfolio_demo_enabled and not user.is_authenticated %}
++        <form method="post" action="{% url 'portfolio_demo_start' %}">
++            {% csrf_token %}
++            <button class="button" type="submit">Start recruiter demo</button>
++        </form>
++    {% elif portfolio_demo_active %}
++        <a class="button" href="{% url 'portfolio_demo_guide' %}">Continue demo</a>
++    {% else %}
++        <a class="button" href="{% url 'dashboard' %}">Open workspace</a>
++    {% endif %}
++</section>
++{% endblock %}
+diff --git a/templates/includes/portfolio_demo_banner.html b/templates/includes/portfolio_demo_banner.html
+new file mode 100644
+index 0000000..f281636
+--- /dev/null
++++ b/templates/includes/portfolio_demo_banner.html
+@@ -0,0 +1,28 @@
++<section class="portfolio-demo-banner" aria-label="Recruiter demo controls">
++    <div class="portfolio-demo-banner-heading">
++        <span>Recruiter demo</span>
++        <strong>
++            {{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}
++            tour areas opened
++        </strong>
++    </div>
++    <nav aria-label="Recruiter demo shortcuts">
++        <a href="{% url 'portfolio_demo_guide' %}">Tour home</a>
++        {% for step in portfolio_demo_steps %}
++            <a class="{% if step.completed %}is-complete{% endif %}"
++               href="{{ step.launch_url }}">
++                {{ step.label }}
++            </a>
++        {% endfor %}
++    </nav>
++    <div class="portfolio-demo-banner-actions">
++        <form method="post" action="{% url 'portfolio_demo_reset' %}">
++            {% csrf_token %}
++            <button type="submit">Reset</button>
++        </form>
++        <form method="post" action="{% url 'portfolio_demo_end' %}">
++            {% csrf_token %}
++            <button type="submit">End demo</button>
++        </form>
++    </div>
++</section>
