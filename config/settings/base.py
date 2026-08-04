@@ -38,6 +38,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "apps.core.portfolio_middleware.PortfolioDemoMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -53,6 +54,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.portfolio_context.portfolio_demo_context",
             ],
         },
     },
@@ -184,4 +186,23 @@ QUESTION_GENERATION_MAX_OUTPUT_TOKENS = int(
 )
 QUESTION_GENERATION_MIN_NOTE_CHARACTERS = int(
     os.getenv("QUESTION_GENERATION_MIN_NOTE_CHARACTERS", "80")
+)
+
+PORTFOLIO_DEMO_ENABLED = os.getenv(
+    "PORTFOLIO_DEMO_ENABLED",
+    "false",
+).strip().casefold() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+PORTFOLIO_DEMO_SESSION_SECONDS = int(
+    os.getenv("PORTFOLIO_DEMO_SESSION_SECONDS", "7200")
+)
+PORTFOLIO_DEMO_TTL_HOURS = int(
+    os.getenv("PORTFOLIO_DEMO_TTL_HOURS", "24")
+)
+PORTFOLIO_DEMO_MAX_ACTIVE = int(
+    os.getenv("PORTFOLIO_DEMO_MAX_ACTIVE", "25")
 )

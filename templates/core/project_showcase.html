@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}ViewCoach project | Portfolio case study{% endblock %}
+{% block body_class %}portfolio-public-page portfolio-showcase-page{% endblock %}
+
+{% block content %}
+<section class="portfolio-case-hero">
+    <div>
+        <p class="eyebrow">Portfolio case study</p>
+        <h1>ViewCoach turns scattered interview preparation into one explainable system.</h1>
+        <p class="lead">
+            A full-stack Django product connecting learning roadmaps, retrieval
+            practice, spaced review, project evidence, mock interviews and
+            goal-aware daily planning.
+        </p>
+        <div class="button-row">
+            {% if portfolio_demo_active %}
+                <a class="button" href="{% url 'portfolio_demo_guide' %}">
+                    Continue recruiter demo
+                </a>
+            {% elif user.is_authenticated %}
+                <a class="button" href="{% url 'dashboard' %}">Open my workspace</a>
+            {% elif portfolio_demo_enabled %}
+                <form method="post" action="{% url 'portfolio_demo_start' %}">
+                    {% csrf_token %}
+                    <button class="button" type="submit">
+                        Create isolated demo workspace
+                    </button>
+                </form>
+            {% else %}
+                <span class="portfolio-demo-status">
+                    Interactive demo is temporarily disabled.
+                </span>
+            {% endif %}
+            <a class="button button-secondary"
+               href="https://github.com/nonluthando/ViewCoach"
+               target="_blank" rel="noopener noreferrer">
+                View GitHub repository
+            </a>
+        </div>
+    </div>
+    <aside class="portfolio-case-summary">
+        <span>Built by Luthando Mbuyane</span>
+        <dl>
+            <div><dt>Backend</dt><dd>Django + PostgreSQL</dd></div>
+            <div><dt>Planning</dt><dd>Explainable scoring + OR-Tools</dd></div>
+            <div><dt>AI</dt><dd>Gemini + pgvector RAG</dd></div>
+            <div><dt>Quality</dt><dd>pytest regression suites</dd></div>
+        </dl>
+    </aside>
+</section>
+
+<section class="portfolio-metric-strip" aria-label="Project scope">
+    <article><strong>9</strong><span>connected product domains</span></article>
+    <article><strong>3</strong><span>roadmap ownership models</span></article>
+    <article><strong>4</strong><span>interview question types</span></article>
+    <article><strong>1</strong><span>explainable planning engine</span></article>
+</section>
+
+<section class="portfolio-case-section">
+    <header>
+        <p class="eyebrow">Problem</p>
+        <h2>Preparation tools store information. They rarely decide what deserves attention.</h2>
+    </header>
+    <div class="portfolio-problem-grid">
+        <article>
+            <span>01</span>
+            <h3>Learning is fragmented</h3>
+            <p>Courses, playlists, notes and personal roadmaps live in separate places.</p>
+        </article>
+        <article>
+            <span>02</span>
+            <h3>Practice loses context</h3>
+            <p>Question banks are disconnected from mistakes, evidence and real goals.</p>
+        </article>
+        <article>
+            <span>03</span>
+            <h3>Planning becomes guesswork</h3>
+            <p>A candidate still has to decide what to study today and why.</p>
+        </article>
+    </div>
+</section>
+
+<section class="portfolio-case-section">
+    <header>
+        <p class="eyebrow">Product response</p>
+        <h2>One preparation loop, with explicit boundaries between its parts.</h2>
+    </header>
+    <div class="portfolio-flow" aria-label="ViewCoach preparation loop">
+        <article><span>1</span><strong>Set a goal</strong><small>Role, stage and time available</small></article>
+        <article><span>2</span><strong>Build knowledge</strong><small>Curated, imported and personal roadmaps</small></article>
+        <article><span>3</span><strong>Practise recall</strong><small>Questions, notes and spaced review</small></article>
+        <article><span>4</span><strong>Connect evidence</strong><small>Projects, decisions and STAR stories</small></article>
+        <article><span>5</span><strong>Rehearse</strong><small>Mixed mock interviews and reflection</small></article>
+        <article><span>6</span><strong>Plan next</strong><small>Explainable daily recommendations</small></article>
+    </div>
+</section>
+
+<section class="portfolio-case-section">
+    <header>
+        <p class="eyebrow">Recruiter demo</p>
+        <h2>A complete seeded product journey—not an empty account.</h2>
+        <p>
+            Every visitor receives a private temporary workspace. They can edit,
+            complete and delete data without affecting another visitor, then reset
+            everything in one click.
+        </p>
+    </header>
+    <ol class="portfolio-demo-preview">
+        <li><strong>Dashboard</strong><span>Readiness, reviews, evidence and the next task</span></li>
+        <li><strong>Daily plan</strong><span>Optimised work with visible rationale</span></li>
+        <li><strong>User roadmap</strong><span>Create, edit, reorder and focus topics</span></li>
+        <li><strong>Topic workspace</strong><span>Notes, links, progress and evidence</span></li>
+        <li><strong>Question card</strong><span>A complete answer with review history</span></li>
+        <li><strong>Project evidence</strong><span>Architecture, decisions and trade-offs</span></li>
+        <li><strong>Mock interview</strong><span>Completed answers and confidence ratings</span></li>
+        <li><strong>Goal readiness</strong><span>Preparation connected to a target role</span></li>
+    </ol>
+</section>
+
+<section class="portfolio-case-section">
+    <header>
+        <p class="eyebrow">Architecture</p>
+        <h2>Modular Django domains joined through services, not template logic.</h2>
+    </header>
+    <div class="portfolio-architecture-grid">
+        <article>
+            <h3>Application layer</h3>
+            <p>Accounts, goals, roadmaps, questions, reviews, planner, evidence, interviews and knowledge.</p>
+        </article>
+        <article>
+            <h3>Persistence</h3>
+            <p>PostgreSQL relational integrity, transactional workflows and pgvector retrieval.</p>
+        </article>
+        <article>
+            <h3>Planning</h3>
+            <p>Candidate generation, explainable scoring, compulsory work and OR-Tools optimisation.</p>
+        </article>
+        <article>
+            <h3>AI boundary</h3>
+            <p>Grounded assistance and editable drafts that remain outside review until approved.</p>
+        </article>
+    </div>
+</section>
+
+<section class="portfolio-case-section">
+    <header>
+        <p class="eyebrow">Engineering decisions</p>
+        <h2>The trade-offs are part of the product story.</h2>
+    </header>
+    <div class="portfolio-decision-grid">
+        <article>
+            <h3>One roadmap domain, several source types</h3>
+            <p>Curated, imported and personal paths reuse progress and planning while retaining ownership.</p>
+            <small>Trade-off: stricter source-aware routing for far less duplicated behaviour.</small>
+        </article>
+        <article>
+            <h3>Human approval before AI content enters review</h3>
+            <p>Generated cards remain editable drafts until the candidate confirms them.</p>
+            <small>Trade-off: one extra step for better trust and retrieval quality.</small>
+        </article>
+        <article>
+            <h3>Optimisation with a deterministic fallback</h3>
+            <p>The planner can optimise within a time budget but still works when the solver is unavailable.</p>
+            <small>Trade-off: two selection paths that require shared policy tests.</small>
+        </article>
+        <article>
+            <h3>Isolated recruiter demos</h3>
+            <p>Visitors receive temporary accounts instead of sharing mutable credentials.</p>
+            <small>Trade-off: cleanup and capacity controls for a reliable portfolio experience.</small>
+        </article>
+    </div>
+</section>
+
+<section class="portfolio-case-cta">
+    <div>
+        <p class="eyebrow">Explore the implementation</p>
+        <h2>See the connected workflows with realistic data already in place.</h2>
+    </div>
+    {% if portfolio_demo_enabled and not user.is_authenticated %}
+        <form method="post" action="{% url 'portfolio_demo_start' %}">
+            {% csrf_token %}
+            <button class="button" type="submit">Start recruiter demo</button>
+        </form>
+    {% elif portfolio_demo_active %}
+        <a class="button" href="{% url 'portfolio_demo_guide' %}">Continue demo</a>
+    {% else %}
+        <a class="button" href="{% url 'dashboard' %}">Open workspace</a>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,28 @@
+<section class="portfolio-demo-banner" aria-label="Recruiter demo controls">
+    <div class="portfolio-demo-banner-heading">
+        <span>Recruiter demo</span>
+        <strong>
+            {{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}
+            tour areas opened
+        </strong>
+    </div>
+    <nav aria-label="Recruiter demo shortcuts">
+        <a href="{% url 'portfolio_demo_guide' %}">Tour home</a>
+        {% for step in portfolio_demo_steps %}
+            <a class="{% if step.completed %}is-complete{% endif %}"
+               href="{{ step.launch_url }}">
+                {{ step.label }}
+            </a>
+        {% endfor %}
+    </nav>
+    <div class="portfolio-demo-banner-actions">
+        <form method="post" action="{% url 'portfolio_demo_reset' %}">
+            {% csrf_token %}
+            <button type="submit">Reset</button>
+        </form>
+        <form method="post" action="{% url 'portfolio_demo_end' %}">
+            {% csrf_token %}
+            <button type="submit">End demo</button>
+        </form>
+    </div>
+</section>

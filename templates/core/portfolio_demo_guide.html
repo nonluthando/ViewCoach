@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Recruiter demo | ViewCoach{% endblock %}
+{% block body_class %}portfolio-demo-page{% endblock %}
+
+{% block content %}
+<section class="portfolio-demo-guide-header">
+    <div>
+        <p class="eyebrow">Temporary recruiter workspace</p>
+        <h1>Explore the strongest ViewCoach workflows.</h1>
+        <p class="lead">
+            This account contains realistic roadmaps, questions, review history,
+            project evidence, a mock interview and a target role. Changes are safe:
+            they affect only this temporary workspace.
+        </p>
+    </div>
+    <div class="portfolio-demo-guide-progress">
+        <strong>{{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}</strong>
+        <span>tour areas opened</span>
+    </div>
+</section>
+
+<section class="portfolio-demo-guide-grid" aria-label="Guided product tour">
+    {% for step in steps %}
+        <article class="{% if step.completed %}is-complete{% endif %}">
+            <span class="portfolio-demo-step-number">{{ forloop.counter|stringformat:"02d" }}</span>
+            <div>
+                <h2>{{ step.label }}</h2>
+                <p>{{ step.description }}</p>
+            </div>
+            <a class="button{% if step.completed %} button-secondary{% endif %}"
+               href="{{ step.launch_url }}">
+                {% if step.completed %}Open again{% else %}Explore{% endif %}
+            </a>
+        </article>
+    {% endfor %}
+</section>
+
+<section class="portfolio-demo-control-panel">
+    <div>
+        <p class="eyebrow">Demo controls</p>
+        <h2>Experiment freely, then restore the original state.</h2>
+        <p>
+            External imports and live AI generation are disabled to protect the
+            public service. Every seeded result remains available to inspect.
+        </p>
+    </div>
+    <div class="button-row">
+        <form method="post" action="{% url 'portfolio_demo_reset' %}">
+            {% csrf_token %}
+            <button class="button button-secondary" type="submit">
+                Reset demo data
+            </button>
+        </form>
+        <form method="post" action="{% url 'portfolio_demo_end' %}">
+            {% csrf_token %}
+            <button class="button button-secondary" type="submit">
+                End and delete demo
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}
