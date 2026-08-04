@@ -23,15 +23,23 @@
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
     <link rel="stylesheet" href="{% static 'css/proofloop.css' %}">
+    <link rel="stylesheet" href="{% static 'css/proofloop-workspace.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
     <div class="app-shell">
         <aside class="app-sidebar" aria-label="Application navigation">
-            <a class="app-brand" href="{% url 'dashboard' %}">
+            <a class="app-brand proofloop-shell-brand" href="{% url 'dashboard' %}">
                 <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
-                <span class="proofloop-wordmark">ProofLoop</span>
+                <span class="proofloop-shell-brand-copy">
+                    <strong class="proofloop-wordmark">ProofLoop</strong>
+                    <small>Readiness workspace</small>
+                </span>
             </a>
+
+            <div class="proofloop-sidebar-loop" aria-label="Preparation loop">
+                <span>Plan</span><i></i><span>Learn</span><i></i><span>Retain</span><i></i><span>Prove</span>
+            </div>
 
             {% include "includes/app_primary_navigation_v3.html" %}
 
@@ -46,11 +54,20 @@
             </div>
         </aside>
 
-        <header class="app-topbar">
-            <div class="app-topbar-copy">
+        <header class="app-topbar proofloop-shell-topbar">
+            <div class="app-topbar-copy proofloop-shell-topbar-copy">
                 <span>Adaptive interview-readiness workspace</span>
-                <strong>Learn deliberately. Practise under pressure. Prove readiness.</strong>
+                <strong>Build a preparation loop you can measure and explain.</strong>
             </div>
+            {% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
+                <ol class="proofloop-shell-stages" aria-label="Preparation stages">
+                    <li class="{% if url_name == 'dashboard' or namespace == 'planner' %}is-current{% endif %}"><span>01</span>Plan</li>
+                    <li class="{% if url_name == 'learn' or namespace == 'roadmaps' %}is-current{% endif %}"><span>02</span>Learn</li>
+                    <li class="{% if namespace == 'reviews' or namespace == 'questions' %}is-current{% endif %}"><span>03</span>Retain</li>
+                    <li class="{% if namespace == 'evidence' %}is-current{% endif %}"><span>04</span>Prove</li>
+                    <li class="{% if url_name == 'interview' or namespace == 'interviews' or namespace == 'goals' %}is-current{% endif %}"><span>05</span>Rehearse</li>
+                </ol>
+            {% endwith %}
             <div class="app-topbar-actions">
                 {% include "includes/app_account_menu.html" with placement="desktop" %}
             </div>

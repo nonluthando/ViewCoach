@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | ProofLoop{% endblock %}
+{% block body_class %}dashboard-v3-page proofloop-workspace-page{% endblock %}
+{% block main_class %}dashboard-v3-main proofloop-workspace-main{% endblock %}
+
+{% block content %}
+<section class="dashboard-v3 proofloop-dashboard">
+    <header class="proofloop-dashboard-intro">
+        <div class="proofloop-dashboard-intro-copy">
+            <p class="proofloop-kicker">Preparation command centre</p>
+            <h1>{{ greeting }}{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
+            <p>
+                {% if primary_goal %}
+                    Stay consistent with <strong>{{ primary_goal.title }}</strong> for {{ primary_goal.role_title }}.
+                {% elif need_focus %}
+                    {{ need_focus.description }}
+                {% else %}
+                    Build skills, practise recall and turn your experience into confident answers.
+                {% endif %}
+            </p>
+        </div>
+        <div class="proofloop-dashboard-intro-actions" aria-label="Dashboard shortcuts">
+            {% if primary_goal %}
+                <a class="proofloop-goal-chip" href="{{ primary_goal.get_absolute_url }}">
+                    <span>Primary goal</span>
+                    <strong>{{ primary_goal.role_title }}</strong>
+                </a>
+            {% endif %}
+            <a class="proofloop-icon-button" href="{% url 'questions:list' %}" aria-label="Search question bank">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>
+            </a>
+            <a class="proofloop-icon-button" href="{% url 'reviews:queue' %}" aria-label="Open due reviews">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8"></path><path d="M10 21h4"></path></svg>
+                {% if due_review_count %}<span>{{ due_review_count }}</span>{% endif %}
+            </a>
+        </div>
+    </header>
+
+    <section class="proofloop-command-hero" aria-labelledby="proofloop-next-action-heading">
+        <div class="proofloop-command-copy">
+            <div class="proofloop-command-label-row">
+                <p class="proofloop-kicker">Continue preparing</p>
+                <span>{{ today_plan.progress_percent }}% of today complete</span>
+            </div>
+            <h2 id="proofloop-next-action-heading">
+                {% if today_plan.current %}
+                    {{ today_plan.current.title }}
+                {% elif today_plan.is_complete %}
+                    Today’s preparation loop is complete
+                {% else %}
+                    Build today’s preparation plan
+                {% endif %}
+            </h2>
+            <p class="proofloop-command-summary">
+                {% if today_plan.current %}
+                    ProofLoop selected this from <strong>{{ today_plan.focus_label }}</strong> because it is the most useful next block for your current preparation state.
+                {% elif today_plan.is_complete %}
+                    You have closed the loop for today. Review the work or prepare tomorrow’s next action.
+                {% else %}
+                    Create a time-boxed plan from due reviews, focused roadmaps, evidence gaps and interview priorities.
+                {% endif %}
+            </p>
+            <div class="proofloop-command-progress" role="progressbar" aria-label="Today’s plan" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ today_plan.progress_percent }}">
+                <span style="--proofloop-progress: {{ today_plan.progress_percent }}%;"></span>
+            </div>
+            <dl class="proofloop-command-meta">
+                <div><dt>Time remaining</dt><dd>{{ today_plan.remaining_minutes }} min</dd></div>
+                <div><dt>Blocks remaining</dt><dd>{{ today_plan.remaining_count }}</dd></div>
+                <div><dt>Current streak</dt><dd>{{ streak.current }} day{{ streak.current|pluralize }}</dd></div>
+            </dl>
+            <div class="proofloop-command-actions">
+                <a class="button" href="{% url 'planner:today' %}">
+                    {% if today_plan.is_complete %}Review today’s plan{% elif today_plan.current %}Resume preparation{% else %}Build today’s plan{% endif %}
+                </a>
+                <a class="button button-secondary" href="{% url 'planner:today' %}">View full plan</a>
+            </div>
+        </div>
+
+        <div class="proofloop-loop-panel">
+            <header>
+                <div>
+                    <p class="proofloop-kicker">Your preparation loop</p>
+                    <h2>Plan → Learn → Retain → Prove → Rehearse</h2>
+                </div>
+                <span class="proofloop-loop-state">
+                    {% if readiness %}{{ readiness.label }}{% else %}Building foundations{% endif %}
+                </span>
+            </header>
+            <ol class="proofloop-loop-map" aria-label="Preparation loop status">
+                <li class="{% if today_plan.total_count %}is-complete{% else %}is-current{% endif %}">
+                    <span class="proofloop-loop-node">01</span>
+                    <div><strong>Plan</strong><small>{{ today_plan.total_count }} block{{ today_plan.total_count|pluralize }} selected</small></div>
+                </li>
+                <li class="{% if learning_journey and learning_journey.percentage >= 100 %}is-complete{% elif learning_journey %}is-current{% endif %}">
+                    <span class="proofloop-loop-node">02</span>
+                    <div><strong>Learn</strong><small>{% if learning_journey %}{{ learning_journey.percentage }}% through current path{% else %}Choose a focused roadmap{% endif %}</small></div>
+                </li>
+                <li class="{% if due_review_count == 0 and question_count %}is-complete{% elif due_review_count %}is-current{% endif %}">
+                    <span class="proofloop-loop-node">03</span>
+                    <div><strong>Retain</strong><small>{{ due_review_count }} review{{ due_review_count|pluralize }} due</small></div>
+                </li>
+                <li class="{% if evidence_summary.story_percentage >= 100 %}is-complete{% elif evidence_summary.total_count %}is-current{% endif %}">
+                    <span class="proofloop-loop-node">04</span>
+                    <div><strong>Prove</strong><small>{{ evidence_summary.ready_story_count }}/{{ evidence_summary.story_count }} stories ready</small></div>
+                </li>
+                <li class="{% if readiness and readiness.score >= 70 %}is-complete{% elif primary_goal %}is-current{% endif %}">
+                    <span class="proofloop-loop-node">05</span>
+                    <div><strong>Rehearse</strong><small>{% if primary_goal %}Prepare for {{ primary_goal.role_title }}{% else %}Connect an interview goal{% endif %}</small></div>
+                </li>
+            </ol>
+            <div class="proofloop-loop-illustration" aria-hidden="true">
+                <svg viewBox="0 0 520 140">
+                    <path d="M24 103C88 35 153 120 221 63S365 16 496 76"></path>
+                    <circle cx="24" cy="103" r="7"></circle>
+                    <circle cx="142" cy="82" r="7"></circle>
+                    <circle cx="258" cy="49" r="7"></circle>
+                    <circle cx="376" cy="38" r="7"></circle>
+                    <circle cx="496" cy="76" r="7"></circle>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <section class="proofloop-signal-strip" aria-label="Preparation signals">
+        <a href="{% if primary_goal %}{{ primary_goal.get_absolute_url }}{% else %}{% url 'goals:create' %}{% endif %}">
+            <span class="proofloop-signal-icon is-emerald">R</span>
+            <div><small>Interview readiness</small><strong>{% if readiness %}{{ readiness.score }}/100{% else %}Not measured{% endif %}</strong></div>
+            <em>{% if readiness %}{{ readiness.label }}{% else %}Create a goal{% endif %}</em>
+        </a>
+        <a href="{% url 'planner:today' %}">
+            <span class="proofloop-signal-icon is-ink">P</span>
+            <div><small>Today’s plan</small><strong>{{ today_plan.completed_count }}/{{ today_plan.total_count }} complete</strong></div>
+            <em>{{ today_plan.estimated_minutes }} min planned</em>
+        </a>
+        <a href="{% url 'reviews:queue' %}">
+            <span class="proofloop-signal-icon is-amber">↻</span>
+            <div><small>Retention</small><strong>{{ due_review_count }} review{{ due_review_count|pluralize }} due</strong></div>
+            <em>{{ reviewed_today_count }} reviewed today</em>
+        </a>
+        <a href="{% url 'evidence:list' %}">
+            <span class="proofloop-signal-icon is-cream">E</span>
+            <div><small>Evidence coverage</small><strong>{{ evidence_summary.ready_story_count }}/{{ evidence_summary.story_count }} stories ready</strong></div>
+            <em>{{ evidence_summary.total_count }} evidence item{{ evidence_summary.total_count|pluralize }}</em>
+        </a>
+    </section>
+
+    <div class="proofloop-dashboard-grid">
+        <section class="proofloop-panel proofloop-plan-panel" aria-labelledby="today-plan-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Plan layer</p>
+                    <h2 id="today-plan-heading">Today’s plan</h2>
+                </div>
+                <span>{{ today_plan.completed_count }}/{{ today_plan.total_count }} complete</span>
+            </header>
+            {% if today_plan.items %}
+                <ol class="dashboard-v3-plan-list proofloop-plan-list">
+                    {% for item in today_plan.items %}
+                        {% include "components/dashboard/plan_item.html" with item=item %}
+                    {% endfor %}
+                </ol>
+                <footer class="proofloop-panel-footer">
+                    <span><strong>{{ today_plan.estimated_minutes }} min</strong><small>Total plan</small></span>
+                    <span><strong>{{ today_plan.total_count }}</strong><small>Preparation blocks</small></span>
+                    <a href="{% url 'planner:today' %}">Open plan →</a>
+                </footer>
+            {% else %}
+                <div class="proofloop-empty-state">
+                    <span aria-hidden="true">01</span>
+                    <div>
+                        <strong>No preparation blocks yet</strong>
+                        <p>Build a focused plan using the time you have available today.</p>
+                        <a href="{% url 'planner:today' %}">Build today’s plan</a>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-journey-panel" aria-labelledby="learning-journey-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Learn layer</p>
+                    <h2 id="learning-journey-heading">Your learning journey</h2>
+                </div>
+                {% if learning_journey %}<span>{{ learning_journey.percentage }}%</span>{% endif %}
+            </header>
+            {% if learning_journey %}
+                <div class="proofloop-journey-context">
+                    <strong>{{ learning_journey.roadmap.title }}</strong>
+                    <a href="{{ learning_journey.url }}">Open roadmap</a>
+                </div>
+                <ol class="dashboard-v3-journey-list proofloop-journey-list">
+                    {% for step in learning_journey.sections %}
+                        {% include "components/dashboard/journey_step.html" with step=step position=forloop.counter %}
+                    {% endfor %}
+                </ol>
+            {% else %}
+                <div class="proofloop-empty-state">
+                    <span aria-hidden="true">02</span>
+                    <div>
+                        <strong>Your journey starts with one roadmap</strong>
+                        <p>Topics remain open; the path shows the clearest recommended sequence.</p>
+                        <a href="{% url 'learn' %}">Choose a roadmap</a>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-roadmaps-panel" aria-labelledby="focused-roadmaps-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Focused knowledge</p>
+                    <h2 id="focused-roadmaps-heading">Your focused roadmaps</h2>
+                </div>
+                <a href="{% url 'learn' %}">View all</a>
+            </header>
+            {% if focused_roadmaps %}
+                <div class="dashboard-v3-roadmap-list proofloop-roadmap-list">
+                    {% for item in focused_roadmaps %}
+                        {% include "components/dashboard/roadmap_row.html" with item=item %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="proofloop-empty-state">
+                    <span aria-hidden="true">+</span>
+                    <div>
+                        <strong>Choose your learning focus</strong>
+                        <p>Focus up to four roadmaps so the planner can choose the next useful topic.</p>
+                        <a href="{% url 'learn' %}">Browse roadmaps</a>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-readiness-panel" aria-labelledby="readiness-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Readiness layer</p>
+                    <h2 id="readiness-heading">Interview readiness</h2>
+                </div>
+                {% if readiness %}<span>{{ readiness.label }}</span>{% endif %}
+            </header>
+            {% if readiness %}
+                <div class="proofloop-readiness-main">
+                    <div class="proofloop-readiness-ring" role="progressbar" aria-label="Interview readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ readiness.score }}" style="--proofloop-progress: {{ readiness.score }}%;">
+                        <span><strong>{{ readiness.score }}</strong><small>/100</small></span>
+                    </div>
+                    <div>
+                        <strong>{% if readiness.score >= 70 %}Ready to sharpen the final gaps{% elif readiness.score >= 45 %}You are building useful momentum{% else %}Strengthen the foundations first{% endif %}</strong>
+                        <p>{{ readiness.needs_attention.0.summary|default:"Keep completing focused work and mock interviews." }}</p>
+                    </div>
+                </div>
+                <dl class="proofloop-readiness-signals">
+                    <div>
+                        <dt>Strongest signal</dt>
+                        <dd>{% if readiness.strong %}{{ readiness.strong.0.label }}{% else %}Keep building evidence{% endif %}</dd>
+                    </div>
+                    <div>
+                        <dt>Next gap</dt>
+                        <dd>{% if readiness.needs_attention %}{{ readiness.needs_attention.0.label }}{% else %}Schedule a mock interview{% endif %}</dd>
+                    </div>
+                </dl>
+                {% if primary_goal.current_stage %}
+                    <a class="proofloop-deadline-callout" href="{{ primary_goal.get_absolute_url }}">
+                        <span>Upcoming interview stage</span>
+                        <strong>{{ primary_goal.current_stage.display_name }}</strong>
+                        {% if primary_goal.current_stage.scheduled_for %}<time>{{ primary_goal.current_stage.scheduled_for|date:"j M Y" }}</time>{% endif %}
+                    </a>
+                {% endif %}
+            {% else %}
+                <div class="proofloop-empty-state">
+                    <span aria-hidden="true">R</span>
+                    <div>
+                        <strong>Measure preparation against a target</strong>
+                        <p>Create a goal to connect roadmaps, reviews, mocks and evidence.</p>
+                        <a href="{% url 'goals:create' %}">Create interview goal</a>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-upcoming-panel" aria-labelledby="upcoming-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Attention queue</p>
+                    <h2 id="upcoming-heading">Upcoming</h2>
+                </div>
+                <a href="{% url 'goals:list' %}">View all</a>
+            </header>
+            {% if upcoming_items %}
+                <ul class="proofloop-upcoming-list">
+                    {% for item in upcoming_items %}
+                        {% include "components/dashboard/upcoming_item.html" with item=item %}
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="proofloop-empty-state proofloop-empty-state-compact">
+                    <span aria-hidden="true">!</span>
+                    <div>
+                        <strong>No deadlines queued</strong>
+                        <p>Add an interview stage when you have a date to prepare for.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-evidence-panel" aria-labelledby="evidence-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Prove layer</p>
+                    <h2 id="evidence-heading">Evidence Bag</h2>
+                </div>
+                <a href="{% url 'evidence:list' %}">View all</a>
+            </header>
+            <div class="proofloop-evidence-overview">
+                <div>
+                    <strong>{{ evidence_summary.ready_story_count }}/{{ evidence_summary.story_count }}</strong>
+                    <span>STAR stories interview-ready</span>
+                </div>
+                <div class="proofloop-evidence-progress" role="progressbar" aria-label="Interview-ready STAR stories" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ evidence_summary.story_percentage }}">
+                    <span style="--proofloop-progress: {{ evidence_summary.story_percentage }}%;"></span>
+                </div>
+            </div>
+            <div class="proofloop-evidence-layers">
+                <a href="{% url 'evidence:list' %}">
+                    <span>Project proof</span>
+                    <strong>{{ evidence_summary.project_count }}</strong>
+                    <small>Architecture, decisions and outcomes</small>
+                </a>
+                <a href="{% url 'evidence:list' %}">
+                    <span>Work proof</span>
+                    <strong>{{ evidence_summary.work_count }}</strong>
+                    <small>Delivery, incidents and collaboration</small>
+                </a>
+                <a href="{% url 'evidence:list' %}">
+                    <span>Topic proof</span>
+                    <strong>{{ evidence_summary.interview_ready_topic_count }}</strong>
+                    <small>Topics connected to real examples</small>
+                </a>
+            </div>
+        </section>
+
+        <section class="proofloop-panel proofloop-resources-panel" aria-labelledby="resources-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Preparation library</p>
+                    <h2 id="resources-heading">Resources &amp; Notes</h2>
+                </div>
+                <a href="{% url 'prepare' %}">Open library</a>
+            </header>
+            <nav class="proofloop-resource-counts" aria-label="Resources and notes">
+                <a href="{% url 'learn' %}"><span>Topic notes</span><strong>{{ resource_summary.topic_note_count }}</strong></a>
+                <a href="{% url 'questions:list' %}"><span>Question notes</span><strong>{{ resource_summary.question_note_count }}</strong></a>
+                <a href="{% url 'learn' %}"><span>Saved resources</span><strong>{{ resource_summary.resource_count }}</strong></a>
+            </nav>
+            {% if recent_questions %}
+                <div class="proofloop-recent-questions">
+                    <p>Recently updated questions</p>
+                    {% for question in recent_questions|slice:":3" %}
+                        <a href="{% url 'questions:detail' question.pk %}">
+                            <span>{{ question.get_question_type_display }}</span>
+                            <strong>{{ question.title }}</strong>
+                            <time>{{ question.updated_at|date:"j M" }}</time>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="proofloop-empty-state proofloop-empty-state-compact">
+                    <span aria-hidden="true">?</span>
+                    <div>
+                        <strong>No questions captured yet</strong>
+                        <p>Add a real interview question and the answer you need to explain.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="proofloop-panel proofloop-calendar-panel" aria-labelledby="calendar-heading">
+            <header class="proofloop-panel-header">
+                <div>
+                    <p class="proofloop-kicker">Preparation calendar</p>
+                    <h2 id="calendar-heading">{{ calendar.month_label }}</h2>
+                </div>
+                <nav class="proofloop-calendar-nav" aria-label="Calendar month navigation">
+                    <a href="{{ calendar.previous_query }}" aria-label="Previous month">‹</a>
+                    <a href="{{ calendar.next_query }}" aria-label="Next month">›</a>
+                </nav>
+            </header>
+            <div class="proofloop-calendar-grid" role="grid" aria-label="{{ calendar.month_label }}">
+                {% for weekday in "MTWTFSS" %}<span class="proofloop-calendar-weekday" role="columnheader">{{ weekday }}</span>{% endfor %}
+                {% for week in calendar.weeks %}
+                    {% for day in week %}
+                        <time class="proofloop-calendar-day {% if not day.in_month %}is-muted{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.has_interview %}has-interview{% elif day.has_review %}has-review{% endif %}"
+                              datetime="{{ day.date|date:'Y-m-d' }}"
+                              {% if day.event_label %}title="{{ day.event_label }}"{% endif %}>
+                            {{ day.day }}
+                            {% if day.event_count %}<span class="sr-only">{{ day.event_label }}</span>{% endif %}
+                        </time>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            <div class="proofloop-calendar-legend"><span class="is-interview">Interview</span><span class="is-review">Review</span></div>
+        </section>
+    </div>
+</section>
+{% endblock %}
