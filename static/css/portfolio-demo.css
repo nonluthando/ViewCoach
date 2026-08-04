@@ -1,0 +1,422 @@
+.portfolio-public-page {
+    background: #f5f3ef;
+}
+
+.portfolio-home-hero,
+.portfolio-case-hero {
+    align-items: start;
+    display: grid;
+    gap: 2rem;
+    padding: clamp(3rem, 8vw, 7rem) 0;
+}
+
+.portfolio-home-copy,
+.portfolio-case-hero > div {
+    max-width: 850px;
+}
+
+.portfolio-home-hero h1,
+.portfolio-case-hero h1 {
+    font-size: clamp(2.6rem, 7vw, 5.7rem);
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+    margin: 0.35rem 0 1.25rem;
+}
+
+.portfolio-home-proof,
+.portfolio-case-summary {
+    background: #20282c;
+    border-radius: 8px;
+    color: #fff;
+    padding: 1.5rem;
+}
+
+.portfolio-home-proof > span,
+.portfolio-case-summary > span {
+    color: #d99a7e;
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.55rem;
+    text-transform: uppercase;
+}
+
+.portfolio-home-proof > strong {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1.25;
+}
+
+.portfolio-home-proof ul {
+    color: #d6dcdf;
+    margin: 1.25rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.portfolio-case-summary dl {
+    display: grid;
+    gap: 0.9rem;
+    margin: 1rem 0 0;
+}
+
+.portfolio-case-summary dl div {
+    border-top: 1px solid #455057;
+    display: grid;
+    gap: 0.15rem;
+    padding-top: 0.75rem;
+}
+
+.portfolio-case-summary dt {
+    color: #aeb8bd;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+}
+
+.portfolio-case-summary dd {
+    font-weight: 700;
+    margin: 0;
+}
+
+.portfolio-metric-strip {
+    background: #20282c;
+    color: #fff;
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: 5rem;
+}
+
+.portfolio-metric-strip article {
+    background: #20282c;
+    border: 1px solid #3a454b;
+    display: grid;
+    gap: 0.25rem;
+    padding: 1.4rem;
+}
+
+.portfolio-metric-strip strong {
+    color: #d57952;
+    font-size: 2.2rem;
+}
+
+.portfolio-metric-strip span {
+    color: #c7cfd3;
+    font-size: 0.9rem;
+}
+
+.portfolio-case-section {
+    border-top: 1px solid #d5d7d5;
+    padding: 4rem 0;
+}
+
+.portfolio-case-section > header {
+    max-width: 850px;
+    margin-bottom: 2rem;
+}
+
+.portfolio-case-section h2,
+.portfolio-case-cta h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    letter-spacing: -0.045em;
+    line-height: 1.05;
+    margin: 0.4rem 0 0.8rem;
+}
+
+.portfolio-problem-grid,
+.portfolio-architecture-grid,
+.portfolio-decision-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.portfolio-problem-grid article,
+.portfolio-architecture-grid article,
+.portfolio-decision-grid article {
+    background: #fff;
+    border: 1px solid #dadcda;
+    border-radius: 7px;
+    padding: 1.35rem;
+}
+
+.portfolio-problem-grid article > span {
+    color: #a84f2a;
+    font-weight: 800;
+}
+
+.portfolio-problem-grid h3,
+.portfolio-architecture-grid h3,
+.portfolio-decision-grid h3 {
+    margin: 0.6rem 0;
+}
+
+.portfolio-decision-grid small {
+    border-top: 1px solid #ece7e3;
+    color: #7b4936;
+    display: block;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+}
+
+.portfolio-flow {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.portfolio-flow article {
+    align-items: center;
+    background: #fff;
+    border-left: 4px solid #a84f2a;
+    display: grid;
+    gap: 0.25rem 0.8rem;
+    grid-template-columns: auto 1fr;
+    padding: 1rem;
+}
+
+.portfolio-flow article > span {
+    color: #a84f2a;
+    font-size: 1.25rem;
+    font-weight: 800;
+    grid-row: span 2;
+}
+
+.portfolio-flow small {
+    color: #626b70;
+}
+
+.portfolio-demo-preview {
+    display: grid;
+    gap: 0.7rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.portfolio-demo-preview li {
+    background: #fff;
+    border: 1px solid #dadcda;
+    display: grid;
+    gap: 0.25rem;
+    padding: 1rem 1.1rem;
+}
+
+.portfolio-demo-preview span {
+    color: #626b70;
+}
+
+.portfolio-case-cta {
+    align-items: center;
+    background: #20282c;
+    border-radius: 8px;
+    color: #fff;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    margin: 3rem 0;
+    padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.portfolio-case-cta .eyebrow {
+    color: #d99a7e;
+}
+
+.portfolio-demo-status {
+    align-self: center;
+    color: #687278;
+}
+
+.portfolio-demo-banner {
+    background: #f7e9e2;
+    border: 1px solid #ddb8a7;
+    border-radius: 7px;
+    display: grid;
+    gap: 0.8rem;
+    margin-bottom: 1.25rem;
+    padding: 0.9rem 1rem;
+}
+
+.portfolio-demo-banner-heading {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.portfolio-demo-banner-heading span {
+    color: #913f21;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.portfolio-demo-banner nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.portfolio-demo-banner nav a {
+    background: #fff;
+    border: 1px solid #dfc3b7;
+    border-radius: 4px;
+    color: #20282c;
+    font-size: 0.78rem;
+    padding: 0.38rem 0.52rem;
+    text-decoration: none;
+}
+
+.portfolio-demo-banner nav a.is-complete::before {
+    color: #35734a;
+    content: "✓ ";
+    font-weight: 800;
+}
+
+.portfolio-demo-banner-actions {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.portfolio-demo-banner-actions form {
+    margin: 0;
+}
+
+.portfolio-demo-banner-actions button {
+    background: transparent;
+    border: 0;
+    color: #913f21;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 0;
+}
+
+.portfolio-demo-guide-header {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.portfolio-demo-guide-header > div:first-child {
+    max-width: 800px;
+}
+
+.portfolio-demo-guide-progress {
+    background: #20282c;
+    border-radius: 7px;
+    color: #fff;
+    display: grid;
+    min-width: 150px;
+    padding: 1.1rem;
+}
+
+.portfolio-demo-guide-progress strong {
+    color: #d57952;
+    font-size: 2rem;
+}
+
+.portfolio-demo-guide-progress span {
+    color: #c6ced2;
+    font-size: 0.8rem;
+}
+
+.portfolio-demo-guide-grid {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.portfolio-demo-guide-grid article {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d9dddf;
+    border-radius: 7px;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: auto 1fr auto;
+    padding: 1rem;
+}
+
+.portfolio-demo-guide-grid article.is-complete {
+    border-color: #9ac0a6;
+}
+
+.portfolio-demo-step-number {
+    color: #a84f2a;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.portfolio-demo-guide-grid h2 {
+    font-size: 1.05rem;
+    margin: 0 0 0.25rem;
+}
+
+.portfolio-demo-guide-grid p {
+    color: #626b70;
+    margin: 0;
+}
+
+.portfolio-demo-control-panel {
+    align-items: center;
+    background: #f1f0ed;
+    border: 1px solid #d6d8d6;
+    border-radius: 7px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding: 1.3rem;
+}
+
+.portfolio-demo-control-panel > div:first-child {
+    max-width: 700px;
+}
+
+.portfolio-demo-unavailable {
+    max-width: 780px;
+    padding: 5rem 0;
+}
+
+@media (min-width: 760px) {
+    .portfolio-home-hero,
+    .portfolio-case-hero {
+        grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.75fr);
+    }
+
+    .portfolio-metric-strip {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .portfolio-problem-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .portfolio-architecture-grid,
+    .portfolio-decision-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .portfolio-flow {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .portfolio-demo-preview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .portfolio-demo-guide-grid article {
+        align-items: start;
+        grid-template-columns: auto 1fr;
+    }
+
+    .portfolio-demo-guide-grid .button {
+        grid-column: 1 / -1;
+        text-align: center;
+    }
+}

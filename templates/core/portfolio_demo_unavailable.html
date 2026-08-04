@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Demo temporarily full | ViewCoach{% endblock %}
+{% block body_class %}portfolio-public-page{% endblock %}
+
+{% block content %}
+<section class="portfolio-demo-unavailable">
+    <p class="eyebrow">Recruiter demo</p>
+    <h1>All temporary demo workspaces are currently in use.</h1>
+    <p class="lead">
+        This capacity limit protects the free deployment and its database.
+        Please try again after an older demo expires.
+    </p>
+    <div class="button-row">
+        <a class="button" href="{% url 'project_showcase' %}">
+            Return to project case study
+        </a>
+        <a class="button button-secondary"
+           href="https://github.com/nonluthando/ViewCoach"
+           target="_blank" rel="noopener noreferrer">
+            View source code
+        </a>
+    </div>
+</section>
+{% endblock %}
