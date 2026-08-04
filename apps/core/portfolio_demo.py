@@ -256,9 +256,7 @@ def _create_custom_roadmap(*, user: User, token: str):
     completed_offsets = {0: 3, 2: 2, 4: 1}
     for index, (topic, status, notes) in enumerate(progress_rows):
         completed_at = (
-            now - timedelta(days=completed_offsets.get(index, 1))
-            if status == "COMPLETED"
-            else None
+            now - timedelta(days=completed_offsets.get(index, 1)) if status == "COMPLETED" else None
         )
         UserTopicProgress.objects.create(
             user=user,
@@ -399,21 +397,18 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
         pattern="Hash map lookup",
         data_structure="Dictionary / hash map",
         intuition=(
-            "For every value, compute the complement and check whether it has "
-            "already been seen."
+            "For every value, compute the complement and check whether it has already been seen."
         ),
         brute_force="Compare every pair using two nested loops.",
         brute_force_time_complexity="O(n²)",
         brute_force_space_complexity="O(1)",
         optimal_approach=(
-            "Store each value and index in a hash map. Return when the complement "
-            "already exists."
+            "Store each value and index in a hash map. Return when the complement already exists."
         ),
         optimal_time_complexity="O(n)",
         optimal_space_complexity="O(n)",
         mistakes=(
-            "Adding the current value before checking can allow the same element "
-            "to be used twice."
+            "Adding the current value before checking can allow the same element to be used twice."
         ),
         progressive_hints=[
             "Think about the complement target - value.",
@@ -454,9 +449,7 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
             "A payment endpoint stores an idempotency key and returns the original "
             "result instead of charging the customer twice."
         ),
-        common_misconception=(
-            "Idempotent does not mean every response body must be identical."
-        ),
+        common_misconception=("Idempotent does not mean every response body must be identical."),
     )
     behavioural = BehaviouralQuestion.objects.create(
         owner=user,
@@ -476,8 +469,7 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
         leadership_principles="Ownership, judgement, simplification",
         stories="ViewCoach roadmap architecture",
         follow_ups=(
-            "What alternatives did you reject?\n"
-            "What new complexity did the decision introduce?"
+            "What alternatives did you reject?\nWhat new complexity did the decision introduce?"
         ),
         competencies=["Architecture", "Trade-off reasoning", "Ownership"],
         star_outline={
@@ -490,9 +482,7 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
             "How are permissions enforced?",
             "What would you change at larger scale?",
         ],
-        common_mistakes=[
-            "Explaining only the final design without the rejected alternatives."
-        ],
+        common_mistakes=["Explaining only the final design without the rejected alternatives."],
     )
     debug = DebugQuestion.objects.create(
         owner=user,
@@ -519,16 +509,14 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
             "to lock the nullable side."
         ),
         reasoning=(
-            "Lock the concrete Roadmap row first. Check the optional relation in a "
-            "separate query."
+            "Lock the concrete Roadmap row first. Check the optional relation in a separate query."
         ),
         fix=(
             "Remove the nullable relation filter from the locking query, then use "
             "ExternalCourseRoadmap.objects.filter(roadmap=locked).exists()."
         ),
         tests=(
-            "Run the service and view suites on PostgreSQL and preserve the "
-            "ownership assertions."
+            "Run the service and view suites on PostgreSQL and preserve the ownership assertions."
         ),
         common_mistake="Assuming SQLite reproduces PostgreSQL row-lock semantics.",
     )
@@ -549,9 +537,7 @@ def _create_questions(*, user: User, source_topic: RoadmapTopic):
             user=user,
             question=question,
             notes="Demo notes showing how a candidate refines an interview answer.",
-            mistakes=(
-                "Lead with the core idea before details; name the trade-off explicitly."
-            ),
+            mistakes=("Lead with the core idea before details; name the trade-off explicitly."),
             code_notes=(
                 "Trace the example manually before discussing complexity."
                 if question.question_type == Question.Type.TECHNICAL
@@ -609,9 +595,7 @@ def _create_evidence(*, user: User):
             "PostgreSQL data design, roadmap workflows, planning logic, AI "
             "boundaries, tests and the interface."
         ),
-        technologies=(
-            "Python, Django, PostgreSQL, pgvector, OR-Tools, Gemini, HTML, CSS"
-        ),
+        technologies=("Python, Django, PostgreSQL, pgvector, OR-Tools, Gemini, HTML, CSS"),
         outcomes=(
             "Built an end-to-end system where goals, learning progress, reviews "
             "and evidence influence one explainable plan."
@@ -640,12 +624,8 @@ def _create_evidence(*, user: User):
             "explainable results experience."
         ),
         technologies="Python, FastAPI, PostgreSQL, Jinja2, Render",
-        outcomes=(
-            "Produced a score, confidence level, reasons and practical next actions."
-        ),
-        lessons=(
-            "Decision-support outputs need transparent rules and bounded claims."
-        ),
+        outcomes=("Produced a score, confidence level, reasons and practical next actions."),
+        lessons=("Decision-support outputs need transparent rules and bounded claims."),
         evidence_url="https://scorerent.onrender.com",
     )
     work = EvidenceItem.objects.create(
@@ -662,9 +642,7 @@ def _create_evidence(*, user: User):
             "Implemented and tested backend behaviour across Python and PHP services."
         ),
         technologies="Python, Flask, PHP, Laravel, pytest, ChromaDB",
-        outcomes=(
-            "Improved regression coverage and delivered production-facing feature work."
-        ),
+        outcomes=("Improved regression coverage and delivered production-facing feature work."),
         lessons=(
             "Small production changes require careful dependency, version and "
             "failure-path reasoning."
@@ -788,8 +766,7 @@ def _create_evidence(*, user: User):
             "non-atomic and kept the data-preservation operation explicitly atomic."
         ),
         result=(
-            "The deployment could rerun safely and current user learning choices "
-            "were preserved."
+            "The deployment could rerun safely and current user learning choices were preserved."
         ),
         reflection=(
             "Database-specific behaviour must be tested as part of deployment "
@@ -876,9 +853,7 @@ def _link_evidence(
             "I implemented this boundary in ViewCoach and diagnosed a PostgreSQL "
             "locking failure around it."
         ),
-        interview_angle=(
-            "Explain why database semantics must be tested on the production engine."
-        ),
+        interview_angle=("Explain why database semantics must be tested on the production engine."),
         evidence_gap="Add a small performance benchmark for concurrent writes.",
         follow_up_questions=(
             "Why not rely on application validation alone?\n"
