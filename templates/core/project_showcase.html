@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}ViewCoach project | Portfolio case study{% endblock %}
+{% block title %}ProofLoop | Adaptive interview readiness case study{% endblock %}
 {% block body_class %}portfolio-public-page portfolio-showcase-page{% endblock %}
 
 {% block content %}
 <section class="portfolio-case-hero">
     <div>
         <p class="eyebrow">Portfolio case study</p>
-        <h1>ViewCoach turns scattered interview preparation into one explainable system.</h1>
+        <h1>ProofLoop turns scattered interview preparation into one measurable readiness loop.</h1>
         <p class="lead">
             A full-stack Django product connecting learning roadmaps, retrieval
             practice, spaced review, project evidence, mock interviews and
@@ -16,7 +16,7 @@
         <div class="button-row">
             {% if portfolio_demo_active %}
                 <a class="button" href="{% url 'portfolio_demo_guide' %}">
-                    Continue recruiter demo
+                    Continue demo
                 </a>
             {% elif user.is_authenticated %}
                 <a class="button" href="{% url 'dashboard' %}">Open my workspace</a>
@@ -86,7 +86,7 @@
         <p class="eyebrow">Product response</p>
         <h2>One preparation loop, with explicit boundaries between its parts.</h2>
     </header>
-    <div class="portfolio-flow" aria-label="ViewCoach preparation loop">
+    <div class="portfolio-flow" aria-label="ProofLoop preparation loop">
         <article><span>1</span><strong>Set a goal</strong><small>Role, stage and time available</small></article>
         <article><span>2</span><strong>Build knowledge</strong><small>Curated, imported and personal roadmaps</small></article>
         <article><span>3</span><strong>Practise recall</strong><small>Questions, notes and spaced review</small></article>
@@ -98,7 +98,7 @@
 
 <section class="portfolio-case-section">
     <header>
-        <p class="eyebrow">Recruiter demo</p>
+        <p class="eyebrow">Product demo</p>
         <h2>A complete seeded product journey—not an empty account.</h2>
         <p>
             Every visitor receives a private temporary workspace. They can edit,
@@ -165,7 +165,7 @@
             <small>Trade-off: two selection paths that require shared policy tests.</small>
         </article>
         <article>
-            <h3>Isolated recruiter demos</h3>
+            <h3>Isolated demo workspaces</h3>
             <p>Visitors receive temporary accounts instead of sharing mutable credentials.</p>
             <small>Trade-off: cleanup and capacity controls for a reliable portfolio experience.</small>
         </article>
@@ -180,7 +180,7 @@
     {% if portfolio_demo_enabled and not user.is_authenticated %}
         <form method="post" action="{% url 'portfolio_demo_start' %}">
             {% csrf_token %}
-            <button class="button" type="submit">Start recruiter demo</button>
+            <button class="button" type="submit">Start demo</button>
         </form>
     {% elif portfolio_demo_active %}
         <a class="button" href="{% url 'portfolio_demo_guide' %}">Continue demo</a>

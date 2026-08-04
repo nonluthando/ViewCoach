@@ -1,0 +1,1538 @@
+diff --git a/README.md b/README.md
+index f54d223..27e5dbd 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,10 @@
+-# Adaptive Interview Preparation Coach
++# ProofLoop
+ 
+-A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
++**An adaptive interview-readiness workspace that turns learning, practice and experience into measurable preparation.**
++
++ProofLoop connects structured learning paths, retrieval practice, personal evidence, mock interviews and an explainable daily plan.
++
++> Previously developed under the working name **ViewCoach**. The repository retains its original name to preserve existing deployment and integration references.
+ 
+ The repository currently contains **Milestones 0 through 3.5**.
+ 
+@@ -12,7 +16,7 @@ The repository currently contains **Milestones 0 through 3.5**.
+ 
+ ## Built-in question library
+ 
+-ViewCoach ships with a curated starter library. After applying migrations locally, seed or refresh it with:
++ProofLoop ships with a curated starter library. After applying migrations locally, seed or refresh it with:
+ 
+ ```bash
+ python manage.py seed_question_bank
+@@ -22,7 +26,7 @@ The command is idempotent and is also run by `build.sh` during Render deployment
+ 
+ ## Built-in learning roadmaps
+ 
+-ViewCoach also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
++ProofLoop also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
+ 
+ ```bash
+ python manage.py seed_roadmaps
+diff --git a/apps/core/tests/test_proofloop_branding.py b/apps/core/tests/test_proofloop_branding.py
+new file mode 100644
+index 0000000..dbca542
+--- /dev/null
++++ b/apps/core/tests/test_proofloop_branding.py
+@@ -0,0 +1,64 @@
++from pathlib import Path
++
++from django.conf import settings
++
++
++def _read(relative_path: str) -> str:
++    return (Path(settings.BASE_DIR) / relative_path).read_text()
++
++
++def test_customer_facing_shell_uses_proofloop_brand():
++    base = _read("templates/base.html")
++
++    assert "{% block title %}ProofLoop{% endblock %}" in base
++    assert "proofloop.css" in base
++    assert base.count("proofloop-mark") >= 3
++    assert "Adaptive interview-readiness workspace" in base
++
++
++def test_landing_page_uses_readiness_positioning():
++    landing = _read("templates/core/landing_page.html")
++
++    assert "ProofLoop | Adaptive interview-readiness workspace" in landing
++    assert "Turn preparation into a loop you can trust." in landing
++    assert "formerly ViewCoach" in landing
++    assert "Readiness overview" in landing
++    assert "Four preparation layers" in landing
++    assert "Try the recruiter demo" not in landing
++
++
++def test_demo_and_case_study_use_public_brand_language():
++    demo = _read("templates/core/portfolio_demo_guide.html")
++    banner = _read("templates/includes/portfolio_demo_banner.html")
++    showcase = _read("templates/core/project_showcase.html")
++
++    assert "Demo | ProofLoop" in demo
++    assert "ProofLoop workflows" in demo
++    assert "ProofLoop demo" in banner
++    assert "Recruiter demo" not in banner
++    assert "ProofLoop turns scattered interview preparation" in showcase
++    assert "Start recruiter demo" not in showcase
++
++
++def test_proofloop_theme_exposes_locked_visual_tokens():
++    stylesheet = _read("static/css/proofloop.css")
++
++    for token in (
++        "--proofloop-ink",
++        "--proofloop-cream",
++        "--proofloop-emerald",
++        "--proofloop-amber",
++    ):
++        assert token in stylesheet
++
++    assert ".proofloop-path" in stylesheet
++    assert ".proofloop-evidence-stack" in stylesheet
++    assert ".dashboard-v3-readiness" in stylesheet
++
++
++def test_repository_identity_remains_documented():
++    readme = _read("README.md")
++
++    assert readme.startswith("# ProofLoop")
++    assert "working name **ViewCoach**" in readme
++    assert "repository retains its original name" in readme
+diff --git a/static/css/proofloop.css b/static/css/proofloop.css
+new file mode 100644
+index 0000000..c6cfb9b
+--- /dev/null
++++ b/static/css/proofloop.css
+@@ -0,0 +1,1062 @@
++/*
++ * ProofLoop surface-level product rebrand.
++ *
++ * Internal Django names, routes, database objects and deployment references
++ * intentionally retain the historical ViewCoach identifiers.
++ */
++
++:root {
++    --proofloop-ink: #162522;
++    --proofloop-ink-soft: #233430;
++    --proofloop-ink-muted: #354843;
++    --proofloop-cream: #f3f0e8;
++    --proofloop-cream-deep: #ebe6db;
++    --proofloop-surface: #fffdf8;
++    --proofloop-surface-muted: #f8f5ee;
++    --proofloop-text: #1d2925;
++    --proofloop-muted: #66716c;
++    --proofloop-border: #d9d5ca;
++    --proofloop-border-strong: #c7c1b4;
++    --proofloop-emerald: #1f7659;
++    --proofloop-emerald-dark: #15563f;
++    --proofloop-emerald-soft: #dfece5;
++    --proofloop-amber: #bf7b27;
++    --proofloop-amber-dark: #8c581a;
++    --proofloop-amber-soft: #f6e9d5;
++    --proofloop-danger: #a34e43;
++    --proofloop-radius: 0.55rem;
++    --proofloop-radius-small: 0.35rem;
++    --proofloop-shadow: 0 18px 48px rgba(22, 37, 34, 0.08);
++}
++
++html {
++    background: var(--proofloop-cream);
++}
++
++body {
++    color: var(--proofloop-text);
++}
++
++.proofloop-mark {
++    position: relative;
++    width: 2.1rem;
++    height: 1.35rem;
++    display: inline-block;
++    flex: 0 0 auto;
++}
++
++.proofloop-mark i {
++    position: absolute;
++    top: 0.08rem;
++    width: 1.2rem;
++    height: 1.2rem;
++    border: 0.18rem solid currentColor;
++    border-radius: 999px;
++}
++
++.proofloop-mark i:first-child {
++    left: 0;
++}
++
++.proofloop-mark i:last-child {
++    right: 0;
++}
++
++.proofloop-wordmark {
++    letter-spacing: -0.035em;
++}
++
++/* Authenticated shell */
++
++.app-body {
++    --vc2-navy: var(--proofloop-ink);
++    --vc2-navy-soft: var(--proofloop-ink-soft);
++    --vc2-blue: var(--proofloop-emerald);
++    --vc2-blue-dark: var(--proofloop-emerald-dark);
++    --vc2-blue-soft: var(--proofloop-emerald-soft);
++    --vc2-canvas: var(--proofloop-cream);
++    --vc2-surface: var(--proofloop-surface);
++    --vc2-text: var(--proofloop-text);
++    --vc2-muted: var(--proofloop-muted);
++    --vc2-border: var(--proofloop-border);
++    --vc2-radius: var(--proofloop-radius);
++
++    background: var(--proofloop-cream);
++}
++
++.app-body .app-shell {
++    background: var(--proofloop-cream);
++}
++
++.app-body .app-sidebar {
++    color: #f5f7f4;
++    background: var(--proofloop-ink);
++    border-right-color: rgba(255, 255, 255, 0.08);
++}
++
++.app-body .app-brand,
++.app-body .app-mobile-brand {
++    color: #ffffff;
++}
++
++.app-body .app-brand-mark {
++    display: none;
++}
++
++.app-body .app-sidebar a,
++.app-body .app-sidebar button {
++    border-radius: var(--proofloop-radius-small);
++}
++
++.app-body .app-sidebar nav a:hover,
++.app-body .app-sidebar nav a:focus-visible {
++    color: #ffffff;
++    background: rgba(255, 255, 255, 0.08);
++}
++
++.app-body .app-sidebar nav a[aria-current="page"],
++.app-body .app-sidebar nav a.is-active {
++    color: #ffffff;
++    background: rgba(223, 236, 229, 0.14);
++    box-shadow: inset 0.2rem 0 0 var(--proofloop-emerald);
++}
++
++.app-body .app-sidebar-guidance {
++    border-color: rgba(255, 255, 255, 0.12);
++    background: rgba(255, 255, 255, 0.04);
++}
++
++.app-body .app-sidebar-guidance a {
++    color: #b9ddcd;
++}
++
++.app-body .app-topbar,
++.app-body .app-mobile-header {
++    background: rgba(255, 253, 248, 0.96);
++    border-bottom-color: var(--proofloop-border);
++    box-shadow: none;
++}
++
++.app-body .app-topbar-copy span {
++    color: var(--proofloop-emerald-dark);
++}
++
++.app-body .app-topbar-copy strong {
++    color: var(--proofloop-text);
++}
++
++.app-body .app-main {
++    background: var(--proofloop-cream);
++}
++
++.app-body .button,
++.app-body button.button {
++    color: #ffffff;
++    border-color: var(--proofloop-emerald-dark);
++    background: var(--proofloop-emerald);
++    border-radius: var(--proofloop-radius-small);
++    box-shadow: none;
++}
++
++.app-body .button:hover,
++.app-body button.button:hover {
++    color: #ffffff;
++    border-color: var(--proofloop-emerald-dark);
++    background: var(--proofloop-emerald-dark);
++    transform: none;
++}
++
++.app-body .button-secondary {
++    color: var(--proofloop-text);
++    border-color: var(--proofloop-border-strong);
++    background: var(--proofloop-surface);
++}
++
++/* Dashboard */
++
++.app-body .dashboard-v3 {
++    color: var(--proofloop-text);
++}
++
++.app-body .dashboard-v3-kicker {
++    color: var(--proofloop-emerald-dark);
++    letter-spacing: 0.09em;
++}
++
++.app-body .dashboard-v3-header h1,
++.app-body .dashboard-v3-card h2,
++.app-body .dashboard-v3-hero h2 {
++    color: var(--proofloop-text);
++    letter-spacing: -0.035em;
++}
++
++.app-body .dashboard-v3-header p,
++.app-body .dashboard-v3-card-subtitle,
++.app-body .dashboard-v3-card p {
++    color: var(--proofloop-muted);
++}
++
++.app-body .dashboard-v3-icon-button {
++    color: var(--proofloop-ink);
++    border-color: var(--proofloop-border);
++    background: var(--proofloop-surface);
++    box-shadow: none;
++}
++
++.app-body .dashboard-v3-icon-button > span {
++    color: #ffffff;
++    background: var(--proofloop-amber);
++}
++
++.app-body .dashboard-v3-hero {
++    color: #f8fbf8;
++    border: 1px solid var(--proofloop-ink);
++    border-radius: calc(var(--proofloop-radius) + 0.15rem);
++    background: var(--proofloop-ink);
++    box-shadow: var(--proofloop-shadow);
++}
++
++.app-body .dashboard-v3-hero h2,
++.app-body .dashboard-v3-hero strong {
++    color: #ffffff;
++}
++
++.app-body .dashboard-v3-hero p,
++.app-body .dashboard-v3-hero-meta {
++    color: #cbd8d3;
++}
++
++.app-body .dashboard-v3-hero .dashboard-v3-kicker {
++    color: #9fcdb9;
++}
++
++.app-body .dashboard-v3-plan-ring,
++.app-body .dashboard-v3-readiness-ring {
++    background:
++        radial-gradient(circle closest-side, var(--proofloop-ink) 78%, transparent 80% 99%),
++        conic-gradient(var(--proofloop-emerald) var(--dashboard-progress), rgba(255, 255, 255, 0.15) 0);
++}
++
++.app-body .dashboard-v3-readiness-ring {
++    background:
++        radial-gradient(circle closest-side, var(--proofloop-surface) 78%, transparent 80% 99%),
++        conic-gradient(var(--proofloop-emerald) var(--dashboard-progress), var(--proofloop-emerald-soft) 0);
++}
++
++.app-body .dashboard-v3-mountain .mountain-back {
++    fill: #2d4640;
++}
++
++.app-body .dashboard-v3-mountain .mountain-front {
++    fill: #3f5d55;
++}
++
++.app-body .dashboard-v3-mountain .mountain-snow {
++    fill: #dfece5;
++}
++
++.app-body .dashboard-v3-mountain .mountain-road,
++.app-body .dashboard-v3-mountain .mountain-flag {
++    stroke: #e1aa62;
++}
++
++.app-body .dashboard-v3-mountain .mountain-sun {
++    fill: var(--proofloop-amber);
++}
++
++.app-body .dashboard-v3-card,
++.app-body .dashboard-v3-metrics article {
++    border-color: var(--proofloop-border);
++    border-radius: var(--proofloop-radius);
++    background: var(--proofloop-surface);
++    box-shadow: none;
++}
++
++.app-body .dashboard-v3-card:hover,
++.app-body .dashboard-v3-metrics article:hover {
++    border-color: var(--proofloop-border-strong);
++    transform: none;
++}
++
++.app-body .dashboard-v3-progress-track,
++.app-body progress {
++    background: var(--proofloop-emerald-soft);
++}
++
++.app-body .dashboard-v3-progress-track span,
++.app-body progress::-webkit-progress-value {
++    background: var(--proofloop-emerald);
++}
++
++.app-body .dashboard-v3-journey-list::before {
++    background: var(--proofloop-border);
++}
++
++.app-body .dashboard-v3-journey-list .is-completed .dashboard-v3-journey-node,
++.app-body .dashboard-v3-journey-list .is-current .dashboard-v3-journey-node {
++    border-color: var(--proofloop-emerald);
++    background: var(--proofloop-emerald);
++}
++
++.app-body .dashboard-v3-journey-list .is-next .dashboard-v3-journey-node {
++    border-color: var(--proofloop-amber);
++    background: var(--proofloop-amber-soft);
++}
++
++.app-body .dashboard-v3-calendar-day.is-today {
++    color: #ffffff;
++    background: var(--proofloop-emerald);
++}
++
++.app-body .dashboard-v3-calendar-day.has-interview::after,
++.app-body .dashboard-v3-calendar-legend .is-interview::before {
++    background: var(--proofloop-amber);
++}
++
++.app-body .dashboard-v3-calendar-day.has-review::after,
++.app-body .dashboard-v3-calendar-legend .is-review::before {
++    background: var(--proofloop-emerald);
++}
++
++.app-body .dashboard-v3-upcoming li {
++    border-left-color: var(--proofloop-amber);
++}
++
++.app-body .dashboard-v3-readiness {
++    border-top: 0.22rem solid var(--proofloop-emerald);
++}
++
++/* Public shell */
++
++.public-body {
++    min-height: 100vh;
++    color: var(--proofloop-text);
++    background: var(--proofloop-cream);
++}
++
++.public-body .container {
++    width: min(100% - 2rem, 1180px);
++}
++
++.public-body .site-header {
++    position: sticky;
++    top: 0;
++    z-index: 20;
++    color: #ffffff;
++    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
++    background: rgba(22, 37, 34, 0.97);
++    backdrop-filter: blur(14px);
++}
++
++.public-body .site-header .nav {
++    min-height: 4.65rem;
++}
++
++.public-body .proofloop-public-brand {
++    display: inline-flex;
++    align-items: center;
++    gap: 0.65rem;
++    color: #ffffff;
++    font-size: 1.15rem;
++    font-weight: 850;
++    letter-spacing: -0.035em;
++    text-decoration: none;
++}
++
++.public-body .site-header .nav-actions {
++    align-items: center;
++    gap: 1rem;
++}
++
++.public-body .site-header .nav-actions > a:not(.button) {
++    color: #dce5e1;
++    font-weight: 700;
++    text-decoration: none;
++}
++
++.public-body .site-header .nav-actions > a:not(.button):hover {
++    color: #ffffff;
++}
++
++.public-body .page-content {
++    padding-top: clamp(2rem, 5vw, 4.5rem);
++    padding-bottom: 5rem;
++}
++
++.public-body h1,
++.public-body h2,
++.public-body h3 {
++    color: var(--proofloop-text);
++    letter-spacing: -0.045em;
++}
++
++.public-body p {
++    line-height: 1.68;
++}
++
++.public-body .eyebrow {
++    color: var(--proofloop-emerald-dark);
++    font-size: 0.73rem;
++    font-weight: 850;
++    letter-spacing: 0.12em;
++    text-transform: uppercase;
++}
++
++.public-body .lead,
++.public-body .help-text {
++    color: var(--proofloop-muted);
++}
++
++.public-body .button {
++    min-height: 2.8rem;
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    padding: 0.72rem 1rem;
++    color: #ffffff;
++    border: 1px solid var(--proofloop-emerald-dark);
++    border-radius: var(--proofloop-radius-small);
++    background: var(--proofloop-emerald);
++    box-shadow: none;
++    font-weight: 800;
++    text-decoration: none;
++}
++
++.public-body .button:hover {
++    color: #ffffff;
++    border-color: var(--proofloop-emerald-dark);
++    background: var(--proofloop-emerald-dark);
++    box-shadow: none;
++    transform: none;
++}
++
++.public-body .button-secondary {
++    color: var(--proofloop-text);
++    border-color: var(--proofloop-border-strong);
++    background: var(--proofloop-surface);
++}
++
++.public-body .button-secondary:hover {
++    color: var(--proofloop-text);
++    border-color: var(--proofloop-ink);
++    background: var(--proofloop-surface-muted);
++}
++
++.public-body .button-quiet {
++    color: var(--proofloop-ink);
++    border-color: transparent;
++    background: transparent;
++}
++
++.public-body .button-quiet:hover {
++    color: var(--proofloop-emerald-dark);
++    border-color: transparent;
++    background: transparent;
++}
++
++.public-body .button-row {
++    align-items: center;
++    flex-wrap: wrap;
++    gap: 0.75rem;
++}
++
++.public-body .button-row form {
++    margin: 0;
++}
++
++/* Landing */
++
++.proofloop-landing-page .page-content {
++    width: min(100% - 2rem, 1220px);
++}
++
++.proofloop-hero {
++    display: grid;
++    grid-template-columns: minmax(0, 1.05fr) minmax(28rem, 0.95fr);
++    gap: clamp(2rem, 6vw, 5.5rem);
++    align-items: center;
++    min-height: min(720px, calc(100vh - 7rem));
++    padding-block: clamp(1rem, 4vw, 4rem);
++}
++
++.proofloop-hero-copy h1 {
++    max-width: 11ch;
++    margin: 0.55rem 0 1rem;
++    font-size: clamp(3rem, 6.5vw, 5.8rem);
++    line-height: 0.96;
++}
++
++.proofloop-hero-copy > .lead {
++    max-width: 44rem;
++    font-size: clamp(1.05rem, 1.5vw, 1.25rem);
++}
++
++.proofloop-transition {
++    display: inline-flex;
++    align-items: center;
++    gap: 0.6rem;
++    margin: 0 0 1.25rem;
++    color: var(--proofloop-ink);
++    font-size: 0.8rem;
++    font-weight: 850;
++    letter-spacing: 0.07em;
++    text-transform: uppercase;
++}
++
++.proofloop-transition span {
++    padding-left: 0.6rem;
++    color: var(--proofloop-muted);
++    border-left: 1px solid var(--proofloop-border-strong);
++    font-weight: 650;
++}
++
++.proofloop-hero-signals {
++    display: grid;
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    gap: 0;
++    margin: 2.5rem 0 0;
++    border-top: 1px solid var(--proofloop-border);
++    border-bottom: 1px solid var(--proofloop-border);
++}
++
++.proofloop-hero-signals div {
++    padding: 1rem 1rem 1rem 0;
++}
++
++.proofloop-hero-signals div + div {
++    padding-left: 1rem;
++    border-left: 1px solid var(--proofloop-border);
++}
++
++.proofloop-hero-signals dt {
++    margin-bottom: 0.25rem;
++    color: var(--proofloop-text);
++    font-weight: 850;
++}
++
++.proofloop-hero-signals dd {
++    margin: 0;
++    color: var(--proofloop-muted);
++    font-size: 0.82rem;
++    line-height: 1.45;
++}
++
++.proofloop-hero-panel {
++    padding: clamp(1.2rem, 3vw, 2rem);
++    color: #eef5f1;
++    border: 1px solid var(--proofloop-ink);
++    border-radius: 0.8rem;
++    background: var(--proofloop-ink);
++    box-shadow: var(--proofloop-shadow);
++}
++
++.proofloop-hero-panel > header,
++.proofloop-hero-panel > footer {
++    display: flex;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.proofloop-hero-panel > header strong,
++.proofloop-hero-panel > footer strong {
++    display: block;
++    color: #ffffff;
++}
++
++.proofloop-panel-kicker,
++.proofloop-hero-panel > footer span,
++.proofloop-hero-panel > footer small {
++    display: block;
++    color: #aebfba;
++    font-size: 0.74rem;
++}
++
++.proofloop-status {
++    align-self: flex-start;
++    padding: 0.35rem 0.55rem;
++    color: #dff3e9;
++    border: 1px solid rgba(159, 205, 185, 0.36);
++    border-radius: 999px;
++    background: rgba(31, 118, 89, 0.2);
++    font-size: 0.7rem;
++    font-weight: 850;
++    letter-spacing: 0.06em;
++    text-transform: uppercase;
++}
++
++.proofloop-readiness-summary {
++    display: grid;
++    grid-template-columns: auto 1fr;
++    gap: 1.1rem;
++    align-items: center;
++    margin: 1.7rem 0;
++    padding: 1.25rem 0;
++    border-top: 1px solid rgba(255, 255, 255, 0.1);
++    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
++}
++
++.proofloop-readiness-summary > div:last-child > strong {
++    color: #ffffff;
++}
++
++.proofloop-readiness-summary p {
++    margin: 0.25rem 0 0;
++    color: #b9c9c4;
++    font-size: 0.86rem;
++    line-height: 1.5;
++}
++
++.proofloop-readiness-ring {
++    width: 5.3rem;
++    aspect-ratio: 1;
++    display: grid;
++    place-items: center;
++    border-radius: 50%;
++    background:
++        radial-gradient(circle closest-side, var(--proofloop-ink) 76%, transparent 78% 99%),
++        conic-gradient(var(--proofloop-emerald) 72%, rgba(255, 255, 255, 0.12) 0);
++}
++
++.proofloop-readiness-ring span {
++    display: flex;
++    align-items: baseline;
++}
++
++.proofloop-readiness-ring strong {
++    color: #ffffff;
++    font-size: 1.45rem;
++}
++
++.proofloop-readiness-ring small {
++    color: #9fb0aa;
++}
++
++.proofloop-path {
++    position: relative;
++    display: grid;
++    gap: 0;
++    padding: 0;
++    margin: 0;
++    list-style: none;
++}
++
++.proofloop-path::before {
++    position: absolute;
++    top: 1.1rem;
++    bottom: 1.1rem;
++    left: 0.52rem;
++    width: 1px;
++    content: "";
++    background: rgba(255, 255, 255, 0.17);
++}
++
++.proofloop-path li {
++    position: relative;
++    z-index: 1;
++    display: grid;
++    grid-template-columns: 1.1rem 1fr auto;
++    gap: 0.8rem;
++    align-items: center;
++    padding: 0.72rem 0;
++}
++
++.proofloop-path li > span {
++    width: 1.1rem;
++    height: 1.1rem;
++    border: 0.18rem solid #71817c;
++    border-radius: 50%;
++    background: var(--proofloop-ink);
++}
++
++.proofloop-path li.is-complete > span {
++    border-color: var(--proofloop-emerald);
++    background: var(--proofloop-emerald);
++}
++
++.proofloop-path li.is-current > span {
++    border-color: var(--proofloop-amber);
++    background: var(--proofloop-amber);
++    box-shadow: 0 0 0 0.25rem rgba(191, 123, 39, 0.16);
++}
++
++.proofloop-path strong,
++.proofloop-path small {
++    display: block;
++}
++
++.proofloop-path strong {
++    color: #ffffff;
++    font-size: 0.9rem;
++}
++
++.proofloop-path small {
++    margin-top: 0.12rem;
++    color: #9fb0aa;
++    font-size: 0.75rem;
++}
++
++.proofloop-path b {
++    color: #9fb0aa;
++    font-size: 0.68rem;
++    font-weight: 800;
++    letter-spacing: 0.05em;
++    text-transform: uppercase;
++}
++
++.proofloop-path .is-current b {
++    color: #e4b87c;
++}
++
++.proofloop-hero-panel > footer {
++    display: block;
++    margin-top: 1.35rem;
++    padding: 1rem;
++    border: 1px solid rgba(255, 255, 255, 0.11);
++    border-radius: var(--proofloop-radius);
++    background: rgba(255, 255, 255, 0.04);
++}
++
++.proofloop-layer-section,
++.proofloop-evidence-section {
++    padding-block: clamp(4rem, 8vw, 7rem);
++    border-top: 1px solid var(--proofloop-border);
++}
++
++.proofloop-layer-section > header {
++    max-width: 47rem;
++    margin-bottom: 2rem;
++}
++
++.proofloop-layer-section h2,
++.proofloop-evidence-section h2 {
++    margin: 0.45rem 0 0.8rem;
++    font-size: clamp(2rem, 4vw, 3.5rem);
++    line-height: 1.03;
++}
++
++.proofloop-layer-grid {
++    display: grid;
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++    border: 1px solid var(--proofloop-border);
++    border-radius: 0.7rem;
++    overflow: hidden;
++}
++
++.proofloop-layer-grid article {
++    min-height: 17rem;
++    padding: 1.5rem;
++    background: var(--proofloop-surface);
++}
++
++.proofloop-layer-grid article + article {
++    border-left: 1px solid var(--proofloop-border);
++}
++
++.proofloop-layer-grid article > span {
++    color: var(--proofloop-emerald-dark);
++    font-size: 0.75rem;
++    font-weight: 900;
++}
++
++.proofloop-layer-grid h3 {
++    margin: 3.5rem 0 0.65rem;
++    font-size: 1.35rem;
++}
++
++.proofloop-layer-grid p {
++    color: var(--proofloop-muted);
++    font-size: 0.9rem;
++}
++
++.proofloop-layer-grid small {
++    display: block;
++    margin-top: 2rem;
++    color: var(--proofloop-emerald-dark);
++    font-weight: 800;
++}
++
++.proofloop-evidence-section {
++    display: grid;
++    grid-template-columns: minmax(0, 0.85fr) minmax(24rem, 1.15fr);
++    gap: clamp(2rem, 8vw, 7rem);
++    align-items: center;
++}
++
++.proofloop-evidence-section > div:first-child > p:not(.eyebrow) {
++    color: var(--proofloop-muted);
++}
++
++.proofloop-evidence-section > div:first-child > a {
++    color: var(--proofloop-emerald-dark);
++    font-weight: 850;
++    text-decoration: none;
++}
++
++.proofloop-evidence-stack {
++    display: grid;
++    gap: 0.8rem;
++}
++
++.proofloop-evidence-stack article {
++    padding: 1.2rem 1.3rem;
++    border: 1px solid var(--proofloop-border);
++    border-left: 0.25rem solid var(--proofloop-emerald);
++    border-radius: var(--proofloop-radius);
++    background: var(--proofloop-surface);
++}
++
++.proofloop-evidence-stack article:nth-child(2) {
++    margin-left: 2rem;
++    border-left-color: var(--proofloop-amber);
++}
++
++.proofloop-evidence-stack article:nth-child(3) {
++    margin-left: 4rem;
++}
++
++.proofloop-evidence-stack span,
++.proofloop-evidence-stack small,
++.proofloop-evidence-stack strong {
++    display: block;
++}
++
++.proofloop-evidence-stack span {
++    color: var(--proofloop-emerald-dark);
++    font-size: 0.7rem;
++    font-weight: 850;
++    letter-spacing: 0.07em;
++    text-transform: uppercase;
++}
++
++.proofloop-evidence-stack strong {
++    margin: 0.35rem 0;
++    color: var(--proofloop-text);
++}
++
++.proofloop-evidence-stack small {
++    color: var(--proofloop-muted);
++}
++
++/* Public forms and case study */
++
++.public-body .form-card,
++.public-body .portfolio-problem-grid article,
++.public-body .portfolio-architecture-grid article,
++.public-body .portfolio-decision-grid article,
++.public-body .portfolio-demo-preview li {
++    color: var(--proofloop-text);
++    border-color: var(--proofloop-border);
++    border-radius: var(--proofloop-radius);
++    background: var(--proofloop-surface);
++    box-shadow: none;
++}
++
++.public-body input,
++.public-body textarea,
++.public-body select {
++    color: var(--proofloop-text);
++    border-color: var(--proofloop-border-strong);
++    border-radius: var(--proofloop-radius-small);
++    background: var(--proofloop-surface);
++}
++
++.public-body input:focus,
++.public-body textarea:focus,
++.public-body select:focus {
++    border-color: var(--proofloop-emerald);
++    outline: 2px solid rgba(31, 118, 89, 0.18);
++}
++
++.public-body .portfolio-home-proof,
++.public-body .portfolio-case-summary,
++.public-body .portfolio-case-cta,
++.public-body .portfolio-metric-strip {
++    color: #f4f8f5;
++    background: var(--proofloop-ink);
++    box-shadow: none;
++}
++
++.public-body .portfolio-case-summary dt,
++.public-body .portfolio-metric-strip span {
++    color: #b9c9c4;
++}
++
++.public-body .portfolio-flow article span {
++    color: #ffffff;
++    background: var(--proofloop-emerald);
++}
++
++.public-body .portfolio-case-section {
++    border-color: var(--proofloop-border);
++}
++
++.public-body .portfolio-demo-status {
++    color: var(--proofloop-amber-dark);
++    background: var(--proofloop-amber-soft);
++}
++
++/* Demo */
++
++.app-body .portfolio-demo-banner {
++    color: var(--proofloop-text);
++    border: 1px solid #dfc297;
++    border-radius: var(--proofloop-radius);
++    background: var(--proofloop-amber-soft);
++    box-shadow: none;
++}
++
++.app-body .portfolio-demo-banner-heading span {
++    color: var(--proofloop-amber-dark);
++}
++
++.app-body .portfolio-demo-banner nav a {
++    color: var(--proofloop-text);
++    border-color: #ddc9aa;
++    border-radius: var(--proofloop-radius-small);
++    background: rgba(255, 253, 248, 0.76);
++}
++
++.app-body .portfolio-demo-banner nav a.is-complete {
++    color: var(--proofloop-emerald-dark);
++    border-color: #9dbdac;
++    background: var(--proofloop-emerald-soft);
++}
++
++.app-body .portfolio-demo-guide-grid article,
++.app-body .portfolio-demo-control-panel {
++    border-color: var(--proofloop-border);
++    border-radius: var(--proofloop-radius);
++    background: var(--proofloop-surface);
++    box-shadow: none;
++}
++
++.app-body .portfolio-demo-guide-grid article.is-complete {
++    border-color: #9dbdac;
++    background: #f1f7f3;
++}
++
++.app-body .portfolio-demo-guide-progress {
++    color: #ffffff;
++    background: var(--proofloop-ink);
++    border-radius: var(--proofloop-radius);
++}
++
++.app-body .portfolio-demo-step-number,
++.app-body .portfolio-demo-guide-progress strong {
++    color: #9fcdb9;
++}
++
++/* Accessibility */
++
++.public-body :focus-visible,
++.app-body :focus-visible {
++    outline: 2px solid var(--proofloop-amber);
++    outline-offset: 3px;
++}
++
++@media (max-width: 64rem) {
++    .proofloop-hero {
++        grid-template-columns: 1fr;
++        min-height: auto;
++    }
++
++    .proofloop-hero-copy h1 {
++        max-width: 13ch;
++    }
++
++    .proofloop-hero-panel {
++        max-width: 46rem;
++    }
++
++    .proofloop-layer-grid {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++
++    .proofloop-layer-grid article:nth-child(3) {
++        border-left: 0;
++        border-top: 1px solid var(--proofloop-border);
++    }
++
++    .proofloop-layer-grid article:nth-child(4) {
++        border-top: 1px solid var(--proofloop-border);
++    }
++
++    .proofloop-evidence-section {
++        grid-template-columns: 1fr;
++    }
++}
++
++@media (max-width: 48rem) {
++    .public-body .site-header .nav {
++        min-height: 4rem;
++        gap: 0.7rem;
++    }
++
++    .public-body .site-header .nav-actions {
++        gap: 0.55rem;
++    }
++
++    .public-body .site-header .nav-actions > a {
++        font-size: 0.8rem;
++    }
++
++    .public-body .site-header .button-small {
++        min-height: 2.25rem;
++        padding: 0.45rem 0.65rem;
++    }
++
++    .proofloop-hero {
++        padding-top: 0.5rem;
++    }
++
++    .proofloop-hero-copy h1 {
++        font-size: clamp(2.7rem, 13vw, 4.4rem);
++    }
++
++    .proofloop-hero-signals {
++        grid-template-columns: 1fr;
++    }
++
++    .proofloop-hero-signals div + div {
++        padding-left: 0;
++        border-top: 1px solid var(--proofloop-border);
++        border-left: 0;
++    }
++
++    .proofloop-layer-grid {
++        grid-template-columns: 1fr;
++    }
++
++    .proofloop-layer-grid article + article {
++        border-top: 1px solid var(--proofloop-border);
++        border-left: 0;
++    }
++
++    .proofloop-layer-grid article {
++        min-height: auto;
++    }
++
++    .proofloop-layer-grid h3 {
++        margin-top: 2rem;
++    }
++
++    .proofloop-evidence-stack article:nth-child(2),
++    .proofloop-evidence-stack article:nth-child(3) {
++        margin-left: 0;
++    }
++
++    .app-body .portfolio-demo-banner nav {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++}
++
++@media (prefers-reduced-motion: reduce) {
++    *,
++    *::before,
++    *::after {
++        scroll-behavior: auto !important;
++        transition-duration: 0.01ms !important;
++        animation-duration: 0.01ms !important;
++        animation-iteration-count: 1 !important;
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 3e989a8..63eeda9 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -4,7 +4,8 @@
+ <head>
+     <meta charset="utf-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+-    <title>{% block title %}ViewCoach{% endblock %}</title>
++    <title>{% block title %}ProofLoop{% endblock %}</title>
++    <meta name="description" content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}">
+     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
+     <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
+@@ -21,14 +22,15 @@
+     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
+     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
+     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
++    <link rel="stylesheet" href="{% static 'css/proofloop.css' %}">
+ </head>
+ <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+ {% if user.is_authenticated %}
+     <div class="app-shell">
+         <aside class="app-sidebar" aria-label="Application navigation">
+             <a class="app-brand" href="{% url 'dashboard' %}">
+-                <span class="app-brand-mark" aria-hidden="true">V</span>
+-                <span>ViewCoach</span>
++                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
++                <span class="proofloop-wordmark">ProofLoop</span>
+             </a>
+ 
+             {% include "includes/app_primary_navigation_v3.html" %}
+@@ -46,8 +48,8 @@
+ 
+         <header class="app-topbar">
+             <div class="app-topbar-copy">
+-                <span>Interview preparation workspace</span>
+-                <strong>Build skills. Practise recall. Track readiness.</strong>
++                <span>Adaptive interview-readiness workspace</span>
++                <strong>Learn deliberately. Practise under pressure. Prove readiness.</strong>
+             </div>
+             <div class="app-topbar-actions">
+                 {% include "includes/app_account_menu.html" with placement="desktop" %}
+@@ -56,8 +58,8 @@
+ 
+         <header class="app-mobile-header">
+             <a class="app-mobile-brand" href="{% url 'dashboard' %}">
+-                <span class="app-brand-mark" aria-hidden="true">V</span>
+-                <span>ViewCoach</span>
++                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
++                <span class="proofloop-wordmark">ProofLoop</span>
+             </a>
+             <div class="app-mobile-header-actions">
+                 {% include "includes/app_account_menu.html" with placement="mobile" %}
+@@ -68,7 +70,10 @@
+ {% else %}
+     <header class="site-header">
+         <nav class="nav container" aria-label="Primary navigation">
+-            <a class="brand" href="{% url 'home' %}">ViewCoach</a>
++            <a class="brand proofloop-public-brand" href="{% url 'home' %}">
++                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
++                <span>ProofLoop</span>
++            </a>
+             <div class="nav-actions">
+                 <a href="{% url 'project_showcase' %}">Project</a>
+                 <a href="{% url 'login' %}">Log in</a>
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 5d6d39b..a70f83f 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -1,6 +1,6 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Dashboard | ViewCoach{% endblock %}
++{% block title %}Dashboard | ProofLoop{% endblock %}
+ {% block body_class %}dashboard-v3-page{% endblock %}
+ {% block main_class %}dashboard-v3-main{% endblock %}
+ 
+diff --git a/templates/core/landing_page.html b/templates/core/landing_page.html
+index b343c74..58002a0 100644
+--- a/templates/core/landing_page.html
++++ b/templates/core/landing_page.html
+@@ -1,44 +1,156 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}ViewCoach | Adaptive interview preparation{% endblock %}
+-{% block body_class %}portfolio-public-page{% endblock %}
++{% block title %}ProofLoop | Adaptive interview-readiness workspace{% endblock %}
++{% block meta_description %}Turn learning, practice and experience into measurable interview readiness with one adaptive preparation workspace.{% endblock %}
++{% block body_class %}portfolio-public-page proofloop-landing-page{% endblock %}
+ 
+ {% block content %}
+-<section class="portfolio-home-hero">
+-    <div class="portfolio-home-copy">
+-        <p class="eyebrow">Adaptive interview preparation</p>
+-        <h1>Know what to study next, practise it, and explain it under pressure.</h1>
++<section class="proofloop-hero">
++    <div class="proofloop-hero-copy">
++        <p class="proofloop-transition">ProofLoop <span>formerly ViewCoach</span></p>
++        <p class="eyebrow">Adaptive interview-readiness workspace</p>
++        <h1>Turn preparation into a loop you can trust.</h1>
+         <p class="lead">
+-            ViewCoach connects learning roadmaps, interview questions, spaced
+-            review, project evidence and an explainable daily plan.
++            ProofLoop connects what you learn, what you practise and what you have
++            already built—then turns those signals into an explainable next step.
+         </p>
+         <div class="button-row">
+             {% if user.is_authenticated %}
+-                <a class="button" href="{% url 'dashboard' %}">Open dashboard</a>
++                <a class="button" href="{% url 'dashboard' %}">Open workspace</a>
+             {% else %}
+                 {% if portfolio_demo_enabled %}
+                     <form method="post" action="{% url 'portfolio_demo_start' %}">
+                         {% csrf_token %}
+-                        <button class="button" type="submit">Try the recruiter demo</button>
++                        <button class="button" type="submit">Explore the demo</button>
+                     </form>
+                 {% endif %}
+                 <a class="button button-secondary" href="{% url 'project_showcase' %}">
+-                    Explore the project
++                    View the case study
+                 </a>
+-                <a class="button button-secondary" href="{% url 'signup' %}">
++                <a class="button button-quiet" href="{% url 'signup' %}">
+                     Create account
+                 </a>
+             {% endif %}
+         </div>
++        <dl class="proofloop-hero-signals" aria-label="ProofLoop product principles">
++            <div><dt>Explainable</dt><dd>Every recommendation includes a reason.</dd></div>
++            <div><dt>Connected</dt><dd>Learning, review and evidence share context.</dd></div>
++            <div><dt>Adaptive</dt><dd>The next step reflects your goal and progress.</dd></div>
++        </dl>
+     </div>
+-    <aside class="portfolio-home-proof" aria-label="ViewCoach capabilities">
+-        <span>One connected workspace</span>
+-        <strong>Learning → practice → evidence → interview readiness</strong>
+-        <ul>
+-            <li>Explainable planning instead of a generic checklist</li>
+-            <li>Human-reviewed AI drafts instead of silent automation</li>
+-            <li>Source-aware roadmaps with one progress engine</li>
+-        </ul>
++
++    <aside class="proofloop-hero-panel" aria-label="Interview readiness overview">
++        <header>
++            <div>
++                <span class="proofloop-panel-kicker">Readiness overview</span>
++                <strong>AI Application Engineer</strong>
++            </div>
++            <span class="proofloop-status">Building</span>
++        </header>
++
++        <div class="proofloop-readiness-summary">
++            <div class="proofloop-readiness-ring" aria-label="Interview readiness 72 percent">
++                <span><strong>72</strong><small>/100</small></span>
++            </div>
++            <div>
++                <strong>Preparation is moving</strong>
++                <p>Retrieval practice is strong. Add one more architecture story.</p>
++            </div>
++        </div>
++
++        <ol class="proofloop-path" aria-label="Preparation loop">
++            <li class="is-complete">
++                <span></span>
++                <div><strong>Learn</strong><small>Roadmap foundations</small></div>
++                <b>Complete</b>
++            </li>
++            <li class="is-current">
++                <span></span>
++                <div><strong>Practise</strong><small>Recall and technical explanation</small></div>
++                <b>Now</b>
++            </li>
++            <li>
++                <span></span>
++                <div><strong>Prove</strong><small>Projects, decisions and STAR evidence</small></div>
++                <b>Next</b>
++            </li>
++            <li>
++                <span></span>
++                <div><strong>Rehearse</strong><small>Goal-aware mock interviews</small></div>
++                <b>Later</b>
++            </li>
++        </ol>
++
++        <footer>
++            <span>Next preparation block</span>
++            <strong>Explain RAG retrieval trade-offs</strong>
++            <small>35 minutes · selected from your current goal</small>
++        </footer>
+     </aside>
+ </section>
++
++<section class="proofloop-layer-section" aria-labelledby="proofloop-layers-heading">
++    <header>
++        <p class="eyebrow">Calm preparation infrastructure</p>
++        <h2 id="proofloop-layers-heading">Four preparation layers. One measurable loop.</h2>
++        <p>
++            ProofLoop keeps each layer distinct while carrying useful context forward.
++        </p>
++    </header>
++    <div class="proofloop-layer-grid">
++        <article>
++            <span>01</span>
++            <h3>Knowledge</h3>
++            <p>Focused roadmaps, topic notes and source-aware resources.</p>
++            <small>Know what matters for the role.</small>
++        </article>
++        <article>
++            <span>02</span>
++            <h3>Retrieval</h3>
++            <p>Question cards, spaced review and mistake-aware repetition.</p>
++            <small>Make recall reliable under pressure.</small>
++        </article>
++        <article>
++            <span>03</span>
++            <h3>Evidence</h3>
++            <p>Projects, decisions, incidents and reusable behavioural stories.</p>
++            <small>Turn experience into proof.</small>
++        </article>
++        <article>
++            <span>04</span>
++            <h3>Readiness</h3>
++            <p>Goal-aware planning, mock interviews and transparent signals.</p>
++            <small>See the next gap before the interview.</small>
++        </article>
++    </div>
++</section>
++
++<section class="proofloop-evidence-section" aria-labelledby="proofloop-evidence-heading">
++    <div>
++        <p class="eyebrow">Evidence, not vague confidence</p>
++        <h2 id="proofloop-evidence-heading">Preparation becomes stronger when the system can show why.</h2>
++        <p>
++            Readiness is based on visible work: completed topics, review quality,
++            interview practice and evidence connected to the role.
++        </p>
++        <a href="{% url 'project_showcase' %}">Explore the engineering decisions →</a>
++    </div>
++    <div class="proofloop-evidence-stack" aria-label="Evidence card examples">
++        <article>
++            <span>Architecture decision</span>
++            <strong>Human approval before AI drafts enter review</strong>
++            <small>Trust boundary · Product reasoning · Testing</small>
++        </article>
++        <article>
++            <span>Project evidence</span>
++            <strong>Adaptive planner with deterministic fallback</strong>
++            <small>Django · PostgreSQL · OR-Tools</small>
++        </article>
++        <article>
++            <span>Behavioural story</span>
++            <strong>Diagnosed a production-specific locking failure</strong>
++            <small>Ownership · Debugging · Communication</small>
++        </article>
++    </div>
++</section>
+ {% endblock %}
+diff --git a/templates/core/portfolio_demo_guide.html b/templates/core/portfolio_demo_guide.html
+index a6ad7ce..8d6d816 100644
+--- a/templates/core/portfolio_demo_guide.html
++++ b/templates/core/portfolio_demo_guide.html
+@@ -1,13 +1,13 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}Recruiter demo | ViewCoach{% endblock %}
++{% block title %}Demo | ProofLoop{% endblock %}
+ {% block body_class %}portfolio-demo-page{% endblock %}
+ 
+ {% block content %}
+ <section class="portfolio-demo-guide-header">
+     <div>
+-        <p class="eyebrow">Temporary recruiter workspace</p>
+-        <h1>Explore the strongest ViewCoach workflows.</h1>
++        <p class="eyebrow">Temporary ProofLoop workspace</p>
++        <h1>Explore the strongest ProofLoop workflows.</h1>
+         <p class="lead">
+             This account contains realistic roadmaps, questions, review history,
+             project evidence, a mock interview and a target role. Changes are safe:
+diff --git a/templates/core/project_showcase.html b/templates/core/project_showcase.html
+index 8a85909..26a5123 100644
+--- a/templates/core/project_showcase.html
++++ b/templates/core/project_showcase.html
+@@ -1,13 +1,13 @@
+ {% extends "base.html" %}
+ 
+-{% block title %}ViewCoach project | Portfolio case study{% endblock %}
++{% block title %}ProofLoop | Adaptive interview readiness case study{% endblock %}
+ {% block body_class %}portfolio-public-page portfolio-showcase-page{% endblock %}
+ 
+ {% block content %}
+ <section class="portfolio-case-hero">
+     <div>
+         <p class="eyebrow">Portfolio case study</p>
+-        <h1>ViewCoach turns scattered interview preparation into one explainable system.</h1>
++        <h1>ProofLoop turns scattered interview preparation into one measurable readiness loop.</h1>
+         <p class="lead">
+             A full-stack Django product connecting learning roadmaps, retrieval
+             practice, spaced review, project evidence, mock interviews and
+@@ -16,7 +16,7 @@
+         <div class="button-row">
+             {% if portfolio_demo_active %}
+                 <a class="button" href="{% url 'portfolio_demo_guide' %}">
+-                    Continue recruiter demo
++                    Continue demo
+                 </a>
+             {% elif user.is_authenticated %}
+                 <a class="button" href="{% url 'dashboard' %}">Open my workspace</a>
+@@ -62,7 +62,7 @@
+         <p class="eyebrow">Product response</p>
+         <h2>One preparation loop, with explicit boundaries between its parts.</h2>
+     </header>
+-    <div class="portfolio-flow" aria-label="ViewCoach preparation loop">
++    <div class="portfolio-flow" aria-label="ProofLoop preparation loop">
+         <article><span>1</span><strong>Set a goal</strong><small>Role, stage and time available</small></article>
+         <article><span>2</span><strong>Build knowledge</strong><small>Curated, imported and personal roadmaps</small></article>
+         <article><span>3</span><strong>Practise recall</strong><small>Questions, notes and spaced review</small></article>
+@@ -74,7 +74,7 @@
+ 
+ <section class="portfolio-case-section">
+     <header>
+-        <p class="eyebrow">Recruiter demo</p>
++        <p class="eyebrow">Product demo</p>
+         <h2>A complete seeded product journey—not an empty account.</h2>
+         <p>
+             Every visitor receives a private temporary workspace. They can edit,
+@@ -112,7 +112,7 @@
+             <small>Trade-off: two selection paths that require shared policy tests.</small>
+         </article>
+         <article>
+-            <h3>Isolated recruiter demos</h3>
++            <h3>Isolated demo workspaces</h3>
+             <p>Visitors receive temporary accounts instead of sharing mutable credentials.</p>
+             <small>Trade-off: cleanup and capacity controls for a reliable portfolio experience.</small>
+         </article>
+@@ -127,7 +127,7 @@
+     {% if portfolio_demo_enabled and not user.is_authenticated %}
+         <form method="post" action="{% url 'portfolio_demo_start' %}">
+             {% csrf_token %}
+-            <button class="button" type="submit">Start recruiter demo</button>
++            <button class="button" type="submit">Start demo</button>
+         </form>
+     {% elif portfolio_demo_active %}
+         <a class="button" href="{% url 'portfolio_demo_guide' %}">Continue demo</a>
+diff --git a/templates/includes/portfolio_demo_banner.html b/templates/includes/portfolio_demo_banner.html
+index f281636..fa9968a 100644
+--- a/templates/includes/portfolio_demo_banner.html
++++ b/templates/includes/portfolio_demo_banner.html
+@@ -1,12 +1,12 @@
+-<section class="portfolio-demo-banner" aria-label="Recruiter demo controls">
++<section class="portfolio-demo-banner" aria-label="Demo controls">
+     <div class="portfolio-demo-banner-heading">
+-        <span>Recruiter demo</span>
++        <span>ProofLoop demo</span>
+         <strong>
+             {{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}
+             tour areas opened
+         </strong>
+     </div>
+-    <nav aria-label="Recruiter demo shortcuts">
++    <nav aria-label="ProofLoop demo shortcuts">
+         <a href="{% url 'portfolio_demo_guide' %}">Tour home</a>
+         {% for step in portfolio_demo_steps %}
+             <a class="{% if step.completed %}is-complete{% endif %}"
