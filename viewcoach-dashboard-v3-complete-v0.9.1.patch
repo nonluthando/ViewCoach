@@ -1,0 +1,3115 @@
+diff --git a/apps/core/dashboard_services.py b/apps/core/dashboard_services.py
+new file mode 100644
+index 0000000..bd8aee3
+--- /dev/null
++++ b/apps/core/dashboard_services.py
+@@ -0,0 +1,558 @@
++from __future__ import annotations
++
++import calendar as calendar_module
++from collections import defaultdict
++from datetime import date, datetime, timedelta
++
++from django.db.models import Q
++from django.urls import reverse
++from django.utils import timezone
++
++from apps.accounts.needs import need_type_experience
++from apps.evidence.models import BehaviouralStory
++from apps.evidence.services import evidence_dashboard_summary
++from apps.goals.models import InterviewGoal, InterviewStage
++from apps.goals.services import primary_goal_for_user, readiness_report
++from apps.interviews.models import MockInterview
++from apps.planner.models import StudyRecommendation, StudySession
++from apps.planner.services import generate_daily_plan, plan_summary
++from apps.questions.models import Question, UserQuestionNote
++from apps.reviews.models import ReviewAttempt, ReviewState
++from apps.reviews.services import review_dashboard_summary
++from apps.roadmaps.models import (
++    Roadmap,
++    UserRoadmap,
++    UserTopicProgress,
++    UserTopicResource,
++)
++from apps.roadmaps.services import progress_summary_for_user
++
++DASHBOARD_ROADMAP_LIMIT = 4
++DASHBOARD_PLAN_LIMIT = 5
++DASHBOARD_UPCOMING_LIMIT = 3
++STREAK_LOOKBACK_DAYS = 90
++WEEKLY_CONSISTENCY_TARGET = 5
++
++
++def greeting_for_time(value: datetime) -> str:
++    hour = timezone.localtime(value).hour
++    if hour < 12:
++        return "Good morning"
++    if hour < 17:
++        return "Good afternoon"
++    return "Good evening"
++
++
++def calculate_activity_streak(*, activity_dates: set[date], today: date) -> int:
++    """Return a forgiving daily streak.
++
++    A user does not lose yesterday's streak merely because they have not studied
++    yet today. Once today has activity, the count starts from today.
++    """
++
++    if not activity_dates:
++        return 0
++
++    cursor = today if today in activity_dates else today - timedelta(days=1)
++    streak = 0
++    while cursor in activity_dates:
++        streak += 1
++        cursor -= timedelta(days=1)
++    return streak
++
++
++def _normalise_month(*, month_value: str, today: date) -> tuple[int, int]:
++    if month_value:
++        try:
++            parsed = datetime.strptime(month_value, "%Y-%m").date()
++            if 2000 <= parsed.year <= 2100:
++                return parsed.year, parsed.month
++        except ValueError:
++            pass
++    return today.year, today.month
++
++
++def _month_shift(*, year: int, month: int, offset: int) -> tuple[int, int]:
++    index = (year * 12) + (month - 1) + offset
++    return index // 12, (index % 12) + 1
++
++
++def _dashboard_plan(*, user, now):
++    plan = generate_daily_plan(user=user, now=now)
++    summary = plan_summary(plan=plan)
++    recommendations = summary["recommendations"]
++    unfinished = [item for item in recommendations if item.completed_at is None]
++    total_count = summary["total_count"]
++    completed_count = summary["completed_count"]
++    progress_percent = round((completed_count / total_count) * 100) if total_count else 0
++
++    items = []
++    for position, recommendation in enumerate(recommendations[:DASHBOARD_PLAN_LIMIT], start=1):
++        items.append(
++            {
++                "position": position,
++                "title": recommendation.title,
++                "description": recommendation.description,
++                "rationale": recommendation.rationale,
++                "duration": recommendation.estimated_minutes,
++                "kind": recommendation.kind,
++                "kind_label": recommendation.get_kind_display(),
++                "is_required": recommendation.is_required,
++                "is_completed": recommendation.completed_at is not None,
++                "action_url": recommendation.action_url,
++                "action_label": recommendation.action_label,
++            }
++        )
++
++    current = unfinished[0] if unfinished else None
++    focus_label = "Build today’s preparation plan"
++    if current is not None:
++        if current.topic_id:
++            focus_label = current.topic.section.roadmap.title
++        else:
++            focus_label = current.title
++
++    return {
++        **summary,
++        "items": items,
++        "current": current,
++        "progress_percent": progress_percent,
++        "remaining_minutes": sum(item.estimated_minutes for item in unfinished),
++        "remaining_count": len(unfinished),
++        "focus_label": focus_label,
++    }
++
++
++def _focused_roadmaps(*, user):
++    enrolments = list(
++        UserRoadmap.objects.filter(
++            user=user,
++            roadmap__is_published=True,
++        )
++        .filter(
++            Q(is_focused=True)
++            | Q(
++                roadmap__source=Roadmap.Source.YOUTUBE,
++                roadmap__youtube_playlist__user=user,
++                roadmap__youtube_playlist__is_favourite=True,
++            )
++        )
++        .select_related("roadmap")
++        .prefetch_related("roadmap__sections__topics")
++        .order_by("roadmap__position", "roadmap__title", "pk")
++        .distinct()[:DASHBOARD_ROADMAP_LIMIT]
++    )
++    roadmap_ids = [enrolment.roadmap_id for enrolment in enrolments]
++    progress_by_roadmap = progress_summary_for_user(
++        user=user,
++        roadmap_ids=roadmap_ids,
++    )
++
++    rows = []
++    for enrolment in enrolments:
++        roadmap = enrolment.roadmap
++        sections = list(roadmap.sections.all())
++        total_count = sum(len(section.topics.all()) for section in sections)
++        progress = progress_by_roadmap.get(roadmap.pk, {})
++        completed_count = progress.get("completed_count", 0)
++        in_progress_count = progress.get("in_progress_count", 0)
++        percentage = round((completed_count / total_count) * 100) if total_count else 0
++        rows.append(
++            {
++                "roadmap": roadmap,
++                "enrolment": enrolment,
++                "completed_count": completed_count,
++                "in_progress_count": in_progress_count,
++                "topic_count": total_count,
++                "percentage": percentage,
++                "url": _roadmap_url(roadmap),
++                "accent": _roadmap_accent(roadmap),
++                "icon": _roadmap_icon(roadmap),
++            }
++        )
++    return rows
++
++
++def _roadmap_url(roadmap):
++    if roadmap.source == Roadmap.Source.YOUTUBE:
++        return reverse("roadmaps:youtube_detail", args=[roadmap.slug])
++    return reverse("roadmaps:detail", args=[roadmap.slug])
++
++
++def _roadmap_accent(roadmap):
++    if roadmap.source == Roadmap.Source.YOUTUBE:
++        return "rose"
++    if roadmap.source == Roadmap.Source.IBM:
++        return "blue"
++    mapping = {
++        Roadmap.Kind.ROLE: "blue",
++        Roadmap.Kind.SKILL: "green",
++        Roadmap.Kind.PRACTICE: "lavender",
++    }
++    return mapping.get(roadmap.kind, "copper")
++
++
++def _roadmap_icon(roadmap):
++    mapping = {
++        Roadmap.Kind.ROLE: "⌘",
++        Roadmap.Kind.SKILL: "▥",
++        Roadmap.Kind.PRACTICE: "Σ",
++    }
++    return mapping.get(roadmap.kind, "◇")
++
++
++def _learning_journey(*, user, roadmap_row):
++    if roadmap_row is None:
++        return None
++
++    roadmap = roadmap_row["roadmap"]
++    sections = list(roadmap.sections.all())
++    progress_rows = UserTopicProgress.objects.filter(
++        user=user,
++        topic__section__roadmap=roadmap,
++    ).values_list("topic_id", "status")
++    status_by_topic = dict(progress_rows)
++
++    raw_sections = []
++    for section in sections:
++        topics = list(section.topics.all())
++        total_count = len(topics)
++        completed_count = sum(
++            status_by_topic.get(topic.pk) == UserTopicProgress.Status.COMPLETED
++            for topic in topics
++        )
++        has_learning = any(
++            status_by_topic.get(topic.pk) == UserTopicProgress.Status.IN_PROGRESS
++            for topic in topics
++        )
++        if total_count and completed_count == total_count:
++            state = "completed"
++        elif has_learning:
++            state = "current"
++        else:
++            state = "pending"
++        raw_sections.append(
++            {
++                "title": section.title,
++                "description": section.description,
++                "completed_count": completed_count,
++                "topic_count": total_count,
++                "state": state,
++            }
++        )
++
++    current_index = next(
++        (index for index, item in enumerate(raw_sections) if item["state"] == "current"),
++        None,
++    )
++    if current_index is None:
++        current_index = next(
++            (index for index, item in enumerate(raw_sections) if item["state"] == "pending"),
++            None,
++        )
++        if current_index is not None:
++            raw_sections[current_index]["state"] = "current"
++
++    next_assigned = False
++    for index, item in enumerate(raw_sections):
++        if item["state"] in {"completed", "current"}:
++            continue
++        if current_index is not None and index > current_index and not next_assigned:
++            item["state"] = "next"
++            next_assigned = True
++        else:
++            item["state"] = "later"
++
++    labels = {
++        "completed": "Completed",
++        "current": "In progress",
++        "next": "Up next",
++        "later": "Later",
++    }
++    for item in raw_sections:
++        item["state_label"] = labels[item["state"]]
++
++    return {
++        "roadmap": roadmap,
++        "url": roadmap_row["url"],
++        "sections": raw_sections,
++        "percentage": roadmap_row["percentage"],
++    }
++
++
++def _activity_dates(*, user, now):
++    cutoff = now - timedelta(days=STREAK_LOOKBACK_DAYS)
++    values = []
++    values.extend(
++        UserTopicProgress.objects.filter(
++            user=user,
++            completed_at__gte=cutoff,
++        ).values_list("completed_at", flat=True)
++    )
++    values.extend(
++        ReviewAttempt.objects.filter(
++            state__user=user,
++            reviewed_at__gte=cutoff,
++        ).values_list("reviewed_at", flat=True)
++    )
++    values.extend(
++        StudyRecommendation.objects.filter(
++            plan__user=user,
++            completed_at__gte=cutoff,
++        ).values_list("completed_at", flat=True)
++    )
++    values.extend(
++        StudySession.objects.filter(
++            plan__user=user,
++            ended_at__gte=cutoff,
++        ).values_list("ended_at", flat=True)
++    )
++    values.extend(
++        MockInterview.objects.filter(
++            user=user,
++            completed_at__gte=cutoff,
++        ).values_list("completed_at", flat=True)
++    )
++    return {
++        timezone.localtime(value).date()
++        for value in values
++        if value is not None
++    }
++
++
++def _streak_summary(*, user, now):
++    today = timezone.localdate(now)
++    dates = _activity_dates(user=user, now=now)
++    week_start = today - timedelta(days=today.weekday())
++    week_active_days = sum(week_start <= activity_date <= today for activity_date in dates)
++    return {
++        "current": calculate_activity_streak(activity_dates=dates, today=today),
++        "week_active_days": week_active_days,
++        "weekly_target": WEEKLY_CONSISTENCY_TARGET,
++        "is_on_target": week_active_days >= WEEKLY_CONSISTENCY_TARGET,
++    }
++
++
++def _calendar_data(*, user, month_value, now):
++    today = timezone.localdate(now)
++    year, month = _normalise_month(month_value=month_value, today=today)
++    weeks = calendar_module.Calendar(firstweekday=0).monthdatescalendar(year, month)
++    first_visible = weeks[0][0]
++    last_visible = weeks[-1][-1]
++
++    event_map = defaultdict(list)
++    stages = (
++        InterviewStage.objects.filter(
++            goal__user=user,
++            goal__status=InterviewGoal.Status.ACTIVE,
++            completed_at__isnull=True,
++            scheduled_for__range=(first_visible, last_visible),
++        )
++        .select_related("goal")
++        .order_by("scheduled_for", "position", "pk")
++    )
++    for stage in stages:
++        event_map[stage.scheduled_for].append(
++            {
++                "kind": "interview",
++                "label": f"{stage.display_name} · {stage.goal.title}",
++            }
++        )
++
++    review_dates = ReviewState.objects.filter(
++        user=user,
++        question__owner=user,
++        question__status=Question.Status.READY_FOR_REVIEW,
++        due_at__date__range=(first_visible, last_visible),
++    ).values_list("due_at__date", flat=True)
++    review_counts = defaultdict(int)
++    for review_date in review_dates:
++        review_counts[review_date] += 1
++    for review_date, count in review_counts.items():
++        event_map[review_date].append(
++            {
++                "kind": "review",
++                "label": f"{count} review{'s' if count != 1 else ''} due",
++            }
++        )
++
++    day_rows = []
++    for week in weeks:
++        row = []
++        for day_value in week:
++            events = event_map.get(day_value, [])
++            kinds = {event["kind"] for event in events}
++            row.append(
++                {
++                    "date": day_value,
++                    "day": day_value.day,
++                    "in_month": day_value.month == month,
++                    "is_today": day_value == today,
++                    "events": events,
++                    "event_count": len(events),
++                    "has_interview": "interview" in kinds,
++                    "has_review": "review" in kinds,
++                    "event_label": "; ".join(event["label"] for event in events),
++                }
++            )
++        day_rows.append(row)
++
++    previous_year, previous_month = _month_shift(year=year, month=month, offset=-1)
++    next_year, next_month = _month_shift(year=year, month=month, offset=1)
++    return {
++        "year": year,
++        "month": month,
++        "month_label": date(year, month, 1).strftime("%B %Y"),
++        "weeks": day_rows,
++        "previous_query": f"?month={previous_year:04d}-{previous_month:02d}",
++        "next_query": f"?month={next_year:04d}-{next_month:02d}",
++    }
++
++
++def _upcoming_items(*, user, plan, review_summary, now):
++    today = timezone.localdate(now)
++    items = []
++
++    if review_summary["due_count"]:
++        count = review_summary["due_count"]
++        items.append(
++            {
++                "sort_date": today,
++                "sort_priority": 0,
++                "kind": "Review",
++                "title": f"{count} review{'s' if count != 1 else ''} due",
++                "meta": "Ready now",
++                "url": reverse("reviews:queue"),
++                "accent": "lavender",
++            }
++        )
++
++    for stage in (
++        InterviewStage.objects.filter(
++            goal__user=user,
++            goal__status=InterviewGoal.Status.ACTIVE,
++            completed_at__isnull=True,
++            scheduled_for__gte=today,
++        )
++        .select_related("goal")
++        .order_by("scheduled_for", "position", "pk")[:DASHBOARD_UPCOMING_LIMIT]
++    ):
++        items.append(
++            {
++                "sort_date": stage.scheduled_for,
++                "sort_priority": 0,
++                "kind": "Interview",
++                "title": stage.display_name,
++                "meta": f"{stage.goal.title} · {stage.scheduled_for:%d %b}",
++                "url": reverse("goals:detail", args=[stage.goal_id]),
++                "accent": "rose",
++            }
++        )
++
++    if plan["remaining_count"]:
++        items.append(
++            {
++                "sort_date": today,
++                "sort_priority": 1,
++                "kind": "Plan",
++                "title": f"{plan['remaining_count']} study blocks remaining",
++                "meta": f"{plan['remaining_minutes']} min planned today",
++                "url": reverse("planner:today"),
++                "accent": "blue",
++            }
++        )
++
++    items.sort(
++        key=lambda item: (
++            item["sort_date"],
++            item["sort_priority"],
++            item["kind"],
++            item["title"],
++        )
++    )
++    for item in items:
++        item.pop("sort_date", None)
++        item.pop("sort_priority", None)
++    return items[:DASHBOARD_UPCOMING_LIMIT]
++
++
++def _evidence_summary(*, user):
++    summary = evidence_dashboard_summary(user=user)
++    stories = list(
++        BehaviouralStory.objects.filter(evidence__owner=user)
++        .select_related("evidence")
++        .order_by("-updated_at", "-pk")
++    )
++    ready_story_count = sum(story.is_interview_ready for story in stories)
++    story_count = len(stories)
++    summary.update(
++        {
++            "story_count": story_count,
++            "ready_story_count": ready_story_count,
++            "story_percentage": (
++                round((ready_story_count / story_count) * 100) if story_count else 0
++            ),
++        }
++    )
++    return summary
++
++
++def _resource_summary(*, user):
++    question_note_filter = (
++        ~Q(notes="") | ~Q(mistakes="") | ~Q(code_notes="") | ~Q(behavioural_notes="")
++    )
++    return {
++        "topic_note_count": UserTopicProgress.objects.filter(user=user)
++        .exclude(notes="")
++        .count(),
++        "question_note_count": UserQuestionNote.objects.filter(user=user)
++        .filter(question_note_filter)
++        .count(),
++        "resource_count": UserTopicResource.objects.filter(user=user).count(),
++        "question_count": Question.objects.filter(owner=user).count(),
++    }
++
++
++def build_dashboard_context(*, user, month_value="", now=None):
++    current_time = now or timezone.now()
++    plan = _dashboard_plan(user=user, now=current_time)
++    primary_goal = primary_goal_for_user(user=user)
++    readiness = readiness_report(goal=primary_goal, now=current_time) if primary_goal else None
++    review_summary = review_dashboard_summary(user=user, now=current_time)
++    focused_roadmaps = _focused_roadmaps(user=user)
++    journey = _learning_journey(
++        user=user,
++        roadmap_row=focused_roadmaps[0] if focused_roadmaps else None,
++    )
++    streak = _streak_summary(user=user, now=current_time)
++
++    return {
++        "greeting": greeting_for_time(current_time),
++        "need_focus": need_type_experience(user.primary_need_type),
++        "primary_goal": primary_goal,
++        "readiness": readiness,
++        "today_plan": plan,
++        "focused_roadmaps": focused_roadmaps,
++        "learning_journey": journey,
++        "review_summary": review_summary,
++        "due_review_count": review_summary["due_count"],
++        "review_metric_detail": f"{review_summary['reviewed_today_count']} reviewed today",
++        "streak": streak,
++        "streak_metric_detail": (
++            f"{streak['week_active_days']}/{streak['weekly_target']} active days this week"
++        ),
++        "primary_goal_url": primary_goal.get_absolute_url() if primary_goal else "",
++        "calendar": _calendar_data(
++            user=user,
++            month_value=month_value,
++            now=current_time,
++        ),
++        "upcoming_items": _upcoming_items(
++            user=user,
++            plan=plan,
++            review_summary=review_summary,
++            now=current_time,
++        ),
++        "evidence_summary": _evidence_summary(user=user),
++        "resource_summary": _resource_summary(user=user),
++    }
+diff --git a/apps/core/tests/test_dashboard_services.py b/apps/core/tests/test_dashboard_services.py
+new file mode 100644
+index 0000000..4be2eaf
+--- /dev/null
++++ b/apps/core/tests/test_dashboard_services.py
+@@ -0,0 +1,290 @@
++from datetime import date, datetime, timedelta
++from types import SimpleNamespace
++
++import pytest
++from django.contrib.auth import get_user_model
++from django.utils import timezone
++
++from apps.core.dashboard_services import (
++    _calendar_data,
++    _dashboard_plan,
++    _focused_roadmaps,
++    _learning_journey,
++    _upcoming_items,
++    calculate_activity_streak,
++    greeting_for_time,
++)
++from apps.goals.models import InterviewGoal, InterviewStage
++from apps.roadmaps.models import (
++    Roadmap,
++    RoadmapSection,
++    RoadmapTopic,
++    UserRoadmap,
++    UserTopicProgress,
++    YouTubePlaylistRoadmap,
++)
++
++pytestmark = pytest.mark.django_db
++
++
++def _aware(year, month, day, hour=12):
++    return timezone.make_aware(datetime(year, month, day, hour))
++
++
++@pytest.mark.parametrize(
++    ("hour", "expected"),
++    [(8, "Good morning"), (13, "Good afternoon"), (19, "Good evening")],
++)
++def test_greeting_uses_local_time(hour, expected):
++    assert greeting_for_time(_aware(2026, 8, 4, hour)) == expected
++
++
++def test_activity_streak_keeps_yesterdays_streak_until_today_is_used():
++    today = date(2026, 8, 4)
++    dates = {today - timedelta(days=offset) for offset in (1, 2, 3)}
++
++    assert calculate_activity_streak(activity_dates=dates, today=today) == 3
++
++    dates.add(today)
++    assert calculate_activity_streak(activity_dates=dates, today=today) == 4
++
++
++def test_dashboard_plan_uses_real_completion_and_remaining_time(monkeypatch):
++    completed = SimpleNamespace(
++        title="Completed review",
++        description="",
++        rationale="",
++        estimated_minutes=20,
++        kind="REVIEW",
++        is_required=True,
++        completed_at=timezone.now(),
++        topic_id=None,
++        action_url="/reviews/",
++        action_label="Start reviews",
++        get_kind_display=lambda: "Due review",
++    )
++    remaining = SimpleNamespace(
++        title="Continue PostgreSQL",
++        description="",
++        rationale="Next focused topic",
++        estimated_minutes=45,
++        kind="ROADMAP",
++        is_required=False,
++        completed_at=None,
++        topic_id=None,
++        action_url="/roadmaps/topic/",
++        action_label="Open topic",
++        get_kind_display=lambda: "Roadmap",
++    )
++    summary = {
++        "plan": object(),
++        "recommendations": [completed, remaining],
++        "total_count": 2,
++        "completed_count": 1,
++        "estimated_minutes": 65,
++        "is_complete": False,
++        "selection_status": "OPTIMAL",
++        "selection_objective": 1.0,
++        "selection_best_bound": 1.0,
++        "selection_solve_time_ms": 1,
++    }
++    monkeypatch.setattr(
++        "apps.core.dashboard_services.generate_daily_plan",
++        lambda **kwargs: summary["plan"],
++    )
++    monkeypatch.setattr(
++        "apps.core.dashboard_services.plan_summary",
++        lambda **kwargs: summary,
++    )
++
++    result = _dashboard_plan(user=object(), now=_aware(2026, 8, 4))
++
++    assert result["progress_percent"] == 50
++    assert result["remaining_minutes"] == 45
++    assert result["remaining_count"] == 1
++    assert result["current"] is remaining
++    assert result["focus_label"] == "Continue PostgreSQL"
++
++
++def test_learning_journey_exposes_completed_current_next_and_later_states():
++    user = get_user_model().objects.create_user(
++        email="journey@example.com",
++        password="safe-test-password",
++    )
++    roadmap = Roadmap.objects.create(
++        title="Backend",
++        slug="dashboard-v3-backend",
++        description="",
++        kind=Roadmap.Kind.ROLE,
++        source=Roadmap.Source.CUSTOM,
++        is_system=False,
++        created_by=user,
++    )
++    topics = []
++    for position, title in enumerate(("Foundations", "APIs", "Databases", "Testing"), start=1):
++        section = RoadmapSection.objects.create(
++            roadmap=roadmap,
++            title=title,
++            slug=title.lower(),
++            position=position,
++        )
++        topic = RoadmapTopic.objects.create(
++            section=section,
++            title=f"{title} topic",
++            slug=f"{title.lower()}-topic",
++            position=1,
++        )
++        topics.append(topic)
++    enrolment = UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        is_focused=True,
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topics[0],
++        status=UserTopicProgress.Status.COMPLETED,
++        completed_at=timezone.now(),
++    )
++    UserTopicProgress.objects.create(
++        user=user,
++        topic=topics[1],
++        status=UserTopicProgress.Status.IN_PROGRESS,
++        started_at=timezone.now(),
++    )
++
++    roadmap = Roadmap.objects.prefetch_related("sections__topics").get(pk=roadmap.pk)
++    journey = _learning_journey(
++        user=user,
++        roadmap_row={
++            "roadmap": roadmap,
++            "url": roadmap.get_absolute_url() if hasattr(roadmap, "get_absolute_url") else "/",
++            "percentage": 25,
++            "enrolment": enrolment,
++        },
++    )
++
++    assert [section["state"] for section in journey["sections"]] == [
++        "completed",
++        "current",
++        "next",
++        "later",
++    ]
++
++
++def test_favourite_youtube_roadmap_is_included_in_dashboard_focus():
++    user = get_user_model().objects.create_user(
++        email="youtube-focus@example.com",
++        password="safe-test-password",
++    )
++    roadmap = Roadmap.objects.create(
++        title="System design playlist",
++        slug="dashboard-v3-youtube",
++        kind=Roadmap.Kind.PRACTICE,
++        source=Roadmap.Source.YOUTUBE,
++        learning_format=Roadmap.LearningFormat.VIDEO,
++        is_system=False,
++        created_by=user,
++    )
++    UserRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        status=UserRoadmap.Status.IN_PROGRESS,
++        is_focused=False,
++    )
++    YouTubePlaylistRoadmap.objects.create(
++        user=user,
++        roadmap=roadmap,
++        playlist_id="dashboard-v3-playlist",
++        source_url="https://www.youtube.com/playlist?list=dashboard-v3",
++        is_favourite=True,
++    )
++
++    rows = _focused_roadmaps(user=user)
++
++    assert [row["roadmap"] for row in rows] == [roadmap]
++    assert rows[0]["url"].endswith(f"/{roadmap.slug}/")
++
++
++def test_upcoming_items_order_due_work_before_future_interview():
++    user = get_user_model().objects.create_user(
++        email="upcoming@example.com",
++        password="safe-test-password",
++    )
++    goal = InterviewGoal.objects.create(
++        user=user,
++        title="Backend interview",
++        goal_type=InterviewGoal.GoalType.SPECIFIC_OPPORTUNITY,
++        role_title="Backend Engineer",
++        status=InterviewGoal.Status.ACTIVE,
++        is_primary=True,
++    )
++    InterviewStage.objects.create(
++        goal=goal,
++        stage_type=InterviewStage.StageType.TECHNICAL,
++        scheduled_for=date(2026, 8, 5),
++        is_current=True,
++    )
++
++    items = _upcoming_items(
++        user=user,
++        plan={"remaining_count": 2, "remaining_minutes": 70},
++        review_summary={"due_count": 3},
++        now=_aware(2026, 8, 4),
++    )
++
++    assert [item["kind"] for item in items] == ["Review", "Plan", "Interview"]
++
++
++def test_calendar_marks_interview_dates_and_is_user_scoped():
++    user = get_user_model().objects.create_user(
++        email="calendar-owner@example.com",
++        password="safe-test-password",
++    )
++    other_user = get_user_model().objects.create_user(
++        email="calendar-other@example.com",
++        password="safe-test-password",
++    )
++    goal = InterviewGoal.objects.create(
++        user=user,
++        title="Backend interview",
++        goal_type=InterviewGoal.GoalType.SPECIFIC_OPPORTUNITY,
++        role_title="Backend Engineer",
++        company="Example",
++        status=InterviewGoal.Status.ACTIVE,
++        is_primary=True,
++    )
++    other_goal = InterviewGoal.objects.create(
++        user=other_user,
++        title="Private interview",
++        goal_type=InterviewGoal.GoalType.GENERAL_PREPARATION,
++        role_title="Private",
++        status=InterviewGoal.Status.ACTIVE,
++        is_primary=True,
++    )
++    InterviewStage.objects.create(
++        goal=goal,
++        stage_type=InterviewStage.StageType.TECHNICAL,
++        scheduled_for=date(2026, 8, 15),
++        is_current=True,
++    )
++    InterviewStage.objects.create(
++        goal=other_goal,
++        stage_type=InterviewStage.StageType.BEHAVIOURAL,
++        scheduled_for=date(2026, 8, 16),
++        is_current=True,
++    )
++
++    result = _calendar_data(
++        user=user,
++        month_value="2026-08",
++        now=_aware(2026, 8, 4),
++    )
++    days = [day for week in result["weeks"] for day in week]
++    fifteenth = next(day for day in days if day["date"] == date(2026, 8, 15))
++    sixteenth = next(day for day in days if day["date"] == date(2026, 8, 16))
++
++    assert fifteenth["has_interview"] is True
++    assert "Backend interview" in fifteenth["event_label"]
++    assert sixteenth["has_interview"] is False
+diff --git a/apps/core/tests/test_dashboard_v2.py b/apps/core/tests/test_dashboard_v2.py
+deleted file mode 100644
+index 2655855..0000000
+--- a/apps/core/tests/test_dashboard_v2.py
++++ /dev/null
+@@ -1,23 +0,0 @@
+-import pytest
+-from django.contrib.auth import get_user_model
+-from django.urls import reverse
+-
+-pytestmark = pytest.mark.django_db
+-
+-
+-def test_dashboard_v2_renders_without_optional_user_data(client):
+-    user = get_user_model().objects.create_user(
+-        email="dashboard-v2@example.com",
+-        password="safe-test-password",
+-    )
+-    client.force_login(user)
+-
+-    response = client.get(reverse("dashboard"))
+-    content = response.content.decode()
+-
+-    assert response.status_code == 200
+-    assert "Welcome back" in content
+-    assert "Your study plan" in content
+-    assert "ViewCoach roadmaps" in content
+-    assert "YouTube roadmaps" in content
+-    assert "Set your target" in content
+diff --git a/apps/core/tests/test_dashboard_v3.py b/apps/core/tests/test_dashboard_v3.py
+new file mode 100644
+index 0000000..ec2563a
+--- /dev/null
++++ b/apps/core/tests/test_dashboard_v3.py
+@@ -0,0 +1,63 @@
++import pytest
++from django.contrib.auth import get_user_model
++from django.test import override_settings
++from django.urls import reverse
++
++pytestmark = pytest.mark.django_db
++
++
++def test_dashboard_v3_renders_without_optional_user_data(client):
++    user = get_user_model().objects.create_user(
++        email="dashboard-v3@example.com",
++        password="safe-test-password",
++    )
++    client.force_login(user)
++
++    response = client.get(reverse("dashboard"))
++    content = response.content.decode()
++
++    assert response.status_code == 200
++    assert "dashboard-v3" in content
++    assert "Build skills, practise recall" in content
++    assert "Continue preparing" in content
++    assert "Your focused roadmaps" in content
++    assert "Your learning journey" in content
++    assert "Today’s plan" in content
++    assert "Evidence Bag" in content
++    assert "Interview readiness" in content
++
++
++def test_dashboard_v3_calendar_accepts_valid_month_and_rejects_invalid_month(client):
++    user = get_user_model().objects.create_user(
++        email="dashboard-calendar@example.com",
++        password="safe-test-password",
++    )
++    client.force_login(user)
++
++    august = client.get(reverse("dashboard"), {"month": "2026-08"})
++    invalid = client.get(reverse("dashboard"), {"month": "not-a-month"})
++
++    assert august.status_code == 200
++    assert "August 2026" in august.content.decode()
++    assert invalid.status_code == 200
++
++
++@override_settings(
++    PORTFOLIO_DEMO_ENABLED=True,
++    PORTFOLIO_DEMO_SESSION_SECONDS=7200,
++    PORTFOLIO_DEMO_MAX_ACTIVE=25,
++)
++def test_demo_dashboard_is_populated_with_real_product_data(client):
++    start = client.post(reverse("portfolio_demo_start"))
++    response = client.get(reverse("dashboard"))
++    content = response.content.decode()
++
++    assert start.status_code == 302
++    assert response.status_code == 200
++    assert "Backend and AI Interview Sprint" in content
++    assert "Demo" in content
++    assert "Evidence Bag" in content
++    assert "Interview readiness" in content
++    assert response.context["today_plan"]["completed_count"] == 1
++    assert len(response.context["focused_roadmaps"]) == 2
++    assert response.context["streak"]["current"] >= 4
+diff --git a/apps/core/views.py b/apps/core/views.py
+index 69cde31..e30bacd 100644
+--- a/apps/core/views.py
++++ b/apps/core/views.py
+@@ -3,80 +3,20 @@ from django.db import OperationalError, connection
+ from django.http import JsonResponse
+ from django.shortcuts import render
+ 
+-from apps.accounts.needs import need_type_experience
+-from apps.evidence.services import evidence_dashboard_summary
+-from apps.goals.services import primary_goal_for_user, readiness_report
+-from apps.planner.services import generate_daily_plan, plan_summary
+-from apps.questions.models import Question
+-from apps.reviews.services import review_dashboard_summary
+-from apps.roadmaps.services import (
+-    grouped_viewcoach_roadmap_cards,
+-    youtube_roadmap_cards,
+-)
++from .dashboard_services import build_dashboard_context
+ 
+ 
+ def landing_page(request):
+     return render(request, "core/landing_page.html")
+ 
+ 
+-def _prioritised_learning_cards(groups, *, limit=2, focused_only=False):
+-    cards = [item for group in groups for item in group["items"]]
+-    if focused_only:
+-        cards = [
+-            item for item in cards if item["enrolment"] is not None and item["enrolment"].is_focused
+-        ]
+-    cards.sort(
+-        key=lambda item: (
+-            item["enrolment"] is None,
+-            -(item["percentage"] or 0),
+-            item["roadmap"].position,
+-            item["roadmap"].title,
+-        )
+-    )
+-    return cards[:limit]
+-
+-
+ @login_required
+ def dashboard(request):
+-    questions = Question.objects.filter(owner=request.user)
+-    review_summary = review_dashboard_summary(user=request.user)
+-
+-    today_plan = plan_summary(plan=generate_daily_plan(user=request.user))
+-    primary_goal = primary_goal_for_user(user=request.user)
+-    readiness = readiness_report(goal=primary_goal) if primary_goal else None
+-    evidence_summary = evidence_dashboard_summary(user=request.user)
+-    need_focus = need_type_experience(request.user.primary_need_type)
+-    viewcoach_groups = grouped_viewcoach_roadmap_cards(user=request.user)
+-    youtube_cards = youtube_roadmap_cards(user=request.user, favourites_only=True)
+-
+-    return render(
+-        request,
+-        "core/dashboard.html",
+-        {
+-            "question_count": questions.count(),
+-            "ready_question_count": questions.filter(
+-                status=Question.Status.READY_FOR_REVIEW
+-            ).count(),
+-            "due_review_count": review_summary["due_count"],
+-            "reviewed_today_count": review_summary["reviewed_today_count"],
+-            "next_review_state": review_summary["next_state"],
+-            "today_plan": today_plan,
+-            "primary_goal": primary_goal,
+-            "readiness": readiness,
+-            "evidence_summary": evidence_summary,
+-            "viewcoach_learning_cards": _prioritised_learning_cards(
+-                viewcoach_groups,
+-                focused_only=True,
+-            ),
+-            "youtube_learning_cards": youtube_cards[:2],
+-            "recent_questions": questions.select_related(
+-                "technicalquestion",
+-                "conceptquestion",
+-                "behaviouralquestion",
+-                "debugquestion",
+-            )[:5],
+-        },
++    context = build_dashboard_context(
++        user=request.user,
++        month_value=request.GET.get("month", ""),
+     )
++    return render(request, "core/dashboard.html", context)
+ 
+ 
+ @login_required
+diff --git a/docs/features/dashboard-v3.md b/docs/features/dashboard-v3.md
+new file mode 100644
+index 0000000..8ee52a0
+--- /dev/null
++++ b/docs/features/dashboard-v3.md
+@@ -0,0 +1,50 @@
++# Dashboard V3
++
++Dashboard V3 turns the ViewCoach home screen into a preparation command centre.
++It does not introduce a second planner or duplicate roadmap progress.
++
++## Data contract
++
++`apps/core/dashboard_services.py` assembles:
++
++- today's generated study plan and completion percentage
++- up to four focused roadmaps
++- the section-level journey for the first focused roadmap
++- due reviews and recent review activity
++- a cross-feature study streak
++- the primary-goal readiness report
++- interview-stage and review calendar markers
++- upcoming tasks and interview stages
++- evidence, STAR-story, note and resource counts
++
++## Visual hierarchy
++
++1. Continue today's plan
++2. Focused roadmaps and learning journey
++3. Today's ordered work
++4. Evidence and resources
++5. Calendar, upcoming items and readiness
++
++The layout is scoped under `.dashboard-v3` so older question, roadmap,
++interview and evidence pages are unaffected.
++
++## Product boundaries
++
++- topics are visually sequenced but never hard locked
++- the streak uses real completion timestamps
++- readiness remains the existing weighted readiness report
++- calendar events come from existing interview stages and review states
++- no XP, coins, hearts, leaderboards or JavaScript framework
++
++## Responsive order
++
++On mobile the page becomes:
++
++1. welcome and plan hero
++2. metrics
++3. today's plan
++4. learning journey
++5. focused roadmaps
++6. evidence
++7. resources
++8. calendar, upcoming and readiness
+diff --git a/static/css/dashboard-v3.css b/static/css/dashboard-v3.css
+new file mode 100644
+index 0000000..ce65bd9
+--- /dev/null
++++ b/static/css/dashboard-v3.css
+@@ -0,0 +1,1222 @@
++/* Dashboard V3 — scoped command-centre layout. */
++
++.dashboard-v3-page {
++    --d3-copper: #a84f2a;
++    --d3-copper-dark: #7f361f;
++    --d3-copper-soft: #f5e8e0;
++    --d3-charcoal: #20282c;
++    --d3-canvas: #f6f7f6;
++    --d3-surface: #ffffff;
++    --d3-text: #202425;
++    --d3-muted: #697176;
++    --d3-border: #dfe3e3;
++    --d3-blue: #4777cf;
++    --d3-blue-soft: #eaf2ff;
++    --d3-green: #65a458;
++    --d3-green-soft: #edf6e8;
++    --d3-lavender: #8b6ec7;
++    --d3-lavender-soft: #f0eafa;
++    --d3-amber: #d69a2b;
++    --d3-amber-soft: #fff3dc;
++    --d3-rose: #d45d7d;
++    --d3-rose-soft: #fdeaf0;
++    --d3-radius: 0.7rem;
++    --d3-radius-small: 0.45rem;
++    --d3-shadow: 0 1px 2px rgba(32, 40, 44, 0.04);
++}
++
++.dashboard-v3-page .app-main {
++    background: var(--d3-canvas);
++}
++
++.dashboard-v3-page .app-topbar {
++    display: none;
++}
++
++.dashboard-v3-page .app-main {
++    padding-top: 2rem;
++}
++
++.app-sidebar-account {
++    display: none;
++}
++
++.dashboard-v3-page .app-sidebar-guidance {
++    display: none;
++}
++
++.dashboard-v3-page .app-sidebar-account {
++    display: block;
++}
++
++.dashboard-v3-page .app-sidebar-account .app-account-trigger {
++    grid-template-columns: 2.3rem minmax(0, 1fr) 1rem;
++    color: #ffffff;
++}
++
++.dashboard-v3-page .app-sidebar-account .app-account-avatar {
++    color: #ffffff;
++    background: var(--d3-copper);
++}
++
++.dashboard-v3-page .app-sidebar-account .app-account-copy strong,
++.dashboard-v3-page .app-sidebar-account .app-account-copy span {
++    display: block;
++    overflow: hidden;
++    color: #ffffff;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-page .app-sidebar-account .app-account-copy span {
++    color: #aeb8bd;
++    font-size: 0.68rem;
++}
++
++.dashboard-v3-page .app-sidebar-account .app-account-panel {
++    right: 0;
++    bottom: calc(100% + 0.65rem);
++    left: 0;
++}
++
++.app-navigation-v3 {
++    gap: 0.28rem;
++}
++
++.app-navigation-v3 .app-nav-link {
++    min-height: 2.8rem;
++}
++
++.dashboard-v3-main {
++    padding: clamp(1.25rem, 2.2vw, 2rem);
++}
++
++.dashboard-v3 {
++    width: min(100%, 96rem);
++    margin-inline: auto;
++    color: var(--d3-text);
++}
++
++.dashboard-v3 *,
++.dashboard-v3 *::before,
++.dashboard-v3 *::after {
++    box-sizing: border-box;
++}
++
++.dashboard-v3 a {
++    color: inherit;
++}
++
++.dashboard-v3-kicker {
++    margin: 0;
++    color: var(--d3-copper-dark);
++    font-size: 0.68rem;
++    font-weight: 800;
++    letter-spacing: 0.1em;
++    text-transform: uppercase;
++}
++
++.dashboard-v3-header {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 1.5rem;
++    margin-bottom: 1.25rem;
++}
++
++.dashboard-v3-header h1 {
++    margin: 0.2rem 0 0.45rem;
++    font-size: clamp(2rem, 4vw, 3.15rem);
++    letter-spacing: -0.045em;
++    line-height: 1.03;
++}
++
++.dashboard-v3-header h1 span {
++    display: inline-block;
++    margin-left: 0.35rem;
++    font-size: 0.7em;
++}
++
++.dashboard-v3-header > div:first-child > p:last-child {
++    max-width: 48rem;
++    margin: 0;
++    color: var(--d3-muted);
++}
++
++.dashboard-v3-header-actions {
++    display: flex;
++    gap: 0.55rem;
++}
++
++.dashboard-v3-icon-button {
++    position: relative;
++    display: inline-grid;
++    width: 2.65rem;
++    height: 2.65rem;
++    place-items: center;
++    border: 1px solid var(--d3-border);
++    border-radius: 50%;
++    background: var(--d3-surface);
++    text-decoration: none;
++}
++
++.dashboard-v3-icon-button:hover {
++    border-color: var(--d3-copper);
++}
++
++.dashboard-v3-icon-button svg {
++    width: 1.15rem;
++    height: 1.15rem;
++    fill: none;
++    stroke: currentColor;
++    stroke-linecap: round;
++    stroke-linejoin: round;
++    stroke-width: 1.8;
++}
++
++.dashboard-v3-icon-button > span {
++    position: absolute;
++    top: -0.2rem;
++    right: -0.2rem;
++    display: grid;
++    min-width: 1.15rem;
++    height: 1.15rem;
++    place-items: center;
++    padding: 0 0.2rem;
++    border: 2px solid var(--d3-canvas);
++    border-radius: 999px;
++    color: #fff;
++    background: var(--d3-copper);
++    font-size: 0.66rem;
++    font-weight: 800;
++}
++
++.dashboard-v3-hero {
++    position: relative;
++    display: grid;
++    min-height: 11.8rem;
++    grid-template-columns: auto minmax(0, 1fr) minmax(14rem, 0.7fr);
++    align-items: center;
++    gap: clamp(1.2rem, 3vw, 2.4rem);
++    overflow: hidden;
++    padding: clamp(1.25rem, 2.6vw, 2rem);
++    border: 1px solid #eadbd1;
++    border-radius: var(--d3-radius);
++    background: linear-gradient(100deg, #fffaf7 0%, #fffdfb 58%, #f7ede6 100%);
++    box-shadow: var(--d3-shadow);
++}
++
++.dashboard-v3-plan-ring,
++.dashboard-v3-readiness-ring {
++    display: grid;
++    place-items: center;
++    border-radius: 50%;
++    background:
++        radial-gradient(circle at center, #fff 60%, transparent 61%),
++        conic-gradient(var(--d3-copper) var(--dashboard-progress), #eaded6 0);
++}
++
++.dashboard-v3-plan-ring {
++    width: 7.6rem;
++    height: 7.6rem;
++}
++
++.dashboard-v3-plan-ring span {
++    display: grid;
++    place-items: center;
++}
++
++.dashboard-v3-plan-ring strong {
++    font-size: 1.8rem;
++    line-height: 1;
++}
++
++.dashboard-v3-plan-ring small {
++    margin-top: 0.25rem;
++    color: var(--d3-muted);
++    font-size: 0.72rem;
++}
++
++.dashboard-v3-hero-copy {
++    position: relative;
++    z-index: 2;
++}
++
++.dashboard-v3-hero-copy h2 {
++    margin: 0.25rem 0 0.35rem;
++    font-size: clamp(1.25rem, 2.4vw, 1.75rem);
++}
++
++.dashboard-v3-hero-copy > p:not(.dashboard-v3-kicker) {
++    margin: 0;
++    color: var(--d3-muted);
++    font-size: 0.88rem;
++}
++
++.dashboard-v3-hero-copy > p strong {
++    color: var(--d3-text);
++}
++
++.dashboard-v3-hero-meta,
++.dashboard-v3-hero-actions {
++    display: flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 0.7rem 1.15rem;
++}
++
++.dashboard-v3-hero-meta {
++    margin-top: 0.8rem;
++    color: var(--d3-muted);
++    font-size: 0.76rem;
++}
++
++.dashboard-v3-hero-actions {
++    margin-top: 1rem;
++}
++
++.dashboard-v3-hero-actions .button {
++    min-width: 8.4rem;
++    text-align: center;
++}
++
++.dashboard-v3-mountain {
++    align-self: end;
++    opacity: 0.95;
++}
++
++.dashboard-v3-mountain svg {
++    display: block;
++    width: 100%;
++    min-width: 15rem;
++}
++
++.dashboard-v3-mountain .mountain-back { fill: #d9d1ca; }
++.dashboard-v3-mountain .mountain-front { fill: #747b7e; }
++.dashboard-v3-mountain .mountain-snow { fill: #f5f3ef; }
++.dashboard-v3-mountain .mountain-road {
++    stroke: #f3d8c9;
++    stroke-linecap: round;
++    stroke-width: 9;
++}
++.dashboard-v3-mountain .mountain-flag {
++    fill: var(--d3-copper);
++    stroke: var(--d3-copper-dark);
++    stroke-width: 2;
++}
++.dashboard-v3-mountain .mountain-sun { fill: #f6d8c5; }
++
++.dashboard-v3-metrics {
++    display: grid;
++    grid-template-columns: repeat(4, minmax(0, 1fr));
++    gap: 0.85rem;
++    margin: 0.9rem 0 1.1rem;
++}
++
++.dashboard-v3-metric {
++    display: grid;
++    min-width: 0;
++    grid-template-columns: auto 1fr;
++    align-items: center;
++    gap: 0.8rem;
++    padding: 1rem;
++    border: 1px solid var(--d3-border);
++    border-radius: var(--d3-radius);
++    background: var(--d3-surface);
++    box-shadow: var(--d3-shadow);
++    text-decoration: none;
++}
++
++.dashboard-v3-metric:hover {
++    border-color: #bfc6c8;
++}
++
++.dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon,
++.dashboard-v3-resource-list > a > span {
++    display: inline-grid;
++    place-items: center;
++    border-radius: var(--d3-radius-small);
++    font-weight: 800;
++}
++
++.dashboard-v3-metric-icon {
++    width: 2.75rem;
++    height: 2.75rem;
++    font-size: 1.05rem;
++}
++
++.dashboard-v3-metric-copy {
++    display: grid;
++    min-width: 0;
++}
++
++.dashboard-v3-metric-copy > strong {
++    font-size: 1.4rem;
++    line-height: 1;
++}
++
++.dashboard-v3-metric-copy > span {
++    margin-top: 0.2rem;
++    font-size: 0.78rem;
++    font-weight: 750;
++}
++
++.dashboard-v3-metric-copy > small {
++    overflow: hidden;
++    margin-top: 0.2rem;
++    color: var(--d3-muted);
++    font-size: 0.66rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-accent-blue .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-blue,
++.dashboard-v3-resource-list .dashboard-v3-accent-blue {
++    color: var(--d3-blue);
++    background: var(--d3-blue-soft);
++}
++
++.dashboard-v3-accent-green .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-green,
++.dashboard-v3-resource-list .dashboard-v3-accent-green {
++    color: var(--d3-green);
++    background: var(--d3-green-soft);
++}
++
++.dashboard-v3-accent-lavender .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-lavender,
++.dashboard-v3-resource-list .dashboard-v3-accent-lavender {
++    color: var(--d3-lavender);
++    background: var(--d3-lavender-soft);
++}
++
++.dashboard-v3-accent-amber .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-amber,
++.dashboard-v3-resource-list .dashboard-v3-accent-amber {
++    color: var(--d3-amber);
++    background: var(--d3-amber-soft);
++}
++
++.dashboard-v3-accent-rose .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-rose,
++.dashboard-v3-resource-list .dashboard-v3-accent-rose {
++    color: var(--d3-rose);
++    background: var(--d3-rose-soft);
++}
++
++.dashboard-v3-accent-copper .dashboard-v3-metric-icon,
++.dashboard-v3-roadmap-icon.dashboard-v3-accent-copper {
++    color: var(--d3-copper);
++    background: var(--d3-copper-soft);
++}
++
++.dashboard-v3-layout {
++    display: grid;
++    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 0.78fr);
++    grid-template-areas:
++        "roadmaps journey rail"
++        "plan evidence rail"
++        "plan resources rail";
++    gap: 1rem;
++    align-items: start;
++}
++
++.dashboard-v3-card {
++    min-width: 0;
++    padding: 1.1rem;
++    border: 1px solid var(--d3-border);
++    border-radius: var(--d3-radius);
++    background: var(--d3-surface);
++    box-shadow: var(--d3-shadow);
++}
++
++.dashboard-v3-roadmaps { grid-area: roadmaps; }
++.dashboard-v3-journey { grid-area: journey; }
++.dashboard-v3-plan-list-card { grid-area: plan; }
++.dashboard-v3-evidence { grid-area: evidence; }
++.dashboard-v3-resources { grid-area: resources; }
++.dashboard-v3-rail {
++    display: grid;
++    grid-area: rail;
++    gap: 1rem;
++}
++
++.dashboard-v3-card-header {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 1rem;
++}
++
++.dashboard-v3-card-header h2 {
++    margin: 0.2rem 0 0;
++    font-size: 1rem;
++}
++
++.dashboard-v3-card-header > a,
++.dashboard-v3-card-header > span,
++.dashboard-v3-card-link {
++    color: var(--d3-copper-dark);
++    font-size: 0.7rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.dashboard-v3-card-header > a:hover,
++.dashboard-v3-card-link:hover {
++    text-decoration: underline;
++}
++
++.dashboard-v3-card-subtitle {
++    margin: 0.55rem 0 0.85rem;
++    color: var(--d3-muted);
++    font-size: 0.74rem;
++}
++
++.dashboard-v3-roadmap-list {
++    display: grid;
++    margin-top: 0.65rem;
++}
++
++.dashboard-v3-roadmap-row {
++    display: grid;
++    min-width: 0;
++    grid-template-columns: auto minmax(0, 1fr) auto;
++    align-items: center;
++    gap: 0.7rem;
++    padding: 0.72rem 0;
++    border-top: 1px solid var(--d3-border);
++    text-decoration: none;
++}
++
++.dashboard-v3-roadmap-icon {
++    width: 2.15rem;
++    height: 2.15rem;
++}
++
++.dashboard-v3-roadmap-copy {
++    display: grid;
++    min-width: 0;
++    gap: 0.28rem;
++}
++
++.dashboard-v3-roadmap-title {
++    display: flex;
++    min-width: 0;
++    align-items: center;
++    justify-content: space-between;
++    gap: 0.6rem;
++}
++
++.dashboard-v3-roadmap-title strong {
++    overflow: hidden;
++    font-size: 0.8rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-roadmap-title span {
++    color: var(--d3-muted);
++    font-size: 0.68rem;
++    font-weight: 750;
++}
++
++.dashboard-v3-roadmap-copy > small {
++    color: var(--d3-muted);
++    font-size: 0.7rem;
++}
++
++.dashboard-v3-row-arrow {
++    color: var(--d3-muted);
++    font-size: 1rem;
++}
++
++.dashboard-v3-progress {
++    height: 0.3rem;
++    overflow: hidden;
++    border-radius: 999px;
++    background: #e8ebeb;
++}
++
++.dashboard-v3-progress > span {
++    display: block;
++    width: var(--dashboard-progress);
++    height: 100%;
++    border-radius: inherit;
++    background: var(--d3-copper);
++}
++
++.dashboard-v3-journey-list {
++    position: relative;
++    display: grid;
++    gap: 0;
++    padding: 0;
++    margin: 0.65rem 0 0;
++    list-style: none;
++}
++
++.dashboard-v3-journey-list::before {
++    position: absolute;
++    top: 1rem;
++    bottom: 1rem;
++    left: 0.55rem;
++    width: 1px;
++    background: #d9dede;
++    content: "";
++}
++
++.dashboard-v3-journey-step {
++    position: relative;
++    display: grid;
++    grid-template-columns: auto minmax(0, 1fr) auto;
++    align-items: center;
++    gap: 0.65rem;
++    min-height: 3.7rem;
++    padding: 0.55rem 0;
++}
++
++.dashboard-v3-journey-step.is-current {
++    margin: 0.1rem -0.35rem;
++    padding: 0.65rem 0.35rem;
++    border: 1px solid #dfad92;
++    border-radius: var(--d3-radius-small);
++    background: #fffaf7;
++}
++
++.dashboard-v3-journey-marker {
++    position: relative;
++    z-index: 1;
++    display: grid;
++    width: 1.15rem;
++    height: 1.15rem;
++    place-items: center;
++    border: 2px solid #c7cdce;
++    border-radius: 50%;
++    color: #fff;
++    background: #fff;
++    font-size: 0.66rem;
++    font-weight: 800;
++}
++
++.dashboard-v3-journey-step.is-completed .dashboard-v3-journey-marker {
++    border-color: var(--d3-green);
++    background: var(--d3-green);
++}
++
++.dashboard-v3-journey-step.is-current .dashboard-v3-journey-marker {
++    border: 0.28rem solid #f1c8b3;
++    background: var(--d3-copper);
++}
++
++.dashboard-v3-journey-step.is-next .dashboard-v3-journey-marker {
++    border-color: #8f999c;
++}
++
++.dashboard-v3-journey-copy {
++    display: grid;
++    min-width: 0;
++}
++
++.dashboard-v3-journey-copy small,
++.dashboard-v3-journey-copy span {
++    color: var(--d3-muted);
++    font-size: 0.68rem;
++}
++
++.dashboard-v3-journey-copy strong {
++    overflow: hidden;
++    font-size: 0.78rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-journey-status {
++    color: var(--d3-muted);
++    font-size: 0.7rem;
++    font-weight: 700;
++}
++
++.dashboard-v3-journey-step.is-completed .dashboard-v3-journey-status { color: var(--d3-green); }
++.dashboard-v3-journey-step.is-current .dashboard-v3-journey-status { color: var(--d3-copper-dark); }
++
++.dashboard-v3-card-link {
++    display: inline-block;
++    margin-top: 0.7rem;
++}
++
++.dashboard-v3-plan-list {
++    padding: 0;
++    margin: 0.65rem 0 0;
++    list-style: none;
++}
++
++.dashboard-v3-plan-item {
++    display: grid;
++    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
++    align-items: center;
++    gap: 0.65rem;
++    min-height: 3.4rem;
++    border-top: 1px solid var(--d3-border);
++}
++
++.dashboard-v3-plan-item.is-complete {
++    opacity: 0.68;
++}
++
++.dashboard-v3-plan-number {
++    display: grid;
++    width: 1.25rem;
++    height: 1.25rem;
++    place-items: center;
++    border: 1px solid var(--d3-border);
++    border-radius: 50%;
++    color: var(--d3-muted);
++    font-size: 0.66rem;
++}
++
++.dashboard-v3-plan-kind {
++    display: grid;
++    width: 1.85rem;
++    height: 1.85rem;
++    place-items: center;
++    border-radius: var(--d3-radius-small);
++    color: var(--d3-blue);
++    background: var(--d3-blue-soft);
++    font-size: 0.72rem;
++    font-weight: 800;
++}
++
++.dashboard-v3-kind-star { color: var(--d3-amber); background: var(--d3-amber-soft); }
++.dashboard-v3-kind-review { color: var(--d3-lavender); background: var(--d3-lavender-soft); }
++.dashboard-v3-kind-evidence { color: var(--d3-rose); background: var(--d3-rose-soft); }
++.dashboard-v3-kind-mock { color: var(--d3-copper); background: var(--d3-copper-soft); }
++
++.dashboard-v3-plan-copy {
++    display: grid;
++    min-width: 0;
++}
++
++.dashboard-v3-plan-copy strong {
++    overflow: hidden;
++    font-size: 0.78rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-plan-copy small,
++.dashboard-v3-plan-duration {
++    color: var(--d3-muted);
++    font-size: 0.68rem;
++}
++
++.dashboard-v3-plan-action {
++    padding: 0.4rem 0.68rem;
++    border: 1px solid var(--d3-copper-dark);
++    border-radius: var(--d3-radius-small);
++    color: #fff;
++    background: var(--d3-copper);
++    font-size: 0.7rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.dashboard-v3-plan-done {
++    display: grid;
++    width: 1.8rem;
++    height: 1.8rem;
++    place-items: center;
++    border: 1px solid #a9c8ad;
++    border-radius: var(--d3-radius-small);
++    color: var(--d3-green);
++    font-size: 0.72rem;
++}
++
++.dashboard-v3-plan-footer {
++    display: grid;
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    gap: 0.6rem;
++    margin-top: 0.75rem;
++    padding-top: 0.8rem;
++    border-top: 1px solid var(--d3-border);
++}
++
++.dashboard-v3-plan-footer span {
++    display: grid;
++}
++
++.dashboard-v3-plan-footer strong { font-size: 0.75rem; }
++.dashboard-v3-plan-footer small { color: var(--d3-muted); font-size: 0.66rem; }
++
++.dashboard-v3-evidence .dashboard-v3-progress {
++    margin-top: 0.75rem;
++}
++
++.dashboard-v3-evidence-score {
++    display: flex;
++    align-items: baseline;
++    gap: 0.35rem;
++    margin-top: 0.55rem;
++}
++
++.dashboard-v3-evidence-score strong { font-size: 0.85rem; }
++.dashboard-v3-evidence-score span { color: var(--d3-muted); font-size: 0.7rem; }
++
++.dashboard-v3-compact-stats {
++    display: grid;
++    gap: 0.5rem;
++    margin: 0.85rem 0 0;
++}
++
++.dashboard-v3-compact-stats div {
++    display: flex;
++    justify-content: space-between;
++    gap: 1rem;
++    padding-top: 0.48rem;
++    border-top: 1px solid var(--d3-border);
++}
++
++.dashboard-v3-compact-stats dt,
++.dashboard-v3-compact-stats dd {
++    font-size: 0.66rem;
++}
++
++.dashboard-v3-compact-stats dt { color: var(--d3-muted); }
++.dashboard-v3-compact-stats dd { margin: 0; font-weight: 800; }
++
++.dashboard-v3-resource-list {
++    display: grid;
++    margin-top: 0.55rem;
++}
++
++.dashboard-v3-resource-list > a {
++    display: grid;
++    grid-template-columns: auto minmax(0, 1fr) auto;
++    align-items: center;
++    gap: 0.65rem;
++    padding: 0.55rem 0;
++    border-top: 1px solid var(--d3-border);
++    text-decoration: none;
++}
++
++.dashboard-v3-resource-list > a > span {
++    width: 1.75rem;
++    height: 1.75rem;
++    font-size: 0.68rem;
++}
++
++.dashboard-v3-resource-list strong { font-size: 0.76rem; }
++.dashboard-v3-resource-list small { color: var(--d3-muted); font-size: 0.66rem; }
++
++.dashboard-v3-calendar .dashboard-v3-card-header {
++    align-items: center;
++}
++
++.dashboard-v3-calendar .dashboard-v3-card-header nav {
++    display: flex;
++    gap: 0.3rem;
++}
++
++.dashboard-v3-calendar .dashboard-v3-card-header nav a {
++    display: grid;
++    width: 1.65rem;
++    height: 1.65rem;
++    place-items: center;
++    border: 1px solid var(--d3-border);
++    border-radius: 50%;
++    text-decoration: none;
++}
++
++.dashboard-v3-calendar-grid {
++    display: grid;
++    grid-template-columns: repeat(7, 1fr);
++    gap: 0.2rem;
++    margin-top: 0.7rem;
++}
++
++.dashboard-v3-calendar-weekday,
++.dashboard-v3-calendar-day {
++    display: grid;
++    min-width: 0;
++    aspect-ratio: 1;
++    place-items: center;
++    border-radius: 50%;
++    font-size: 0.68rem;
++}
++
++.dashboard-v3-calendar-weekday {
++    color: var(--d3-muted);
++    font-size: 0.7rem;
++    font-weight: 800;
++}
++
++.dashboard-v3-calendar-day {
++    position: relative;
++}
++
++.dashboard-v3-calendar-day.is-muted { color: #bec3c4; }
++.dashboard-v3-calendar-day.is-today { color: #fff; background: var(--d3-copper); }
++
++.dashboard-v3-calendar-day.has-interview:not(.is-today)::after,
++.dashboard-v3-calendar-day.has-review:not(.is-today)::after {
++    position: absolute;
++    bottom: 0.05rem;
++    width: 0.22rem;
++    height: 0.22rem;
++    border-radius: 50%;
++    content: "";
++}
++
++.dashboard-v3-calendar-day.has-interview::after { background: var(--d3-rose); }
++.dashboard-v3-calendar-day.has-review::after { background: var(--d3-lavender); }
++
++.dashboard-v3-calendar-legend {
++    display: flex;
++    gap: 0.8rem;
++    margin-top: 0.6rem;
++    color: var(--d3-muted);
++    font-size: 0.65rem;
++}
++
++.dashboard-v3-calendar-legend span::before {
++    display: inline-block;
++    width: 0.38rem;
++    height: 0.38rem;
++    margin-right: 0.28rem;
++    border-radius: 50%;
++    content: "";
++}
++
++.dashboard-v3-calendar-legend .is-interview::before { background: var(--d3-rose); }
++.dashboard-v3-calendar-legend .is-review::before { background: var(--d3-lavender); }
++
++.dashboard-v3-upcoming ul {
++    padding: 0;
++    margin: 0.55rem 0 0;
++    list-style: none;
++}
++
++.dashboard-v3-upcoming-item + .dashboard-v3-upcoming-item {
++    border-top: 1px solid var(--d3-border);
++}
++
++.dashboard-v3-upcoming-item > a {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 0.7rem;
++    padding: 0.7rem 0;
++    text-decoration: none;
++}
++
++.dashboard-v3-upcoming-item > a > span:first-child {
++    display: grid;
++    min-width: 0;
++}
++
++.dashboard-v3-upcoming-item small {
++    color: var(--d3-muted);
++    font-size: 0.65rem;
++}
++
++.dashboard-v3-upcoming-item strong {
++    overflow: hidden;
++    font-size: 0.74rem;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-upcoming-badge {
++    padding: 0.25rem 0.42rem;
++    border-radius: var(--d3-radius-small);
++    font-size: 0.64rem;
++    font-weight: 750;
++}
++
++.dashboard-v3-upcoming-item.dashboard-v3-accent-rose .dashboard-v3-upcoming-badge { color: var(--d3-rose); background: var(--d3-rose-soft); }
++.dashboard-v3-upcoming-item.dashboard-v3-accent-lavender .dashboard-v3-upcoming-badge { color: var(--d3-lavender); background: var(--d3-lavender-soft); }
++.dashboard-v3-upcoming-item.dashboard-v3-accent-blue .dashboard-v3-upcoming-badge { color: var(--d3-blue); background: var(--d3-blue-soft); }
++
++.dashboard-v3-readiness-row {
++    display: grid;
++    grid-template-columns: auto minmax(0, 1fr);
++    align-items: center;
++    gap: 0.85rem;
++    margin-top: 0.8rem;
++}
++
++.dashboard-v3-readiness-ring {
++    width: 5.2rem;
++    height: 5.2rem;
++}
++
++.dashboard-v3-readiness-ring strong {
++    font-size: 1.35rem;
++    line-height: 1;
++}
++
++.dashboard-v3-readiness-ring small {
++    display: block;
++    color: var(--d3-muted);
++    font-size: 0.65rem;
++    text-align: center;
++}
++
++.dashboard-v3-readiness-row > div:last-child > strong {
++    font-size: 0.78rem;
++}
++
++.dashboard-v3-readiness-row p {
++    margin: 0.3rem 0 0;
++    color: var(--d3-muted);
++    font-size: 0.68rem;
++    line-height: 1.45;
++}
++
++.dashboard-v3-readiness-signals {
++    display: grid;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 0.55rem;
++    margin: 0.85rem 0 0;
++}
++
++.dashboard-v3-readiness-signals div {
++    min-width: 0;
++    padding: 0.55rem;
++    border: 1px solid var(--d3-border);
++    border-radius: var(--d3-radius-small);
++}
++
++.dashboard-v3-readiness-signals dt {
++    color: var(--d3-muted);
++    font-size: 0.64rem;
++}
++
++.dashboard-v3-readiness-signals dd {
++    overflow: hidden;
++    margin: 0.15rem 0 0;
++    font-size: 0.7rem;
++    font-weight: 750;
++    text-overflow: ellipsis;
++    white-space: nowrap;
++}
++
++.dashboard-v3-next-interview {
++    display: grid;
++    gap: 0.18rem;
++    margin: 0.85rem -1.1rem -1.1rem;
++    padding: 0.9rem 1.1rem;
++    border-top: 1px solid var(--d3-border);
++    background: #fbfbfa;
++}
++
++.dashboard-v3-next-interview small,
++.dashboard-v3-next-interview span {
++    color: var(--d3-muted);
++    font-size: 0.66rem;
++}
++
++.dashboard-v3-next-interview strong { font-size: 0.76rem; }
++.dashboard-v3-next-interview a {
++    justify-self: end;
++    margin-top: -1.35rem;
++    padding: 0.3rem 0.45rem;
++    border: 1px solid var(--d3-copper);
++    border-radius: var(--d3-radius-small);
++    color: var(--d3-copper-dark);
++    font-size: 0.65rem;
++    font-weight: 750;
++    text-decoration: none;
++}
++
++.dashboard-v3-quote {
++    position: relative;
++    min-height: 8.5rem;
++    overflow: hidden;
++    padding: 1.2rem;
++    margin: 0;
++    border: 1px solid #efdccf;
++    border-radius: var(--d3-radius);
++    background: linear-gradient(135deg, #fff9f4, #f6e9df);
++}
++
++.dashboard-v3-quote > span {
++    color: var(--d3-copper);
++    font-family: Georgia, serif;
++    font-size: 2.1rem;
++    line-height: 1;
++}
++
++.dashboard-v3-quote p {
++    position: relative;
++    z-index: 1;
++    margin: 0.2rem 0 0;
++    font-size: 0.9rem;
++    font-weight: 700;
++    line-height: 1.45;
++}
++
++.dashboard-v3-quote-mountain {
++    position: absolute;
++    right: -0.5rem;
++    bottom: -1.2rem;
++    color: #c2aca0;
++    font-size: 7rem;
++    opacity: 0.45;
++}
++
++.dashboard-v3-empty {
++    display: grid;
++    gap: 0.4rem;
++    min-height: 8.5rem;
++    align-content: center;
++    padding: 1rem 0;
++}
++
++.dashboard-v3-empty-compact {
++    min-height: 5rem;
++}
++
++.dashboard-v3-empty strong { font-size: 0.76rem; }
++.dashboard-v3-empty p { margin: 0; color: var(--d3-muted); font-size: 0.66rem; line-height: 1.5; }
++.dashboard-v3-empty a { color: var(--d3-copper-dark); font-size: 0.66rem; font-weight: 750; text-decoration: none; }
++
++.dashboard-v3 .sr-only {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    padding: 0;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++    border: 0;
++}
++
++@media (max-width: 82rem) {
++    .dashboard-v3-layout {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++        grid-template-areas:
++            "roadmaps journey"
++            "plan evidence"
++            "plan resources"
++            "rail rail";
++    }
++
++    .dashboard-v3-rail {
++        grid-template-columns: repeat(3, minmax(0, 1fr));
++    }
++
++    .dashboard-v3-quote {
++        grid-column: 1 / -1;
++    }
++}
++
++@media (max-width: 64rem) {
++    .dashboard-v3-hero {
++        grid-template-columns: auto minmax(0, 1fr);
++    }
++
++    .dashboard-v3-mountain {
++        display: none;
++    }
++
++    .dashboard-v3-metrics {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++
++    .dashboard-v3-rail {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
++}
++
++@media (max-width: 48rem) {
++    .dashboard-v3-page .app-main {
++        padding: 1rem 1rem 6.25rem;
++    }
++
++    .dashboard-v3-main {
++        padding: 1rem;
++    }
++
++    .dashboard-v3-header {
++        align-items: center;
++    }
++
++    .dashboard-v3-header h1 {
++        font-size: 2rem;
++    }
++
++    .dashboard-v3-hero {
++        grid-template-columns: 1fr;
++        text-align: left;
++    }
++
++    .dashboard-v3-plan-ring {
++        width: 6.25rem;
++        height: 6.25rem;
++    }
++
++    .dashboard-v3-hero-actions {
++        align-items: stretch;
++        flex-direction: column;
++    }
++
++    .dashboard-v3-hero-actions .button {
++        width: 100%;
++        min-height: 2.75rem;
++    }
++
++    .dashboard-v3-layout {
++        grid-template-columns: 1fr;
++        grid-template-areas:
++            "plan"
++            "journey"
++            "roadmaps"
++            "evidence"
++            "resources"
++            "rail";
++    }
++
++    .dashboard-v3-rail {
++        grid-template-columns: 1fr;
++    }
++
++    .dashboard-v3-plan-item {
++        grid-template-columns: auto auto minmax(0, 1fr) auto;
++        padding: 0.55rem 0;
++    }
++
++    .dashboard-v3-plan-duration {
++        display: none;
++    }
++
++    .dashboard-v3-plan-action,
++    .dashboard-v3-plan-done {
++        grid-column: 4;
++    }
++}
++
++@media (max-width: 23rem) {
++    .dashboard-v3-metrics {
++        grid-template-columns: 1fr;
++    }
++
++    .dashboard-v3-header > div:first-child > p:last-child {
++        display: none;
++    }
++
++    .dashboard-v3-journey-status {
++        display: none;
++    }
++}
++
++@media (prefers-reduced-motion: reduce) {
++    .dashboard-v3 *,
++    .dashboard-v3 *::before,
++    .dashboard-v3 *::after {
++        scroll-behavior: auto !important;
++        transition-duration: 0.01ms !important;
++        animation-duration: 0.01ms !important;
++    }
++}
+diff --git a/templates/base.html b/templates/base.html
+index 17ab513..3e989a8 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -17,7 +17,7 @@
+     <link rel="stylesheet" href="{% static 'css/navigation.css' %}">
+     <link rel="stylesheet" href="{% static 'css/knowledge.css' %}">
+     <link rel="stylesheet" href="{% static 'css/design-system-v2.css' %}">
+-    <link rel="stylesheet" href="{% static 'css/dashboard-v2.css' %}">
++    <link rel="stylesheet" href="{% static 'css/dashboard-v3.css' %}">
+     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
+     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
+     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
+@@ -31,11 +31,16 @@
+                 <span>ViewCoach</span>
+             </a>
+ 
+-            {% include "includes/app_primary_navigation.html" %}
++            {% include "includes/app_primary_navigation_v3.html" %}
+ 
+             <div class="app-sidebar-footer">
+-                <p>Focused preparation, without the guesswork.</p>
+-                <a href="{% url 'knowledge:help_assistant' %}">Ask the Help Assistant</a>
++                <div class="app-sidebar-guidance">
++                    <p>Focused preparation, without the guesswork.</p>
++                    <a href="{% url 'knowledge:help_assistant' %}">Ask the Help Assistant</a>
++                </div>
++                <div class="app-sidebar-account">
++                    {% include "includes/app_account_menu.html" with placement="desktop" %}
++                </div>
+             </div>
+         </aside>
+ 
+@@ -92,4 +97,4 @@
+     </div>
+ {% endif %}
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/templates/components/dashboard/journey_step.html b/templates/components/dashboard/journey_step.html
+new file mode 100644
+index 0000000..c2f8c1c
+--- /dev/null
++++ b/templates/components/dashboard/journey_step.html
+@@ -0,0 +1,11 @@
++<li class="dashboard-v3-journey-step is-{{ step.state }}">
++    <span class="dashboard-v3-journey-marker" aria-hidden="true">
++        {% if step.state == "completed" %}✓{% endif %}
++    </span>
++    <span class="dashboard-v3-journey-copy">
++        <small>Section {{ position }}</small>
++        <strong>{{ step.title }}</strong>
++        <span>{{ step.completed_count }}/{{ step.topic_count }} topics</span>
++    </span>
++    <span class="dashboard-v3-journey-status">{{ step.state_label }}</span>
++</li>
+diff --git a/templates/components/dashboard/metric_card.html b/templates/components/dashboard/metric_card.html
+new file mode 100644
+index 0000000..0605787
+--- /dev/null
++++ b/templates/components/dashboard/metric_card.html
+@@ -0,0 +1,8 @@
++<a class="dashboard-v3-metric dashboard-v3-accent-{{ accent }}" href="{{ href }}">
++    <span class="dashboard-v3-metric-icon" aria-hidden="true">{{ icon }}</span>
++    <span class="dashboard-v3-metric-copy">
++        <strong>{{ value }}</strong>
++        <span>{{ label }}</span>
++        <small>{{ detail }}</small>
++    </span>
++</a>
+diff --git a/templates/components/dashboard/plan_item.html b/templates/components/dashboard/plan_item.html
+new file mode 100644
+index 0000000..cfd7a3d
+--- /dev/null
++++ b/templates/components/dashboard/plan_item.html
+@@ -0,0 +1,19 @@
++<li class="dashboard-v3-plan-item {% if item.is_completed %}is-complete{% endif %}">
++    <span class="dashboard-v3-plan-number" aria-hidden="true">{{ item.position }}</span>
++    <span class="dashboard-v3-plan-kind dashboard-v3-kind-{{ item.kind|lower }}" aria-hidden="true">
++        {% if item.is_completed %}✓{% elif item.kind == "STAR" %}★{% elif item.kind == "REVIEW" %}↻{% else %}◇{% endif %}
++    </span>
++    <span class="dashboard-v3-plan-copy">
++        <strong>{{ item.title }}</strong>
++        <small>
++            {{ item.kind_label }}{% if item.is_required %} · Required{% endif %}
++            {% if item.rationale %} · {{ item.rationale|truncatewords:9 }}{% endif %}
++        </small>
++    </span>
++    <span class="dashboard-v3-plan-duration">{{ item.duration }} min</span>
++    {% if item.is_completed %}
++        <span class="dashboard-v3-plan-done" aria-label="Completed">✓</span>
++    {% else %}
++        <a class="dashboard-v3-plan-action" href="{{ item.action_url }}">Start</a>
++    {% endif %}
++</li>
+diff --git a/templates/components/dashboard/progress_bar.html b/templates/components/dashboard/progress_bar.html
+new file mode 100644
+index 0000000..9f45b6e
+--- /dev/null
++++ b/templates/components/dashboard/progress_bar.html
+@@ -0,0 +1,8 @@
++<div class="dashboard-v3-progress"
++     role="progressbar"
++     aria-label="{{ label }}"
++     aria-valuemin="0"
++     aria-valuemax="100"
++     aria-valuenow="{{ value }}">
++    <span style="--dashboard-progress: {{ value }}%;"></span>
++</div>
+diff --git a/templates/components/dashboard/roadmap_row.html b/templates/components/dashboard/roadmap_row.html
+new file mode 100644
+index 0000000..7560eb2
+--- /dev/null
++++ b/templates/components/dashboard/roadmap_row.html
+@@ -0,0 +1,14 @@
++<a class="dashboard-v3-roadmap-row" href="{{ item.url }}">
++    <span class="dashboard-v3-roadmap-icon dashboard-v3-accent-{{ item.accent }}" aria-hidden="true">
++        {{ item.icon }}
++    </span>
++    <span class="dashboard-v3-roadmap-copy">
++        <span class="dashboard-v3-roadmap-title">
++            <strong>{{ item.roadmap.title }}</strong>
++            <span>{{ item.percentage }}%</span>
++        </span>
++        {% include "components/dashboard/progress_bar.html" with value=item.percentage label=item.roadmap.title %}
++        <small>{{ item.completed_count }} of {{ item.topic_count }} topics complete</small>
++    </span>
++    <span class="dashboard-v3-row-arrow" aria-hidden="true">›</span>
++</a>
+diff --git a/templates/components/dashboard/upcoming_item.html b/templates/components/dashboard/upcoming_item.html
+new file mode 100644
+index 0000000..5be215c
+--- /dev/null
++++ b/templates/components/dashboard/upcoming_item.html
+@@ -0,0 +1,9 @@
++<li class="dashboard-v3-upcoming-item dashboard-v3-accent-{{ item.accent }}">
++    <a href="{{ item.url }}">
++        <span>
++            <small>{{ item.meta }}</small>
++            <strong>{{ item.title }}</strong>
++        </span>
++        <span class="dashboard-v3-upcoming-badge">{{ item.kind }}</span>
++    </a>
++</li>
+diff --git a/templates/core/dashboard.html b/templates/core/dashboard.html
+index 17ff193..4d6633f 100644
+--- a/templates/core/dashboard.html
++++ b/templates/core/dashboard.html
+@@ -1,254 +1,292 @@
+ {% extends "base.html" %}
+ 
+ {% block title %}Dashboard | ViewCoach{% endblock %}
+-{% block body_class %}dashboard-page dashboard-v2-page{% endblock %}
++{% block body_class %}dashboard-v3-page{% endblock %}
++{% block main_class %}dashboard-v3-main{% endblock %}
+ 
+ {% block content %}
+-<section class="dashboard-v2-shell">
+-    <header class="dashboard-v2-header">
++<section class="dashboard-v3">
++    <header class="dashboard-v3-header">
+         <div>
+-            <p class="dashboard-v2-kicker">Dashboard</p>
+-            <h1>Welcome back{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
++            <p class="dashboard-v3-kicker">Dashboard</p>
++            <h1>{{ greeting }}{% if user.first_name %}, {{ user.first_name }}{% endif %}<span aria-hidden="true">👋</span></h1>
+             <p>
+                 {% if primary_goal %}
+-                    Keep moving towards {{ primary_goal.title }} with the next useful task.
++                    Stay consistent and keep moving towards {{ primary_goal.role_title }}.
++                {% elif need_focus %}
++                    {{ need_focus.description }}
+                 {% else %}
+-                    Build your knowledge, practise recall and keep your preparation organised.
++                    Build skills, practise recall and turn your experience into confident answers.
+                 {% endif %}
+             </p>
+         </div>
+-        <div class="dashboard-v2-header-actions">
+-            <a class="button button-secondary" href="{% url 'planner:today' %}">Open study plan</a>
+-            <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
++        <div class="dashboard-v3-header-actions" aria-label="Dashboard shortcuts">
++            <a class="dashboard-v3-icon-button" href="{% url 'questions:list' %}" aria-label="Search question bank">
++                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>
++            </a>
++            <a class="dashboard-v3-icon-button" href="{% url 'reviews:queue' %}" aria-label="Open due reviews">
++                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8"></path><path d="M10 21h4"></path></svg>
++                {% if due_review_count %}<span>{{ due_review_count }}</span>{% endif %}
++            </a>
+         </div>
+     </header>
+ 
+-    <section class="dashboard-v2-stats" aria-label="Preparation summary">
+-        <article class="dashboard-v2-stat">
+-            <span>Readiness</span>
+-            <strong>{% if readiness %}{{ readiness.score }}%{% else %}—{% endif %}</strong>
+-            <small>{% if readiness %}{{ readiness.label }}{% else %}Create a goal to calculate it{% endif %}</small>
+-        </article>
+-        <article class="dashboard-v2-stat">
+-            <span>Questions</span>
+-            <strong>{{ question_count }}</strong>
+-            <small>{{ ready_question_count }} ready for review</small>
+-        </article>
+-        <article class="dashboard-v2-stat">
+-            <span>Reviews due</span>
+-            <strong>{{ due_review_count }}</strong>
+-            <small>{{ reviewed_today_count }} reviewed today</small>
+-        </article>
+-        <article class="dashboard-v2-stat">
+-            <span>Evidence</span>
+-            <strong>{{ evidence_summary.total_count }}</strong>
+-            <small>Projects, work and stories</small>
+-        </article>
++    <section class="dashboard-v3-hero" aria-labelledby="dashboard-v3-plan-title">
++        <div class="dashboard-v3-plan-ring" style="--dashboard-progress: {{ today_plan.progress_percent }}%;">
++            <span><strong>{{ today_plan.progress_percent }}%</strong><small>Today’s plan</small></span>
++        </div>
++        <div class="dashboard-v3-hero-copy">
++            <p class="dashboard-v3-kicker">Continue preparing</p>
++            <h2 id="dashboard-v3-plan-title">
++                {% if today_plan.current %}
++                    {{ today_plan.current.title }}
++                {% elif today_plan.is_complete %}
++                    Today’s plan is complete
++                {% else %}
++                    Build today’s preparation plan
++                {% endif %}
++            </h2>
++            <p>Current focus: <strong>{{ today_plan.focus_label }}</strong></p>
++            <div class="dashboard-v3-hero-meta">
++                <span>◷ {{ today_plan.remaining_minutes }} min remaining</span>
++                <span>▤ {{ today_plan.remaining_count }} study block{{ today_plan.remaining_count|pluralize }}</span>
++            </div>
++            <div class="dashboard-v3-hero-actions">
++                <a class="button" href="{% url 'planner:today' %}">
++                    {% if today_plan.is_complete %}Review plan{% else %}Resume plan{% endif %}
++                </a>
++                <a class="button button-secondary" href="{% url 'planner:today' %}">View full plan</a>
++            </div>
++        </div>
++        <div class="dashboard-v3-mountain" aria-hidden="true">
++            <svg viewBox="0 0 360 180" role="img">
++                <path class="mountain-back" d="M40 166 128 55l50 62 42-44 100 93z"></path>
++                <path class="mountain-front" d="m100 166 92-126 128 126z"></path>
++                <path class="mountain-snow" d="m192 40-31 42 25-9 16 16 17-9 20 18z"></path>
++                <path class="mountain-road" d="M193 166c-18-20 35-31 8-50-21-15 23-29 4-48" fill="none"></path>
++                <path class="mountain-flag" d="M205 23v48M206 24h42l-12 12 12 12h-42"></path>
++                <circle class="mountain-sun" cx="300" cy="56" r="20"></circle>
++            </svg>
++        </div>
+     </section>
+ 
+-    <div class="dashboard-v2-layout">
+-        <div class="dashboard-v2-main">
+-            <section class="dashboard-v2-card dashboard-v2-plan" aria-labelledby="dashboard-plan-heading">
+-                <div class="dashboard-v2-card-heading">
+-                    <div>
+-                        <p class="dashboard-v2-kicker">Today</p>
+-                        <h2 id="dashboard-plan-heading">Your study plan</h2>
+-                    </div>
+-                    <span class="dashboard-v2-pill">
+-                        {{ today_plan.completed_count }}/{{ today_plan.total_count }} complete
+-                    </span>
+-                </div>
++    {% url 'learn' as learn_url %}
++    {% url 'reviews:queue' as reviews_url %}
++    {% url 'planner:today' as planner_url %}
++    <section class="dashboard-v3-metrics" aria-label="Preparation summary">
++        {% include "components/dashboard/metric_card.html" with accent="blue" icon="▥" value=focused_roadmaps|length label="Focused roadmaps" detail="Active learning paths" href=learn_url %}
++        {% include "components/dashboard/metric_card.html" with accent="lavender" icon="✓" value=due_review_count label="Reviews due" detail=review_metric_detail href=reviews_url %}
++        {% if readiness %}
++            {% include "components/dashboard/metric_card.html" with accent="green" icon="✦" value=readiness.score label="Readiness score" detail=readiness.label href=primary_goal_url %}
++        {% else %}
++            {% url 'goals:create' as goal_create_url %}
++            {% include "components/dashboard/metric_card.html" with accent="green" icon="✦" value="—" label="Readiness score" detail="Create a goal to calculate" href=goal_create_url %}
++        {% endif %}
++        {% include "components/dashboard/metric_card.html" with accent="amber" icon="♨" value=streak.current label="Day streak" detail=streak_metric_detail href=planner_url %}
++    </section>
+ 
+-                {% if today_plan.is_complete %}
+-                    <div class="dashboard-v2-plan-focus is-complete">
+-                        <span class="dashboard-v2-plan-icon" aria-hidden="true">✓</span>
+-                        <div>
+-                            <strong>You finished today’s plan</strong>
+-                            <p>Review what you completed or rebuild the plan around a different time budget.</p>
+-                        </div>
+-                    </div>
+-                {% elif today_plan.recommendations %}
+-                    <div class="dashboard-v2-plan-focus">
+-                        <span class="dashboard-v2-plan-icon" aria-hidden="true">→</span>
+-                        <div>
+-                            <strong>{{ today_plan.recommendations.0.title }}</strong>
+-                            <p>{{ today_plan.recommendations.0.description }}</p>
+-                        </div>
+-                        <span class="dashboard-v2-duration">{{ today_plan.estimated_minutes }} min</span>
+-                    </div>
+-                {% else %}
+-                    <div class="dashboard-v2-empty-inline">
+-                        <strong>No tasks planned yet</strong>
+-                        <p>Generate a plan using the time you have available today.</p>
+-                    </div>
+-                {% endif %}
++    <div class="dashboard-v3-layout">
++        <section class="dashboard-v3-card dashboard-v3-roadmaps" aria-labelledby="focused-roadmaps-heading">
++            <header class="dashboard-v3-card-header">
++                <div>
++                    <p class="dashboard-v3-kicker">Learning</p>
++                    <h2 id="focused-roadmaps-heading">Your focused roadmaps</h2>
++                </div>
++                <a href="{% url 'learn' %}">View all</a>
++            </header>
++            {% if focused_roadmaps %}
++                <div class="dashboard-v3-roadmap-list">
++                    {% for item in focused_roadmaps %}
++                        {% include "components/dashboard/roadmap_row.html" with item=item %}
++                    {% endfor %}
++                </div>
++            {% else %}
++                <div class="dashboard-v3-empty">
++                    <strong>Choose your learning focus</strong>
++                    <p>Focus up to four roadmaps so the planner can choose the next useful topic.</p>
++                    <a href="{% url 'learn' %}">Browse roadmaps</a>
++                </div>
++            {% endif %}
++        </section>
+ 
+-                <div class="dashboard-v2-card-actions">
+-                    <a class="button" href="{% url 'planner:today' %}">
+-                        {% if today_plan.is_complete %}Review today’s plan{% else %}Continue plan{% endif %}
+-                    </a>
+-                    {% if due_review_count %}
+-                        <a class="dashboard-v2-text-link" href="{% url 'reviews:queue' %}">
+-                            Review {{ due_review_count }} due card{{ due_review_count|pluralize }}
+-                        </a>
+-                    {% endif %}
++        <section class="dashboard-v3-card dashboard-v3-journey" aria-labelledby="learning-journey-heading">
++            <header class="dashboard-v3-card-header">
++                <div>
++                    <p class="dashboard-v3-kicker">Progression</p>
++                    <h2 id="learning-journey-heading">Your learning journey</h2>
+                 </div>
+-            </section>
++                {% if learning_journey %}<span>{{ learning_journey.percentage }}%</span>{% endif %}
++            </header>
++            {% if learning_journey %}
++                <p class="dashboard-v3-card-subtitle">{{ learning_journey.roadmap.title }}</p>
++                <ol class="dashboard-v3-journey-list">
++                    {% for step in learning_journey.sections %}
++                        {% include "components/dashboard/journey_step.html" with step=step position=forloop.counter %}
++                    {% endfor %}
++                </ol>
++                <a class="dashboard-v3-card-link" href="{{ learning_journey.url }}">Open roadmap →</a>
++            {% else %}
++                <div class="dashboard-v3-empty">
++                    <strong>Your journey starts with one roadmap</strong>
++                    <p>Topics remain open; the journey simply shows the recommended sequence.</p>
++                    <a href="{% url 'learn' %}">Choose a roadmap</a>
++                </div>
++            {% endif %}
++        </section>
+ 
+-            <section class="dashboard-v2-section" aria-labelledby="continue-learning-heading">
+-                <div class="dashboard-v2-section-heading">
+-                    <div>
+-                        <p class="dashboard-v2-kicker">Learning</p>
+-                        <h2 id="continue-learning-heading">Continue learning</h2>
+-                    </div>
++        <section class="dashboard-v3-card dashboard-v3-plan-list-card" aria-labelledby="today-plan-heading">
++            <header class="dashboard-v3-card-header">
++                <div>
++                    <p class="dashboard-v3-kicker">Today</p>
++                    <h2 id="today-plan-heading">Today’s plan</h2>
++                </div>
++                <span>{{ today_plan.completed_count }}/{{ today_plan.total_count }} complete</span>
++            </header>
++            {% if today_plan.items %}
++                <ol class="dashboard-v3-plan-list">
++                    {% for item in today_plan.items %}
++                        {% include "components/dashboard/plan_item.html" with item=item %}
++                    {% endfor %}
++                </ol>
++                <footer class="dashboard-v3-plan-footer">
++                    <span><strong>{{ today_plan.estimated_minutes }} min</strong><small>Total plan</small></span>
++                    <span><strong>{{ today_plan.total_count }}</strong><small>Blocks</small></span>
++                    <span><strong>{{ today_plan.selection_status|title }}</strong><small>Selection</small></span>
++                </footer>
++            {% else %}
++                <div class="dashboard-v3-empty">
++                    <strong>No study blocks yet</strong>
++                    <p>Generate a plan using the time you have available today.</p>
++                    <a href="{% url 'planner:today' %}">Build today’s plan</a>
+                 </div>
++            {% endif %}
++        </section>
+ 
+-                <div class="dashboard-v2-learning-grid">
+-                    <article class="dashboard-v2-learning-source">
+-                        <div class="dashboard-v2-learning-source-heading">
+-                            <div>
+-                                <span class="dashboard-v2-source-icon is-viewcoach" aria-hidden="true">V</span>
+-                                <div>
+-                                    <strong>ViewCoach roadmaps</strong>
+-                                    <span>Curated curriculum</span>
+-                                </div>
+-                            </div>
+-                            <a href="{% url 'roadmaps:list' %}">View all</a>
+-                        </div>
+-                        {% if viewcoach_learning_cards %}
+-                            <div class="dashboard-v2-learning-list">
+-                                {% for item in viewcoach_learning_cards %}
+-                                    <a href="{% url 'roadmaps:detail' item.roadmap.slug %}">
+-                                        <span>
+-                                            <strong>{{ item.roadmap.title }}</strong>
+-                                            <small>{{ item.completed_count }} of {{ item.topic_count }} topics complete</small>
+-                                        </span>
+-                                        <span class="dashboard-v2-progress-value">{{ item.percentage }}%</span>
+-                                    </a>
+-                                {% endfor %}
+-                            </div>
+-                        {% else %}
+-                            <div class="dashboard-v2-source-empty">
+-                                <p>Choose a curated roadmap to start building a role or skill.</p>
+-                                <a href="{% url 'roadmaps:list' %}">Browse ViewCoach roadmaps</a>
+-                            </div>
+-                        {% endif %}
+-                    </article>
++        <section class="dashboard-v3-card dashboard-v3-evidence" aria-labelledby="evidence-heading">
++            <header class="dashboard-v3-card-header">
++                <div>
++                    <p class="dashboard-v3-kicker">Interview evidence</p>
++                    <h2 id="evidence-heading">Evidence Bag</h2>
++                </div>
++                <a href="{% url 'evidence:list' %}">View all</a>
++            </header>
++            <p class="dashboard-v3-card-subtitle">Strong stories build strong interviews.</p>
++            {% include "components/dashboard/progress_bar.html" with value=evidence_summary.story_percentage label="Interview-ready STAR stories" %}
++            <div class="dashboard-v3-evidence-score">
++                <strong>{{ evidence_summary.ready_story_count }}/{{ evidence_summary.story_count }}</strong>
++                <span>stories interview-ready</span>
++            </div>
++            <dl class="dashboard-v3-compact-stats">
++                <div><dt>Projects</dt><dd>{{ evidence_summary.project_count }}</dd></div>
++                <div><dt>Work evidence</dt><dd>{{ evidence_summary.work_count }}</dd></div>
++                <div><dt>Ready topics</dt><dd>{{ evidence_summary.interview_ready_topic_count }}</dd></div>
++            </dl>
++        </section>
+ 
+-                    <article class="dashboard-v2-learning-source">
+-                        <div class="dashboard-v2-learning-source-heading">
+-                            <div>
+-                                <span class="dashboard-v2-source-icon is-youtube" aria-hidden="true">▶</span>
+-                                <div>
+-                                    <strong>YouTube roadmaps</strong>
+-                                    <span>Your imported playlists</span>
+-                                </div>
+-                            </div>
+-                            <a href="{% url 'roadmaps:youtube_list' %}">View all</a>
+-                        </div>
+-                        {% if youtube_learning_cards %}
+-                            <div class="dashboard-v2-learning-list">
+-                                {% for item in youtube_learning_cards %}
+-                                    <a href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">
+-                                        <span>
+-                                            <strong>{{ item.roadmap.title }}</strong>
+-                                            <small>{{ item.youtube_source.available_video_count }} videos · {{ item.youtube_source.total_duration_display }}</small>
+-                                        </span>
+-                                        <span class="dashboard-v2-progress-value">{{ item.percentage }}%</span>
+-                                    </a>
+-                                {% endfor %}
+-                            </div>
+-                        {% else %}
+-                            <div class="dashboard-v2-source-empty">
+-                                <p>Turn a useful playlist into a tracked learning path.</p>
+-                                <a href="{% url 'roadmaps:youtube_import' %}">Import a playlist</a>
+-                            </div>
+-                        {% endif %}
+-                    </article>
++        <section class="dashboard-v3-card dashboard-v3-resources" aria-labelledby="resources-heading">
++            <header class="dashboard-v3-card-header">
++                <div>
++                    <p class="dashboard-v3-kicker">Knowledge</p>
++                    <h2 id="resources-heading">Resources &amp; Notes</h2>
+                 </div>
+-            </section>
++                <a href="{% url 'learn' %}">View all</a>
++            </header>
++            <nav class="dashboard-v3-resource-list" aria-label="Resources and notes">
++                <a href="{% url 'learn' %}"><span class="dashboard-v3-accent-blue">▤</span><strong>Topic notes</strong><small>{{ resource_summary.topic_note_count }}</small></a>
++                <a href="{% url 'questions:list' %}"><span class="dashboard-v3-accent-lavender">▣</span><strong>Question notes</strong><small>{{ resource_summary.question_note_count }}</small></a>
++                <a href="{% url 'learn' %}"><span class="dashboard-v3-accent-amber">▧</span><strong>Saved resources</strong><small>{{ resource_summary.resource_count }}</small></a>
++            </nav>
++        </section>
+ 
+-            <section class="dashboard-v2-card dashboard-v2-recent" aria-labelledby="recent-questions-heading">
+-                <div class="dashboard-v2-card-heading">
+-                    <div>
+-                        <p class="dashboard-v2-kicker">Question bank</p>
+-                        <h2 id="recent-questions-heading">Recently updated</h2>
+-                    </div>
+-                    <a href="{% url 'questions:list' %}">View all</a>
++        <aside class="dashboard-v3-rail">
++            <section class="dashboard-v3-card dashboard-v3-calendar" aria-labelledby="calendar-heading">
++                <header class="dashboard-v3-card-header">
++                    <h2 id="calendar-heading">{{ calendar.month_label }}</h2>
++                    <nav aria-label="Calendar month navigation">
++                        <a href="{{ calendar.previous_query }}" aria-label="Previous month">‹</a>
++                        <a href="{{ calendar.next_query }}" aria-label="Next month">›</a>
++                    </nav>
++                </header>
++                <div class="dashboard-v3-calendar-grid" role="grid" aria-label="{{ calendar.month_label }}">
++                    {% for weekday in "MTWTFSS" %}<span class="dashboard-v3-calendar-weekday" role="columnheader">{{ weekday }}</span>{% endfor %}
++                    {% for week in calendar.weeks %}
++                        {% for day in week %}
++                            <time class="dashboard-v3-calendar-day {% if not day.in_month %}is-muted{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.has_interview %}has-interview{% elif day.has_review %}has-review{% endif %}"
++                                  datetime="{{ day.date|date:'Y-m-d' }}"
++                                  {% if day.event_label %}title="{{ day.event_label }}"{% endif %}>
++                                {{ day.day }}
++                                {% if day.event_count %}<span class="sr-only">{{ day.event_label }}</span>{% endif %}
++                            </time>
++                        {% endfor %}
++                    {% endfor %}
+                 </div>
++                <div class="dashboard-v3-calendar-legend"><span class="is-interview">Interview</span><span class="is-review">Review</span></div>
++            </section>
+ 
+-                {% if recent_questions %}
+-                    <ol class="dashboard-v2-question-list">
+-                        {% for question in recent_questions %}
+-                            <li>
+-                                <a href="{% url 'questions:detail' question.pk %}">
+-                                    <span class="dashboard-v2-question-type badge badge-{{ question.question_type|lower }}">
+-                                        {{ question.get_question_type_display }}
+-                                    </span>
+-                                    <span class="dashboard-v2-question-copy">
+-                                        <strong>{{ question.title }}</strong>
+-                                        <small>{{ question.prompt|truncatewords:14 }}</small>
+-                                    </span>
+-                                    <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M" }}</time>
+-                                </a>
+-                            </li>
++            <section class="dashboard-v3-card dashboard-v3-upcoming" aria-labelledby="upcoming-heading">
++                <header class="dashboard-v3-card-header">
++                    <h2 id="upcoming-heading">Upcoming</h2>
++                    <a href="{% url 'goals:list' %}">View all</a>
++                </header>
++                {% if upcoming_items %}
++                    <ul>
++                        {% for item in upcoming_items %}
++                            {% include "components/dashboard/upcoming_item.html" with item=item %}
+                         {% endfor %}
+-                    </ol>
++                    </ul>
+                 {% else %}
+-                    <div class="dashboard-v2-empty-inline">
+-                        <strong>Your question bank is empty</strong>
+-                        <p>Add one real interview question and capture the answer you need to explain.</p>
+-                        <a href="{% url 'questions:choose_type' %}">Create your first question</a>
++                    <div class="dashboard-v3-empty dashboard-v3-empty-compact">
++                        <strong>No deadlines queued</strong>
++                        <p>Add an interview stage when you have a date to prepare for.</p>
+                     </div>
+                 {% endif %}
+             </section>
+-        </div>
+ 
+-        <aside class="dashboard-v2-aside">
+-            <section class="dashboard-v2-card dashboard-v2-goal" aria-labelledby="primary-goal-heading">
+-                <div class="dashboard-v2-card-heading">
+-                    <div>
+-                        <p class="dashboard-v2-kicker">Primary goal</p>
+-                        <h2 id="primary-goal-heading">
+-                            {% if primary_goal %}{{ primary_goal.title }}{% else %}Set your target{% endif %}
+-                        </h2>
+-                    </div>
+-                    <a href="{% url 'goals:list' %}">All goals</a>
+-                </div>
+-
+-                {% if primary_goal %}
+-                    <div class="dashboard-v2-readiness-ring" style="--readiness: {{ readiness.score }}">
+-                        <span><strong>{{ readiness.score }}%</strong><small>{{ readiness.label }}</small></span>
++            <section class="dashboard-v3-card dashboard-v3-readiness" aria-labelledby="readiness-heading">
++                <header class="dashboard-v3-card-header">
++                    <h2 id="readiness-heading">Interview readiness</h2>
++                    {% if readiness %}<span>{{ readiness.label }}</span>{% endif %}
++                </header>
++                {% if readiness %}
++                    <div class="dashboard-v3-readiness-row">
++                        <div class="dashboard-v3-readiness-ring" style="--dashboard-progress: {{ readiness.score }}%;"><strong>{{ readiness.score }}</strong><small>/100</small></div>
++                        <div>
++                            <strong>{% if readiness.score >= 60 %}You’re building momentum{% else %}Keep strengthening the foundations{% endif %}</strong>
++                            <p>{{ readiness.needs_attention.0.summary|default:"Keep completing focused work and mock interviews." }}</p>
++                        </div>
+                     </div>
+-                    <p>{{ readiness.needs_attention.0.summary|default:"Keep working through today’s focused plan." }}</p>
+-                    <dl class="dashboard-v2-goal-meta">
+-                        <div><dt>Role</dt><dd>{{ primary_goal.role_title }}</dd></div>
+-                        {% if readiness.days_remaining is not None %}
+-                            <div><dt>Time remaining</dt><dd>{{ readiness.days_remaining }} days</dd></div>
+-                        {% endif %}
+-                    </dl>
+-                    <a class="button button-secondary" href="{% url 'goals:detail' primary_goal.pk %}">Open readiness breakdown</a>
++                    {% if readiness.strong or readiness.needs_attention %}
++                        <dl class="dashboard-v3-readiness-signals">
++                            {% if readiness.strong %}
++                                <div><dt>Strongest</dt><dd>{{ readiness.strong.0.label }}</dd></div>
++                            {% endif %}
++                            {% if readiness.needs_attention %}
++                                <div><dt>Strengthen</dt><dd>{{ readiness.needs_attention.0.label }}</dd></div>
++                            {% endif %}
++                        </dl>
++                    {% endif %}
++                    {% if primary_goal.current_stage %}
++                        <div class="dashboard-v3-next-interview">
++                            <small>Upcoming interview</small>
++                            <strong>{{ primary_goal.current_stage.display_name }}</strong>
++                            {% if primary_goal.current_stage.scheduled_for %}<span>{{ primary_goal.current_stage.scheduled_for|date:"j M Y" }}</span>{% endif %}
++                            <a href="{{ primary_goal.get_absolute_url }}">Prepare now</a>
++                        </div>
++                    {% endif %}
+                 {% else %}
+-                    <p>Connect your preparation to a role, OA or interview so ViewCoach can explain what matters next.</p>
+-                    <a class="button" href="{% url 'goals:create' %}">Create interview goal</a>
++                    <div class="dashboard-v3-empty dashboard-v3-empty-compact">
++                        <strong>Measure preparation against a target</strong>
++                        <p>Create a goal to connect roadmaps, reviews, mocks and evidence.</p>
++                        <a href="{% url 'goals:create' %}">Create interview goal</a>
++                    </div>
+                 {% endif %}
+             </section>
+ 
+-            <section class="dashboard-v2-card dashboard-v2-quick-links" aria-labelledby="quick-links-heading">
+-                <div class="dashboard-v2-card-heading">
+-                    <div>
+-                        <p class="dashboard-v2-kicker">Shortcuts</p>
+-                        <h2 id="quick-links-heading">Keep moving</h2>
+-                    </div>
+-                </div>
+-                <nav aria-label="Dashboard shortcuts">
+-                    <a href="{% url 'reviews:queue' %}"><span>Review due questions</span><strong>{{ due_review_count }}</strong></a>
+-                    <a href="{% url 'interviews:list' %}"><span>Mock interviews</span><span aria-hidden="true">→</span></a>
+-                    <a href="{% url 'evidence:list' %}"><span>Personal evidence</span><span aria-hidden="true">→</span></a>
+-                    <a href="{% url 'questions:import_start' %}"><span>Import questions</span><span aria-hidden="true">→</span></a>
+-                    <a href="{% url 'knowledge:help_assistant' %}"><span>Ask ViewCoach</span><span aria-hidden="true">→</span></a>
+-                </nav>
+-            </section>
++            <blockquote class="dashboard-v3-quote">
++                <span aria-hidden="true">“</span>
++                <p>Consistency today,<br>confidence tomorrow.</p>
++                <div class="dashboard-v3-quote-mountain" aria-hidden="true">▲</div>
++            </blockquote>
+         </aside>
+     </div>
+ </section>
+diff --git a/templates/includes/app_account_menu.html b/templates/includes/app_account_menu.html
+index c3b116e..fc22fe5 100644
+--- a/templates/includes/app_account_menu.html
++++ b/templates/includes/app_account_menu.html
+@@ -5,7 +5,7 @@
+         </span>
+         {% if placement == "desktop" %}
+             <span class="app-account-copy">
+-                <strong>Signed in</strong>
++                <strong>{% if user.first_name %}{{ user.first_name }}{% else %}Signed in{% endif %}</strong>
+                 <span>{{ user.email }}</span>
+             </span>
+             <svg class="app-account-chevron" aria-hidden="true" viewBox="0 0 24 24">
+diff --git a/templates/includes/app_primary_navigation_v3.html b/templates/includes/app_primary_navigation_v3.html
+new file mode 100644
+index 0000000..c4d11be
+--- /dev/null
++++ b/templates/includes/app_primary_navigation_v3.html
+@@ -0,0 +1,60 @@
++{% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
++<nav class="app-navigation app-navigation-v3" aria-label="Primary navigation">
++    <a class="app-nav-link {% if url_name == 'dashboard' %}is-active{% endif %}"
++       href="{% url 'dashboard' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"></path><path d="M6 10v10h12V10"></path></svg>
++        </span>
++        <span>Dashboard</span>
++    </a>
++    <a class="app-nav-link {% if namespace == 'planner' %}is-active{% endif %}"
++       href="{% url 'planner:today' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M7 10h10M8 14h3M13 14h3"></path></svg>
++        </span>
++        <span>Daily Plan</span>
++    </a>
++    <a class="app-nav-link {% if url_name == 'learn' or namespace == 'roadmaps' %}is-active{% endif %}"
++       href="{% url 'learn' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg>
++        </span>
++        <span>Roadmaps</span>
++    </a>
++    <a class="app-nav-link {% if namespace == 'reviews' %}is-active{% endif %}"
++       href="{% url 'reviews:queue' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"></path><path d="M4 4v5h5M12 8v4l3 2"></path></svg>
++        </span>
++        <span>Reviews</span>
++    </a>
++    <a class="app-nav-link {% if url_name == 'interview' or namespace == 'interviews' or namespace == 'goals' or url_name == 'interview_pack' or url_name == 'general_interview_playbook' %}is-active{% endif %}"
++       href="{% url 'interview' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"></path><path d="M8 9h8M8 13h5"></path></svg>
++        </span>
++        <span>Interview Hub</span>
++    </a>
++    <a class="app-nav-link {% if namespace == 'evidence' and url_name != 'interview_pack' and url_name != 'general_interview_playbook' %}is-active{% endif %}"
++       href="{% url 'evidence:list' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"></rect><path d="M9 6V4h6v2M8 11h8M8 15h5"></path></svg>
++        </span>
++        <span>Evidence Bag</span>
++    </a>
++    <a class="app-nav-link {% if url_name == 'prepare' or namespace == 'questions' or namespace == 'knowledge' %}is-active{% endif %}"
++       href="{% url 'prepare' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8M8 12h6M8 16h4"></path></svg>
++        </span>
++        <span>Resources</span>
++    </a>
++    <a class="app-nav-link {% if url_name == 'need_type_preferences' %}is-active{% endif %}"
++       href="{% url 'need_type_preferences' %}">
++        <span class="app-nav-icon" aria-hidden="true">
++            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.4 6A7 7 0 0 0 8.5 7L6.1 6 4 9.5 6 11a7 7 0 0 0 0 2l-2 1.5L6.1 18l2.4-1a7 7 0 0 0 1.9 1l.3 2.6h4L15 18a7 7 0 0 0 1.5-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z"></path></svg>
++        </span>
++        <span>Settings</span>
++    </a>
++</nav>
++{% endwith %}
+diff --git a/apps/core/portfolio_demo.py b/apps/core/portfolio_demo.py
+--- a/apps/core/portfolio_demo.py
++++ b/apps/core/portfolio_demo.py
+@@ -21,6 +21,7 @@ from apps.evidence.models import (
+ )
+ from apps.goals.models import InterviewGoal, InterviewStage
+ from apps.interviews.models import MockInterview, MockInterviewItem
++from apps.planner.services import generate_daily_plan
+ from apps.questions.models import (
+     BehaviouralQuestion,
+     ConceptQuestion,
+@@ -247,8 +248,13 @@ def _create_custom_roadmap(*, user: User, token: str):
+             ),
+         ),
+     )
++    completed_offsets = {0: 3, 2: 2, 4: 1}
+     for index, (topic, status, notes) in enumerate(progress_rows):
+-        completed_at = now - timedelta(days=6 - index) if status == "COMPLETED" else None
++        completed_at = (
++            now - timedelta(days=completed_offsets.get(index, 1))
++            if status == "COMPLETED"
++            else None
++        )
+         UserTopicProgress.objects.create(
+             user=user,
+             topic=topic,
+@@ -957,8 +963,8 @@ def create_portfolio_demo_workspace() -> PortfolioDemoWorkspace:
+     user = User.objects.create_user(
+         email=f"recruiter-{token}{DEMO_EMAIL_SUFFIX}",
+         password=None,
+-        first_name="Recruiter",
+-        last_name="Demo",
++        first_name="Demo",
++        last_name="User",
+         primary_need_type=User.NeedType.INTERVIEW_SKILLS,
+         secondary_need_type=User.NeedType.PRACTISE_RETAIN,
+     )
+@@ -981,6 +987,12 @@ def create_portfolio_demo_workspace() -> PortfolioDemoWorkspace:
+         goal=goal,
+         questions=questions,
+     )
++    demo_plan = generate_daily_plan(user=user, time_budget_minutes=165, force=True)
++    first_recommendation = demo_plan.recommendations.order_by("position", "pk").first()
++    if first_recommendation is not None:
++        first_recommendation.completed_at = timezone.now()
++        first_recommendation.save(update_fields=["completed_at"])
++
+     return PortfolioDemoWorkspace(
+         user=user,
+         custom_roadmap=custom_roadmap,
