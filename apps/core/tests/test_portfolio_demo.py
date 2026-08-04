@@ -36,7 +36,7 @@ def test_project_showcase_is_public(client):
 
     assert response.status_code == 200
     content = response.content.decode()
-    assert "ViewCoach turns scattered interview preparation" in content
+    assert "ProofLoop turns scattered interview preparation" in content
     assert "Engineering decisions" in content
 
 

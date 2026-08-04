@@ -4,7 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}ViewCoach{% endblock %}</title>
+    <title>{% block title %}ProofLoop{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}">
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
     <link rel="stylesheet" href="{% static 'css/editorial.css' %}">
@@ -21,14 +22,15 @@
     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
+    <link rel="stylesheet" href="{% static 'css/proofloop.css' %}">
 </head>
 <body class="{% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
 {% if user.is_authenticated %}
     <div class="app-shell">
         <aside class="app-sidebar" aria-label="Application navigation">
             <a class="app-brand" href="{% url 'dashboard' %}">
-                <span class="app-brand-mark" aria-hidden="true">V</span>
-                <span>ViewCoach</span>
+                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
+                <span class="proofloop-wordmark">ProofLoop</span>
             </a>
 
             {% include "includes/app_primary_navigation_v3.html" %}
@@ -46,8 +48,8 @@
 
         <header class="app-topbar">
             <div class="app-topbar-copy">
-                <span>Interview preparation workspace</span>
-                <strong>Build skills. Practise recall. Track readiness.</strong>
+                <span>Adaptive interview-readiness workspace</span>
+                <strong>Learn deliberately. Practise under pressure. Prove readiness.</strong>
             </div>
             <div class="app-topbar-actions">
                 {% include "includes/app_account_menu.html" with placement="desktop" %}
@@ -56,8 +58,8 @@
 
         <header class="app-mobile-header">
             <a class="app-mobile-brand" href="{% url 'dashboard' %}">
-                <span class="app-brand-mark" aria-hidden="true">V</span>
-                <span>ViewCoach</span>
+                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
+                <span class="proofloop-wordmark">ProofLoop</span>
             </a>
             <div class="app-mobile-header-actions">
                 {% include "includes/app_account_menu.html" with placement="mobile" %}
@@ -68,7 +70,10 @@
 {% else %}
     <header class="site-header">
         <nav class="nav container" aria-label="Primary navigation">
-            <a class="brand" href="{% url 'home' %}">ViewCoach</a>
+            <a class="brand proofloop-public-brand" href="{% url 'home' %}">
+                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
+                <span>ProofLoop</span>
+            </a>
             <div class="nav-actions">
                 <a href="{% url 'project_showcase' %}">Project</a>
                 <a href="{% url 'login' %}">Log in</a>

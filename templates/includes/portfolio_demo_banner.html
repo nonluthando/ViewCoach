@@ -1,12 +1,12 @@
-<section class="portfolio-demo-banner" aria-label="Recruiter demo controls">
+<section class="portfolio-demo-banner" aria-label="Demo controls">
     <div class="portfolio-demo-banner-heading">
-        <span>Recruiter demo</span>
+        <span>ProofLoop demo</span>
         <strong>
             {{ portfolio_demo_completed_count }}/{{ portfolio_demo_total_count }}
             tour areas opened
         </strong>
     </div>
-    <nav aria-label="Recruiter demo shortcuts">
+    <nav aria-label="ProofLoop demo shortcuts">
         <a href="{% url 'portfolio_demo_guide' %}">Tour home</a>
         {% for step in portfolio_demo_steps %}
             <a class="{% if step.completed %}is-complete{% endif %}"

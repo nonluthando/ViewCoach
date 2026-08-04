@@ -1,6 +1,10 @@
-# Adaptive Interview Preparation Coach
+# ProofLoop
 
-A Django application for creating structured interview material, following role-based learning paths and receiving a focused daily study plan based on what matters now.
+**An adaptive interview-readiness workspace that turns learning, practice and experience into measurable preparation.**
+
+ProofLoop connects structured learning paths, retrieval practice, personal evidence, mock interviews and an explainable daily plan.
+
+> Previously developed under the working name **ViewCoach**. The repository retains its original name to preserve existing deployment and integration references.
 
 The repository currently contains **Milestones 0 through 3.5**.
 
@@ -171,7 +175,7 @@ The included `render.yaml` is a deployment draft. Review the current Render plan
 
 ## Built-in question library
 
-ViewCoach ships with a curated starter library. After applying migrations locally, seed or refresh it with:
+ProofLoop ships with a curated starter library. After applying migrations locally, seed or refresh it with:
 
 ```bash
 python manage.py seed_question_bank
@@ -181,7 +185,7 @@ The command is idempotent and is also run by `build.sh` during Render deployment
 
 ## Built-in learning roadmaps
 
-ViewCoach also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
+ProofLoop also ships with fixed role, skill and practice roadmaps. Seed or refresh them with:
 
 ```bash
 python manage.py seed_roadmaps
