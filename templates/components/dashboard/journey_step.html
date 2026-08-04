@@ -1,0 +1,11 @@
+<li class="dashboard-v3-journey-step is-{{ step.state }}">
+    <span class="dashboard-v3-journey-marker" aria-hidden="true">
+        {% if step.state == "completed" %}✓{% endif %}
+    </span>
+    <span class="dashboard-v3-journey-copy">
+        <small>Section {{ position }}</small>
+        <strong>{{ step.title }}</strong>
+        <span>{{ step.completed_count }}/{{ step.topic_count }} topics</span>
+    </span>
+    <span class="dashboard-v3-journey-status">{{ step.state_label }}</span>
+</li>

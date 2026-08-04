@@ -1,254 +1,304 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard | ViewCoach{% endblock %}
-{% block body_class %}dashboard-page dashboard-v2-page{% endblock %}
+{% block body_class %}dashboard-v3-page{% endblock %}
+{% block main_class %}dashboard-v3-main{% endblock %}
 
 {% block content %}
-<section class="dashboard-v2-shell">
-    <header class="dashboard-v2-header">
+<section class="dashboard-v3">
+    <header class="dashboard-v3-header">
         <div>
-            <p class="dashboard-v2-kicker">Dashboard</p>
-            <h1>Welcome back{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
+            <p class="dashboard-v3-kicker">Dashboard</p>
+            <h1>{{ greeting }}{% if user.first_name %}, {{ user.first_name }}{% endif %}<span aria-hidden="true">👋</span></h1>
             <p>
                 {% if primary_goal %}
-                    Keep moving towards {{ primary_goal.title }} with the next useful task.
+                    Stay consistent with {{ primary_goal.title }} for {{ primary_goal.role_title }}.
+                {% elif need_focus %}
+                    {{ need_focus.description }}
                 {% else %}
-                    Build your knowledge, practise recall and keep your preparation organised.
+                    Build skills, practise recall and turn your experience into confident answers.
                 {% endif %}
             </p>
         </div>
-        <div class="dashboard-v2-header-actions">
-            <a class="button button-secondary" href="{% url 'planner:today' %}">Open study plan</a>
-            <a class="button" href="{% url 'questions:choose_type' %}">Add question</a>
+        <div class="dashboard-v3-header-actions" aria-label="Dashboard shortcuts">
+            <a class="dashboard-v3-icon-button" href="{% url 'questions:list' %}" aria-label="Search question bank">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>
+            </a>
+            <a class="dashboard-v3-icon-button" href="{% url 'reviews:queue' %}" aria-label="Open due reviews">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8"></path><path d="M10 21h4"></path></svg>
+                {% if due_review_count %}<span>{{ due_review_count }}</span>{% endif %}
+            </a>
         </div>
     </header>
 
-    <section class="dashboard-v2-stats" aria-label="Preparation summary">
-        <article class="dashboard-v2-stat">
-            <span>Readiness</span>
-            <strong>{% if readiness %}{{ readiness.score }}%{% else %}—{% endif %}</strong>
-            <small>{% if readiness %}{{ readiness.label }}{% else %}Create a goal to calculate it{% endif %}</small>
-        </article>
-        <article class="dashboard-v2-stat">
-            <span>Questions</span>
-            <strong>{{ question_count }}</strong>
-            <small>{{ ready_question_count }} ready for review</small>
-        </article>
-        <article class="dashboard-v2-stat">
-            <span>Reviews due</span>
-            <strong>{{ due_review_count }}</strong>
-            <small>{{ reviewed_today_count }} reviewed today</small>
-        </article>
-        <article class="dashboard-v2-stat">
-            <span>Evidence</span>
-            <strong>{{ evidence_summary.total_count }}</strong>
-            <small>Projects, work and stories</small>
-        </article>
+    <section class="dashboard-v3-hero" aria-labelledby="dashboard-v3-plan-title">
+        <div class="dashboard-v3-plan-ring" style="--dashboard-progress: {{ today_plan.progress_percent }}%;">
+            <span><strong>{{ today_plan.progress_percent }}%</strong><small>Today’s plan</small></span>
+        </div>
+        <div class="dashboard-v3-hero-copy">
+            <p class="dashboard-v3-kicker">Continue preparing</p>
+            <h2 id="dashboard-v3-plan-title">
+                {% if today_plan.current %}
+                    {{ today_plan.current.title }}
+                {% elif today_plan.is_complete %}
+                    Today’s plan is complete
+                {% else %}
+                    Build today’s preparation plan
+                {% endif %}
+            </h2>
+            <p>Current focus: <strong>{{ today_plan.focus_label }}</strong></p>
+            <div class="dashboard-v3-hero-meta">
+                <span>◷ {{ today_plan.remaining_minutes }} min remaining</span>
+                <span>▤ {{ today_plan.remaining_count }} study block{{ today_plan.remaining_count|pluralize }}</span>
+            </div>
+            <div class="dashboard-v3-hero-actions">
+                <a class="button" href="{% url 'planner:today' %}">
+                    {% if today_plan.is_complete %}Review plan{% else %}Resume plan{% endif %}
+                </a>
+                <a class="button button-secondary" href="{% url 'planner:today' %}">View full plan</a>
+            </div>
+        </div>
+        <div class="dashboard-v3-mountain" aria-hidden="true">
+            <svg viewBox="0 0 360 180" role="img">
+                <path class="mountain-back" d="M40 166 128 55l50 62 42-44 100 93z"></path>
+                <path class="mountain-front" d="m100 166 92-126 128 126z"></path>
+                <path class="mountain-snow" d="m192 40-31 42 25-9 16 16 17-9 20 18z"></path>
+                <path class="mountain-road" d="M193 166c-18-20 35-31 8-50-21-15 23-29 4-48" fill="none"></path>
+                <path class="mountain-flag" d="M205 23v48M206 24h42l-12 12 12 12h-42"></path>
+                <circle class="mountain-sun" cx="300" cy="56" r="20"></circle>
+            </svg>
+        </div>
     </section>
 
-    <div class="dashboard-v2-layout">
-        <div class="dashboard-v2-main">
-            <section class="dashboard-v2-card dashboard-v2-plan" aria-labelledby="dashboard-plan-heading">
-                <div class="dashboard-v2-card-heading">
-                    <div>
-                        <p class="dashboard-v2-kicker">Today</p>
-                        <h2 id="dashboard-plan-heading">Your study plan</h2>
-                    </div>
-                    <span class="dashboard-v2-pill">
-                        {{ today_plan.completed_count }}/{{ today_plan.total_count }} complete
-                    </span>
+    {% url 'learn' as learn_url %}
+    {% url 'reviews:queue' as reviews_url %}
+    {% url 'planner:today' as planner_url %}
+    <section class="dashboard-v3-metrics" aria-label="Preparation summary">
+        {% include "components/dashboard/metric_card.html" with accent="blue" icon="▥" value=focused_roadmaps|length label="Focused roadmaps" detail="Active learning paths" href=learn_url %}
+        {% include "components/dashboard/metric_card.html" with accent="lavender" icon="✓" value=due_review_count label="Reviews due" detail=review_metric_detail href=reviews_url %}
+        {% if readiness %}
+            {% include "components/dashboard/metric_card.html" with accent="green" icon="✦" value=readiness.score label="Readiness score" detail=readiness.label href=primary_goal_url %}
+        {% else %}
+            {% url 'goals:create' as goal_create_url %}
+            {% include "components/dashboard/metric_card.html" with accent="green" icon="✦" value="—" label="Readiness score" detail="Create a goal to calculate" href=goal_create_url %}
+        {% endif %}
+        {% include "components/dashboard/metric_card.html" with accent="amber" icon="♨" value=streak.current label="Day streak" detail=streak_metric_detail href=planner_url %}
+    </section>
+
+    <div class="dashboard-v3-layout">
+        <section class="dashboard-v3-card dashboard-v3-roadmaps" aria-labelledby="focused-roadmaps-heading">
+            <header class="dashboard-v3-card-header">
+                <div>
+                    <p class="dashboard-v3-kicker">Learning</p>
+                    <h2 id="focused-roadmaps-heading">Your focused roadmaps</h2>
                 </div>
+                <a href="{% url 'learn' %}">View all</a>
+            </header>
+            {% if focused_roadmaps %}
+                <div class="dashboard-v3-roadmap-list">
+                    {% for item in focused_roadmaps %}
+                        {% include "components/dashboard/roadmap_row.html" with item=item %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="dashboard-v3-empty">
+                    <strong>Choose your learning focus</strong>
+                    <p>Focus up to four roadmaps so the planner can choose the next useful topic.</p>
+                    <a href="{% url 'learn' %}">Browse roadmaps</a>
+                </div>
+            {% endif %}
+        </section>
 
-                {% if today_plan.is_complete %}
-                    <div class="dashboard-v2-plan-focus is-complete">
-                        <span class="dashboard-v2-plan-icon" aria-hidden="true">✓</span>
-                        <div>
-                            <strong>You finished today’s plan</strong>
-                            <p>Review what you completed or rebuild the plan around a different time budget.</p>
-                        </div>
-                    </div>
-                {% elif today_plan.recommendations %}
-                    <div class="dashboard-v2-plan-focus">
-                        <span class="dashboard-v2-plan-icon" aria-hidden="true">→</span>
-                        <div>
-                            <strong>{{ today_plan.recommendations.0.title }}</strong>
-                            <p>{{ today_plan.recommendations.0.description }}</p>
-                        </div>
-                        <span class="dashboard-v2-duration">{{ today_plan.estimated_minutes }} min</span>
-                    </div>
-                {% else %}
-                    <div class="dashboard-v2-empty-inline">
-                        <strong>No tasks planned yet</strong>
-                        <p>Generate a plan using the time you have available today.</p>
-                    </div>
-                {% endif %}
+        <section class="dashboard-v3-card dashboard-v3-journey" aria-labelledby="learning-journey-heading">
+            <header class="dashboard-v3-card-header">
+                <div>
+                    <p class="dashboard-v3-kicker">Progression</p>
+                    <h2 id="learning-journey-heading">Your learning journey</h2>
+                </div>
+                {% if learning_journey %}<span>{{ learning_journey.percentage }}%</span>{% endif %}
+            </header>
+            {% if learning_journey %}
+                <p class="dashboard-v3-card-subtitle">{{ learning_journey.roadmap.title }}</p>
+                <ol class="dashboard-v3-journey-list">
+                    {% for step in learning_journey.sections %}
+                        {% include "components/dashboard/journey_step.html" with step=step position=forloop.counter %}
+                    {% endfor %}
+                </ol>
+                <a class="dashboard-v3-card-link" href="{{ learning_journey.url }}">Open roadmap →</a>
+            {% else %}
+                <div class="dashboard-v3-empty">
+                    <strong>Your journey starts with one roadmap</strong>
+                    <p>Topics remain open; the journey simply shows the recommended sequence.</p>
+                    <a href="{% url 'learn' %}">Choose a roadmap</a>
+                </div>
+            {% endif %}
+        </section>
 
-                <div class="dashboard-v2-card-actions">
-                    <a class="button" href="{% url 'planner:today' %}">
-                        {% if today_plan.is_complete %}Review today’s plan{% else %}Continue plan{% endif %}
-                    </a>
-                    {% if due_review_count %}
-                        <a class="dashboard-v2-text-link" href="{% url 'reviews:queue' %}">
-                            Review {{ due_review_count }} due card{{ due_review_count|pluralize }}
+        <section class="dashboard-v3-card dashboard-v3-plan-list-card" aria-labelledby="today-plan-heading">
+            <header class="dashboard-v3-card-header">
+                <div>
+                    <p class="dashboard-v3-kicker">Today</p>
+                    <h2 id="today-plan-heading">Today’s plan</h2>
+                </div>
+                <span>{{ today_plan.completed_count }}/{{ today_plan.total_count }} complete</span>
+            </header>
+            {% if today_plan.items %}
+                <ol class="dashboard-v3-plan-list">
+                    {% for item in today_plan.items %}
+                        {% include "components/dashboard/plan_item.html" with item=item %}
+                    {% endfor %}
+                </ol>
+                <footer class="dashboard-v3-plan-footer">
+                    <span><strong>{{ today_plan.estimated_minutes }} min</strong><small>Total plan</small></span>
+                    <span><strong>{{ today_plan.total_count }}</strong><small>Blocks</small></span>
+                    <span><strong>{{ today_plan.selection_status|title }}</strong><small>Selection</small></span>
+                </footer>
+            {% else %}
+                <div class="dashboard-v3-empty">
+                    <strong>No study blocks yet</strong>
+                    <p>Generate a plan using the time you have available today.</p>
+                    <a href="{% url 'planner:today' %}">Build today’s plan</a>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="dashboard-v3-card dashboard-v3-evidence" aria-labelledby="evidence-heading">
+            <header class="dashboard-v3-card-header">
+                <div>
+                    <p class="dashboard-v3-kicker">Interview evidence</p>
+                    <h2 id="evidence-heading">Evidence Bag</h2>
+                </div>
+                <a href="{% url 'evidence:list' %}">View all</a>
+            </header>
+            <p class="dashboard-v3-card-subtitle">Strong stories build strong interviews.</p>
+            {% include "components/dashboard/progress_bar.html" with value=evidence_summary.story_percentage label="Interview-ready STAR stories" %}
+            <div class="dashboard-v3-evidence-score">
+                <strong>{{ evidence_summary.ready_story_count }}/{{ evidence_summary.story_count }}</strong>
+                <span>stories interview-ready</span>
+            </div>
+            <dl class="dashboard-v3-compact-stats">
+                <div><dt>Projects</dt><dd>{{ evidence_summary.project_count }}</dd></div>
+                <div><dt>Work evidence</dt><dd>{{ evidence_summary.work_count }}</dd></div>
+                <div><dt>Ready topics</dt><dd>{{ evidence_summary.interview_ready_topic_count }}</dd></div>
+            </dl>
+        </section>
+
+        <section class="dashboard-v3-card dashboard-v3-resources" aria-labelledby="resources-heading">
+            <header class="dashboard-v3-card-header">
+                <div>
+                    <p class="dashboard-v3-kicker">Knowledge</p>
+                    <h2 id="resources-heading">Resources &amp; Notes</h2>
+                </div>
+                <a href="{% url 'learn' %}">View all</a>
+            </header>
+            <nav class="dashboard-v3-resource-list" aria-label="Resources and notes">
+                <a href="{% url 'learn' %}"><span class="dashboard-v3-accent-blue">▤</span><strong>Topic notes</strong><small>{{ resource_summary.topic_note_count }}</small></a>
+                <a href="{% url 'questions:list' %}"><span class="dashboard-v3-accent-lavender">▣</span><strong>Question notes</strong><small>{{ resource_summary.question_note_count }}</small></a>
+                <a href="{% url 'learn' %}"><span class="dashboard-v3-accent-amber">▧</span><strong>Saved resources</strong><small>{{ resource_summary.resource_count }}</small></a>
+            </nav>
+            {% if recent_questions %}
+                <p class="dashboard-v3-card-subtitle">Recently updated questions</p>
+                <nav class="dashboard-v3-resource-list" aria-label="Recently updated questions">
+                    {% for question in recent_questions|slice:":3" %}
+                        <a href="{% url 'questions:detail' question.pk %}">
+                            <span class="dashboard-v3-accent-lavender">?</span>
+                            <strong>{{ question.title }}</strong>
+                            <small>{{ question.updated_at|date:"j M" }}</small>
                         </a>
-                    {% endif %}
-                </div>
-            </section>
-
-            <section class="dashboard-v2-section" aria-labelledby="continue-learning-heading">
-                <div class="dashboard-v2-section-heading">
-                    <div>
-                        <p class="dashboard-v2-kicker">Learning</p>
-                        <h2 id="continue-learning-heading">Continue learning</h2>
-                    </div>
-                </div>
-
-                <div class="dashboard-v2-learning-grid">
-                    <article class="dashboard-v2-learning-source">
-                        <div class="dashboard-v2-learning-source-heading">
-                            <div>
-                                <span class="dashboard-v2-source-icon is-viewcoach" aria-hidden="true">V</span>
-                                <div>
-                                    <strong>ViewCoach roadmaps</strong>
-                                    <span>Curated curriculum</span>
-                                </div>
-                            </div>
-                            <a href="{% url 'roadmaps:list' %}">View all</a>
-                        </div>
-                        {% if viewcoach_learning_cards %}
-                            <div class="dashboard-v2-learning-list">
-                                {% for item in viewcoach_learning_cards %}
-                                    <a href="{% url 'roadmaps:detail' item.roadmap.slug %}">
-                                        <span>
-                                            <strong>{{ item.roadmap.title }}</strong>
-                                            <small>{{ item.completed_count }} of {{ item.topic_count }} topics complete</small>
-                                        </span>
-                                        <span class="dashboard-v2-progress-value">{{ item.percentage }}%</span>
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="dashboard-v2-source-empty">
-                                <p>Choose a curated roadmap to start building a role or skill.</p>
-                                <a href="{% url 'roadmaps:list' %}">Browse ViewCoach roadmaps</a>
-                            </div>
-                        {% endif %}
-                    </article>
-
-                    <article class="dashboard-v2-learning-source">
-                        <div class="dashboard-v2-learning-source-heading">
-                            <div>
-                                <span class="dashboard-v2-source-icon is-youtube" aria-hidden="true">▶</span>
-                                <div>
-                                    <strong>YouTube roadmaps</strong>
-                                    <span>Your imported playlists</span>
-                                </div>
-                            </div>
-                            <a href="{% url 'roadmaps:youtube_list' %}">View all</a>
-                        </div>
-                        {% if youtube_learning_cards %}
-                            <div class="dashboard-v2-learning-list">
-                                {% for item in youtube_learning_cards %}
-                                    <a href="{% url 'roadmaps:youtube_detail' item.roadmap.slug %}">
-                                        <span>
-                                            <strong>{{ item.roadmap.title }}</strong>
-                                            <small>{{ item.youtube_source.available_video_count }} videos · {{ item.youtube_source.total_duration_display }}</small>
-                                        </span>
-                                        <span class="dashboard-v2-progress-value">{{ item.percentage }}%</span>
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="dashboard-v2-source-empty">
-                                <p>Turn a useful playlist into a tracked learning path.</p>
-                                <a href="{% url 'roadmaps:youtube_import' %}">Import a playlist</a>
-                            </div>
-                        {% endif %}
-                    </article>
-                </div>
-            </section>
-
-            <section class="dashboard-v2-card dashboard-v2-recent" aria-labelledby="recent-questions-heading">
-                <div class="dashboard-v2-card-heading">
-                    <div>
-                        <p class="dashboard-v2-kicker">Question bank</p>
-                        <h2 id="recent-questions-heading">Recently updated</h2>
-                    </div>
-                    <a href="{% url 'questions:list' %}">View all</a>
-                </div>
-
-                {% if recent_questions %}
-                    <ol class="dashboard-v2-question-list">
-                        {% for question in recent_questions %}
-                            <li>
-                                <a href="{% url 'questions:detail' question.pk %}">
-                                    <span class="dashboard-v2-question-type badge badge-{{ question.question_type|lower }}">
-                                        {{ question.get_question_type_display }}
-                                    </span>
-                                    <span class="dashboard-v2-question-copy">
-                                        <strong>{{ question.title }}</strong>
-                                        <small>{{ question.prompt|truncatewords:14 }}</small>
-                                    </span>
-                                    <time datetime="{{ question.updated_at|date:'c' }}">{{ question.updated_at|date:"j M" }}</time>
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ol>
-                {% else %}
-                    <div class="dashboard-v2-empty-inline">
-                        <strong>Your question bank is empty</strong>
-                        <p>Add one real interview question and capture the answer you need to explain.</p>
-                        <a href="{% url 'questions:choose_type' %}">Create your first question</a>
-                    </div>
-                {% endif %}
-            </section>
-        </div>
-
-        <aside class="dashboard-v2-aside">
-            <section class="dashboard-v2-card dashboard-v2-goal" aria-labelledby="primary-goal-heading">
-                <div class="dashboard-v2-card-heading">
-                    <div>
-                        <p class="dashboard-v2-kicker">Primary goal</p>
-                        <h2 id="primary-goal-heading">
-                            {% if primary_goal %}{{ primary_goal.title }}{% else %}Set your target{% endif %}
-                        </h2>
-                    </div>
-                    <a href="{% url 'goals:list' %}">All goals</a>
-                </div>
-
-                {% if primary_goal %}
-                    <div class="dashboard-v2-readiness-ring" style="--readiness: {{ readiness.score }}">
-                        <span><strong>{{ readiness.score }}%</strong><small>{{ readiness.label }}</small></span>
-                    </div>
-                    <p>{{ readiness.needs_attention.0.summary|default:"Keep working through today’s focused plan." }}</p>
-                    <dl class="dashboard-v2-goal-meta">
-                        <div><dt>Role</dt><dd>{{ primary_goal.role_title }}</dd></div>
-                        {% if readiness.days_remaining is not None %}
-                            <div><dt>Time remaining</dt><dd>{{ readiness.days_remaining }} days</dd></div>
-                        {% endif %}
-                    </dl>
-                    <a class="button button-secondary" href="{% url 'goals:detail' primary_goal.pk %}">Open readiness breakdown</a>
-                {% else %}
-                    <p>Connect your preparation to a role, OA or interview so ViewCoach can explain what matters next.</p>
-                    <a class="button" href="{% url 'goals:create' %}">Create interview goal</a>
-                {% endif %}
-            </section>
-
-            <section class="dashboard-v2-card dashboard-v2-quick-links" aria-labelledby="quick-links-heading">
-                <div class="dashboard-v2-card-heading">
-                    <div>
-                        <p class="dashboard-v2-kicker">Shortcuts</p>
-                        <h2 id="quick-links-heading">Keep moving</h2>
-                    </div>
-                </div>
-                <nav aria-label="Dashboard shortcuts">
-                    <a href="{% url 'reviews:queue' %}"><span>Review due questions</span><strong>{{ due_review_count }}</strong></a>
-                    <a href="{% url 'interviews:list' %}"><span>Mock interviews</span><span aria-hidden="true">→</span></a>
-                    <a href="{% url 'evidence:list' %}"><span>Personal evidence</span><span aria-hidden="true">→</span></a>
-                    <a href="{% url 'questions:import_start' %}"><span>Import questions</span><span aria-hidden="true">→</span></a>
-                    <a href="{% url 'knowledge:help_assistant' %}"><span>Ask ViewCoach</span><span aria-hidden="true">→</span></a>
+                    {% endfor %}
                 </nav>
+            {% endif %}
+        </section>
+
+        <aside class="dashboard-v3-rail">
+            <section class="dashboard-v3-card dashboard-v3-calendar" aria-labelledby="calendar-heading">
+                <header class="dashboard-v3-card-header">
+                    <h2 id="calendar-heading">{{ calendar.month_label }}</h2>
+                    <nav aria-label="Calendar month navigation">
+                        <a href="{{ calendar.previous_query }}" aria-label="Previous month">‹</a>
+                        <a href="{{ calendar.next_query }}" aria-label="Next month">›</a>
+                    </nav>
+                </header>
+                <div class="dashboard-v3-calendar-grid" role="grid" aria-label="{{ calendar.month_label }}">
+                    {% for weekday in "MTWTFSS" %}<span class="dashboard-v3-calendar-weekday" role="columnheader">{{ weekday }}</span>{% endfor %}
+                    {% for week in calendar.weeks %}
+                        {% for day in week %}
+                            <time class="dashboard-v3-calendar-day {% if not day.in_month %}is-muted{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.has_interview %}has-interview{% elif day.has_review %}has-review{% endif %}"
+                                  datetime="{{ day.date|date:'Y-m-d' }}"
+                                  {% if day.event_label %}title="{{ day.event_label }}"{% endif %}>
+                                {{ day.day }}
+                                {% if day.event_count %}<span class="sr-only">{{ day.event_label }}</span>{% endif %}
+                            </time>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                <div class="dashboard-v3-calendar-legend"><span class="is-interview">Interview</span><span class="is-review">Review</span></div>
             </section>
+
+            <section class="dashboard-v3-card dashboard-v3-upcoming" aria-labelledby="upcoming-heading">
+                <header class="dashboard-v3-card-header">
+                    <h2 id="upcoming-heading">Upcoming</h2>
+                    <a href="{% url 'goals:list' %}">View all</a>
+                </header>
+                {% if upcoming_items %}
+                    <ul>
+                        {% for item in upcoming_items %}
+                            {% include "components/dashboard/upcoming_item.html" with item=item %}
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="dashboard-v3-empty dashboard-v3-empty-compact">
+                        <strong>No deadlines queued</strong>
+                        <p>Add an interview stage when you have a date to prepare for.</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <section class="dashboard-v3-card dashboard-v3-readiness" aria-labelledby="readiness-heading">
+                <header class="dashboard-v3-card-header">
+                    <h2 id="readiness-heading">Interview readiness</h2>
+                    {% if readiness %}<span>{{ readiness.label }}</span>{% endif %}
+                </header>
+                {% if readiness %}
+                    <div class="dashboard-v3-readiness-row">
+                        <div class="dashboard-v3-readiness-ring" style="--dashboard-progress: {{ readiness.score }}%;"><strong>{{ readiness.score }}</strong><small>/100</small></div>
+                        <div>
+                            <strong>{% if readiness.score >= 60 %}You’re building momentum{% else %}Keep strengthening the foundations{% endif %}</strong>
+                            <p>{{ readiness.needs_attention.0.summary|default:"Keep completing focused work and mock interviews." }}</p>
+                        </div>
+                    </div>
+                    {% if readiness.strong or readiness.needs_attention %}
+                        <dl class="dashboard-v3-readiness-signals">
+                            {% if readiness.strong %}
+                                <div><dt>Strongest</dt><dd>{{ readiness.strong.0.label }}</dd></div>
+                            {% endif %}
+                            {% if readiness.needs_attention %}
+                                <div><dt>Strengthen</dt><dd>{{ readiness.needs_attention.0.label }}</dd></div>
+                            {% endif %}
+                        </dl>
+                    {% endif %}
+                    {% if primary_goal.current_stage %}
+                        <div class="dashboard-v3-next-interview">
+                            <small>Upcoming interview</small>
+                            <strong>{{ primary_goal.current_stage.display_name }}</strong>
+                            {% if primary_goal.current_stage.scheduled_for %}<span>{{ primary_goal.current_stage.scheduled_for|date:"j M Y" }}</span>{% endif %}
+                            <a href="{{ primary_goal.get_absolute_url }}">Prepare now</a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="dashboard-v3-empty dashboard-v3-empty-compact">
+                        <strong>Measure preparation against a target</strong>
+                        <p>Create a goal to connect roadmaps, reviews, mocks and evidence.</p>
+                        <a href="{% url 'goals:create' %}">Create interview goal</a>
+                    </div>
+                {% endif %}
+            </section>
+
+            <blockquote class="dashboard-v3-quote">
+                <span aria-hidden="true">“</span>
+                <p>Consistency today,<br>confidence tomorrow.</p>
+                <div class="dashboard-v3-quote-mountain" aria-hidden="true">▲</div>
+            </blockquote>
         </aside>
     </div>
 </section>

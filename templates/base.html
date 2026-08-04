@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="{% static 'css/navigation.css' %}">
     <link rel="stylesheet" href="{% static 'css/knowledge.css' %}">
     <link rel="stylesheet" href="{% static 'css/design-system-v2.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard-v2.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard-v3.css' %}">
     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
@@ -31,11 +31,16 @@
                 <span>ViewCoach</span>
             </a>
 
-            {% include "includes/app_primary_navigation.html" %}
+            {% include "includes/app_primary_navigation_v3.html" %}
 
             <div class="app-sidebar-footer">
-                <p>Focused preparation, without the guesswork.</p>
-                <a href="{% url 'knowledge:help_assistant' %}">Ask the Help Assistant</a>
+                <div class="app-sidebar-guidance">
+                    <p>Focused preparation, without the guesswork.</p>
+                    <a href="{% url 'knowledge:help_assistant' %}">Ask the Help Assistant</a>
+                </div>
+                <div class="app-sidebar-account">
+                    {% include "includes/app_account_menu.html" with placement="desktop" %}
+                </div>
             </div>
         </aside>
 
