@@ -16,7 +16,7 @@ def dashboard(request):
         user=request.user,
         month_value=request.GET.get("month", ""),
     )
-    return render(request, "core/dashboard.html", context)
+    return render(request, "core/proofloop_dashboard.html", context)
 
 
 @login_required
