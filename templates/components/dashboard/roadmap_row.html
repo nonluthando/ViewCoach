@@ -1,0 +1,14 @@
+<a class="dashboard-v3-roadmap-row" href="{{ item.url }}">
+    <span class="dashboard-v3-roadmap-icon dashboard-v3-accent-{{ item.accent }}" aria-hidden="true">
+        {{ item.icon }}
+    </span>
+    <span class="dashboard-v3-roadmap-copy">
+        <span class="dashboard-v3-roadmap-title">
+            <strong>{{ item.roadmap.title }}</strong>
+            <span>{{ item.percentage }}%</span>
+        </span>
+        {% include "components/dashboard/progress_bar.html" with value=item.percentage label=item.roadmap.title %}
+        <small>{{ item.completed_count }} of {{ item.topic_count }} topics complete</small>
+    </span>
+    <span class="dashboard-v3-row-arrow" aria-hidden="true">›</span>
+</a>

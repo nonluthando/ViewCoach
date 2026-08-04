@@ -1,0 +1,19 @@
+<li class="dashboard-v3-plan-item {% if item.is_completed %}is-complete{% endif %}">
+    <span class="dashboard-v3-plan-number" aria-hidden="true">{{ item.position }}</span>
+    <span class="dashboard-v3-plan-kind dashboard-v3-kind-{{ item.kind|lower }}" aria-hidden="true">
+        {% if item.is_completed %}✓{% elif item.kind == "STAR" %}★{% elif item.kind == "REVIEW" %}↻{% else %}◇{% endif %}
+    </span>
+    <span class="dashboard-v3-plan-copy">
+        <strong>{{ item.title }}</strong>
+        <small>
+            {{ item.kind_label }}{% if item.is_required %} · Required{% endif %}
+            {% if item.rationale %} · {{ item.rationale|truncatewords:9 }}{% endif %}
+        </small>
+    </span>
+    <span class="dashboard-v3-plan-duration">{{ item.duration }} min</span>
+    {% if item.is_completed %}
+        <span class="dashboard-v3-plan-done" aria-label="Completed">✓</span>
+    {% else %}
+        <a class="dashboard-v3-plan-action" href="{{ item.action_url }}">Start</a>
+    {% endif %}
+</li>

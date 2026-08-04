@@ -22,6 +22,7 @@ from apps.evidence.models import (
 )
 from apps.goals.models import InterviewGoal, InterviewStage
 from apps.interviews.models import MockInterview, MockInterviewItem
+from apps.planner.services import generate_daily_plan
 from apps.questions.models import (
     BehaviouralQuestion,
     ConceptQuestion,
@@ -252,8 +253,13 @@ def _create_custom_roadmap(*, user: User, token: str):
             ),
         ),
     )
+    completed_offsets = {0: 3, 2: 2, 4: 1}
     for index, (topic, status, notes) in enumerate(progress_rows):
-        completed_at = now - timedelta(days=6 - index) if status == "COMPLETED" else None
+        completed_at = (
+            now - timedelta(days=completed_offsets.get(index, 1))
+            if status == "COMPLETED"
+            else None
+        )
         UserTopicProgress.objects.create(
             user=user,
             topic=topic,
@@ -954,8 +960,8 @@ def create_portfolio_demo_workspace() -> PortfolioDemoWorkspace:
     user = User.objects.create_user(
         email=f"recruiter-{token}{DEMO_EMAIL_SUFFIX}",
         password=None,
-        first_name="Recruiter",
-        last_name="Demo",
+        first_name="Demo",
+        last_name="User",
         primary_need_type=User.NeedType.INTERVIEW_SKILLS,
         secondary_need_type=User.NeedType.PRACTISE_RETAIN,
     )
@@ -979,6 +985,12 @@ def create_portfolio_demo_workspace() -> PortfolioDemoWorkspace:
         goal=goal,
         questions=questions,
     )
+    demo_plan = generate_daily_plan(user=user, time_budget_minutes=165, force=True)
+    first_recommendation = demo_plan.recommendations.order_by("position", "pk").first()
+    if first_recommendation is not None:
+        first_recommendation.completed_at = timezone.now()
+        first_recommendation.save(update_fields=["completed_at"])
+
     return PortfolioDemoWorkspace(
         user=user,
         custom_roadmap=custom_roadmap,
