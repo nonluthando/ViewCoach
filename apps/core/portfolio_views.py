@@ -66,10 +66,7 @@ def portfolio_demo_start(request):
     _activate_workspace(request, workspace)
     messages.success(
         request,
-        (
-            "Your isolated recruiter demo is ready. Changes affect only this "
-            "temporary workspace."
-        ),
+        ("Your isolated recruiter demo is ready. Changes affect only this temporary workspace."),
     )
     return redirect("portfolio_demo_guide")
 
