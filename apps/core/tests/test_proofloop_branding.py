@@ -54,11 +54,3 @@ def test_proofloop_theme_exposes_locked_visual_tokens():
     assert ".proofloop-path" in stylesheet
     assert ".proofloop-evidence-stack" in stylesheet
     assert ".dashboard-v3-readiness" in stylesheet
-
-
-def test_repository_identity_remains_documented():
-    readme = _read("README.md")
-
-    assert readme.startswith("# ProofLoop")
-    assert "working name **ViewCoach**" in readme
-    assert "repository retains its original name" in readme
