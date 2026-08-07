@@ -1,0 +1,724 @@
+diff --git a/apps/planner/admin.py b/apps/planner/admin.py
+index f6a8139a6a2c17858b637def526b1f7a461714e9..d5286b37f1c1c9d3950b532fe68d0fe83a67036c 100644
+--- a/apps/planner/admin.py
++++ b/apps/planner/admin.py
+@@ -1,6 +1,13 @@
+ from django.contrib import admin
+ 
+-from .models import StudyPlan, StudyRecommendation, StudySession
++from .models import (
++    DailyTimetableAllocation,
++    StudyPlan,
++    StudyRecommendation,
++    StudySession,
++    WeeklyTimetable,
++    WeeklyTimetableBlock,
++)
+ 
+ 
+ class StudyRecommendationInline(admin.TabularInline):
+@@ -17,6 +24,12 @@ class StudyRecommendationInline(admin.TabularInline):
+     readonly_fields = ("completed_at",)
+ 
+ 
++class DailyTimetableAllocationInline(admin.TabularInline):
++    model = DailyTimetableAllocation
++    extra = 0
++    raw_id_fields = ("recommendation",)
++
++
+ @admin.register(StudyPlan)
+ class StudyPlanAdmin(admin.ModelAdmin):
+     list_display = (
+@@ -29,7 +42,10 @@ class StudyPlanAdmin(admin.ModelAdmin):
+     list_filter = ("status", "plan_date")
+     search_fields = ("user__email",)
+     raw_id_fields = ("user",)
+-    inlines = (StudyRecommendationInline,)
++    inlines = (
++        StudyRecommendationInline,
++        DailyTimetableAllocationInline,
++    )
+ 
+ 
+ @admin.register(StudyRecommendation)
+@@ -57,3 +73,38 @@ class StudySessionAdmin(admin.ModelAdmin):
+     )
+     list_filter = ("started_at", "ended_at")
+     raw_id_fields = ("plan",)
++
++
++class WeeklyTimetableBlockInline(admin.TabularInline):
++    model = WeeklyTimetableBlock
++    extra = 0
++
++
++@admin.register(WeeklyTimetable)
++class WeeklyTimetableAdmin(admin.ModelAdmin):
++    list_display = ("user", "sessions_per_day", "updated_at")
++    search_fields = ("user__email",)
++    raw_id_fields = ("user",)
++    inlines = (WeeklyTimetableBlockInline,)
++
++
++@admin.register(WeeklyTimetableBlock)
++class WeeklyTimetableBlockAdmin(admin.ModelAdmin):
++    list_display = ("timetable", "weekday", "session_number", "title")
++    list_filter = ("weekday", "session_number")
++    search_fields = ("title", "timetable__user__email")
++    raw_id_fields = ("timetable",)
++
++
++@admin.register(DailyTimetableAllocation)
++class DailyTimetableAllocationAdmin(admin.ModelAdmin):
++    list_display = (
++        "plan",
++        "session_number",
++        "recommendation",
++        "allocated_minutes",
++        "position",
++    )
++    list_filter = ("session_number",)
++    search_fields = ("plan__user__email", "recommendation__title")
++    raw_id_fields = ("plan", "recommendation")
+diff --git a/apps/planner/forms.py b/apps/planner/forms.py
+index 9f728aee44f44a027a8950a89f23d4846543b636..421be5cf59cfd15fd7f0367febe729d5b0df774c 100644
+--- a/apps/planner/forms.py
++++ b/apps/planner/forms.py
+@@ -2,6 +2,8 @@ from decimal import Decimal
+ 
+ from django import forms
+ 
++from .models import WeeklyTimetable, WeeklyTimetableBlock
++
+ 
+ class StudyPlanPreferencesForm(forms.Form):
+     time_budget_hours = forms.DecimalField(
+@@ -35,3 +37,40 @@ class StudyPlanPreferencesForm(forms.Form):
+         if hours is not None:
+             cleaned_data["time_budget_minutes"] = int(hours * Decimal("60"))
+         return cleaned_data
++
++class TimetableSettingsForm(forms.ModelForm):
++    sessions_per_day = forms.IntegerField(
++        min_value=1,
++        max_value=16,
++        label="Sessions per day",
++        help_text=(
++            "Each numbered session represents one hour. "
++            "Choose between 1 and 16 sessions."
++        ),
++        widget=forms.NumberInput(
++            attrs={
++                "min": "1",
++                "max": "16",
++                "step": "1",
++                "inputmode": "numeric",
++            }
++        ),
++    )
++
++    class Meta:
++        model = WeeklyTimetable
++        fields = ("sessions_per_day",)
++
++
++class TimetableBlockForm(forms.ModelForm):
++    class Meta:
++        model = WeeklyTimetableBlock
++        fields = ("title", "description")
++        widgets = {
++            "title": forms.TextInput(
++                attrs={"placeholder": "e.g. Database lecture, work or gym"}
++            ),
++            "description": forms.Textarea(
++                attrs={"rows": 3, "placeholder": "Optional notes"}
++            ),
++        }
+diff --git a/apps/planner/models.py b/apps/planner/models.py
+index 2b705ad19b925ef12913d484f072a6cccd029c02..faa88b5c4c2d2abc19a2508a8db4da72a7b2eba3 100644
+--- a/apps/planner/models.py
++++ b/apps/planner/models.py
+@@ -1,4 +1,5 @@
+ from django.conf import settings
++from django.core.exceptions import ValidationError
+ from django.db import models
+ from django.urls import reverse
+ from django.utils import timezone
+@@ -206,3 +207,158 @@ class StudySession(models.Model):
+ 
+     def __str__(self):
+         return f"Session for {self.plan}"
++
++class WeeklyTimetable(models.Model):
++    user = models.OneToOneField(
++        settings.AUTH_USER_MODEL,
++        on_delete=models.CASCADE,
++        related_name="weekly_timetable",
++    )
++    sessions_per_day = models.PositiveSmallIntegerField(default=0)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        constraints = [
++            models.CheckConstraint(
++                condition=models.Q(
++                    sessions_per_day__gte=0,
++                    sessions_per_day__lte=16,
++                ),
++                name="weekly_tt_sessions_range",
++            )
++        ]
++
++    @property
++    def is_configured(self):
++        return self.sessions_per_day > 0
++
++    @property
++    def session_numbers(self):
++        return range(1, self.sessions_per_day + 1)
++
++    def __str__(self):
++        return f"{self.user} · {self.sessions_per_day} sessions per day"
++
++
++class WeeklyTimetableBlock(models.Model):
++    class Weekday(models.IntegerChoices):
++        MONDAY = 0, "Monday"
++        TUESDAY = 1, "Tuesday"
++        WEDNESDAY = 2, "Wednesday"
++        THURSDAY = 3, "Thursday"
++        FRIDAY = 4, "Friday"
++        SATURDAY = 5, "Saturday"
++        SUNDAY = 6, "Sunday"
++
++    timetable = models.ForeignKey(
++        WeeklyTimetable,
++        on_delete=models.CASCADE,
++        related_name="blocks",
++    )
++    weekday = models.PositiveSmallIntegerField(choices=Weekday.choices)
++    session_number = models.PositiveSmallIntegerField()
++    title = models.CharField(max_length=120)
++    description = models.TextField(blank=True)
++    created_at = models.DateTimeField(auto_now_add=True)
++    updated_at = models.DateTimeField(auto_now=True)
++
++    class Meta:
++        ordering = ("weekday", "session_number", "pk")
++        constraints = [
++            models.UniqueConstraint(
++                fields=("timetable", "weekday", "session_number"),
++                name="weekly_tt_unique_slot",
++            ),
++            models.CheckConstraint(
++                condition=models.Q(weekday__gte=0, weekday__lte=6),
++                name="weekly_tt_day_range",
++            ),
++            models.CheckConstraint(
++                condition=models.Q(session_number__gte=1),
++                name="weekly_tt_session_positive",
++            ),
++        ]
++        indexes = [
++            models.Index(
++                fields=("timetable", "weekday", "session_number"),
++                name="weekly_tt_lookup_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if (
++            self.timetable_id
++            and self.session_number
++            and self.session_number > self.timetable.sessions_per_day
++        ):
++            raise ValidationError(
++                "The session number is outside this timetable's configured range."
++            )
++
++    def __str__(self):
++        return (
++            f"{self.get_weekday_display()} · Session {self.session_number} · "
++            f"{self.title}"
++        )
++
++
++class DailyTimetableAllocation(models.Model):
++    plan = models.ForeignKey(
++        StudyPlan,
++        on_delete=models.CASCADE,
++        related_name="timetable_allocations",
++    )
++    recommendation = models.ForeignKey(
++        StudyRecommendation,
++        on_delete=models.CASCADE,
++        related_name="timetable_allocations",
++    )
++    session_number = models.PositiveSmallIntegerField()
++    allocated_minutes = models.PositiveSmallIntegerField()
++    position = models.PositiveSmallIntegerField(default=0)
++    created_at = models.DateTimeField(auto_now_add=True)
++
++    class Meta:
++        ordering = ("session_number", "position", "pk")
++        constraints = [
++            models.CheckConstraint(
++                condition=models.Q(session_number__gte=1),
++                name="daily_tt_session_positive",
++            ),
++            models.CheckConstraint(
++                condition=models.Q(
++                    allocated_minutes__gte=1,
++                    allocated_minutes__lte=60,
++                ),
++                name="daily_tt_minutes_range",
++            ),
++            models.UniqueConstraint(
++                fields=("plan", "session_number", "position"),
++                name="daily_tt_unique_position",
++            ),
++        ]
++        indexes = [
++            models.Index(
++                fields=("plan", "session_number", "position"),
++                name="daily_tt_plan_slot_idx",
++            )
++        ]
++
++    def clean(self):
++        super().clean()
++        if (
++            self.plan_id
++            and self.recommendation_id
++            and self.recommendation.plan_id != self.plan_id
++        ):
++            raise ValidationError(
++                "A timetable allocation must reference a recommendation from its plan."
++            )
++
++    def __str__(self):
++        return (
++            f"{self.plan.plan_date} · Session {self.session_number} · "
++            f"{self.recommendation.title}"
++        )
+diff --git a/apps/planner/services.py b/apps/planner/services.py
+index 70b5edceb82cf1ca5c993ec7260cc295c6809a89..2609841ba3e7a03b9a8684fbc732a161ed058e10 100644
+--- a/apps/planner/services.py
++++ b/apps/planner/services.py
+@@ -1,3 +1,5 @@
++from collections import defaultdict
++
+ from django.conf import settings
+ from django.db import transaction
+ from django.utils import timezone
+@@ -7,10 +9,17 @@ from .candidate_builders import (
+     build_plan_candidates,
+     recommendation_payloads_from_selection,
+ )
+-from .models import StudyPlan, StudyRecommendation, StudySession
++from .models import (
++    DailyTimetableAllocation,
++    StudyPlan,
++    StudyRecommendation,
++    StudySession,
++    WeeklyTimetable,
++)
+ from .selection import select_plan_candidates
+ 
+ DEFAULT_TIME_BUDGET_MINUTES = 60
++SESSION_MINUTES = 60
+ 
+ 
+ def _active_roadmap_enrolment(*, user, goal=None):
+@@ -75,7 +84,7 @@ def _recommendation_payloads(
+ 
+ 
+ @transaction.atomic
+-def generate_daily_plan(
++def _generate_daily_plan_core(
+     *,
+     user,
+     time_budget_minutes=DEFAULT_TIME_BUDGET_MINUTES,
+@@ -138,6 +147,299 @@ def generate_daily_plan(
+     return plan
+ 
+ 
++def configured_timetable_for_user(*, user):
++    return WeeklyTimetable.objects.filter(
++        user=user,
++        sessions_per_day__gt=0,
++    ).first()
++
++
++def get_or_create_weekly_timetable(*, user):
++    timetable, _ = WeeklyTimetable.objects.get_or_create(
++        user=user,
++        defaults={"sessions_per_day": 0},
++    )
++    return timetable
++
++
++def timetable_blocks_for_date(*, timetable, plan_date):
++    return timetable.blocks.filter(
++        weekday=plan_date.weekday(),
++    ).order_by("session_number", "pk")
++
++
++def available_session_numbers(*, timetable, plan_date):
++    occupied = set(
++        timetable_blocks_for_date(
++            timetable=timetable,
++            plan_date=plan_date,
++        ).values_list("session_number", flat=True)
++    )
++    return tuple(
++        session_number
++        for session_number in timetable.session_numbers
++        if session_number not in occupied
++    )
++
++
++def _recommendation_key(recommendation):
++    return (
++        recommendation.kind,
++        recommendation.question_id,
++        recommendation.topic_id,
++        recommendation.action_path,
++        recommendation.title,
++    )
++
++
++def _completed_recommendations(plan):
++    return {
++        _recommendation_key(recommendation): recommendation.completed_at
++        for recommendation in plan.recommendations.filter(
++            completed_at__isnull=False,
++        )
++    }
++
++
++def _restore_completed_recommendations(*, plan, completed):
++    updates = []
++    for recommendation in plan.recommendations.all():
++        completed_at = completed.get(_recommendation_key(recommendation))
++        if completed_at is not None:
++            recommendation.completed_at = completed_at
++            updates.append(recommendation)
++    if updates:
++        StudyRecommendation.objects.bulk_update(
++            updates,
++            ["completed_at"],
++        )
++
++
++@transaction.atomic
++def allocate_plan_recommendations(*, plan, session_numbers):
++    ordered_sessions = tuple(sorted(set(session_numbers)))
++    plan.timetable_allocations.all().delete()
++
++    if not ordered_sessions:
++        return tuple()
++
++    allocations = []
++    session_index = 0
++    remaining_session_minutes = SESSION_MINUTES
++    position_by_session = defaultdict(int)
++
++    for recommendation in plan.recommendations.order_by(
++        "position",
++        "-priority_score",
++        "pk",
++    ):
++        remaining_recommendation_minutes = recommendation.estimated_minutes
++
++        while remaining_recommendation_minutes > 0:
++            if session_index >= len(ordered_sessions):
++                raise ValueError(
++                    "The generated plan exceeds the available timetable capacity."
++                )
++
++            session_number = ordered_sessions[session_index]
++            allocated_minutes = min(
++                remaining_recommendation_minutes,
++                remaining_session_minutes,
++            )
++            position_by_session[session_number] += 1
++            allocations.append(
++                DailyTimetableAllocation(
++                    plan=plan,
++                    recommendation=recommendation,
++                    session_number=session_number,
++                    allocated_minutes=allocated_minutes,
++                    position=position_by_session[session_number],
++                )
++            )
++            remaining_recommendation_minutes -= allocated_minutes
++            remaining_session_minutes -= allocated_minutes
++
++            if remaining_session_minutes == 0:
++                session_index += 1
++                remaining_session_minutes = SESSION_MINUTES
++
++    DailyTimetableAllocation.objects.bulk_create(allocations)
++    return tuple(allocations)
++
++
++@transaction.atomic
++def _empty_timetable_plan(*, user, plan_date, current_time):
++    plan, _ = StudyPlan.objects.select_for_update().get_or_create(
++        user=user,
++        plan_date=plan_date,
++        defaults={
++            "time_budget_minutes": 0,
++            "generated_at": current_time,
++        },
++    )
++    if plan.sessions.filter(ended_at__isnull=True).exists():
++        return plan
++
++    plan.recommendations.all().delete()
++    plan.timetable_allocations.all().delete()
++    plan.time_budget_minutes = 0
++    plan.status = StudyPlan.Status.ACTIVE
++    plan.selection_status = StudyPlan.SelectionStatus.FALLBACK
++    plan.selection_objective = None
++    plan.selection_best_bound = None
++    plan.selection_solve_time_ms = None
++    plan.generated_at = current_time
++    plan.save(
++        update_fields=[
++            "time_budget_minutes",
++            "status",
++            "selection_status",
++            "selection_objective",
++            "selection_best_bound",
++            "selection_solve_time_ms",
++            "generated_at",
++            "updated_at",
++        ]
++    )
++    return plan
++
++
++@transaction.atomic
++def generate_daily_plan_from_timetable(
++    *,
++    user,
++    timetable,
++    now=None,
++    force=False,
++):
++    current_time = now or timezone.now()
++    plan_date = timezone.localdate(current_time)
++    open_sessions = available_session_numbers(
++        timetable=timetable,
++        plan_date=plan_date,
++    )
++    time_budget_minutes = len(open_sessions) * SESSION_MINUTES
++    existing_plan = (
++        StudyPlan.objects.select_for_update()
++        .filter(user=user, plan_date=plan_date)
++        .first()
++    )
++
++    if (
++        existing_plan is not None
++        and existing_plan.sessions.filter(ended_at__isnull=True).exists()
++        and (
++            force
++            or existing_plan.time_budget_minutes != time_budget_minutes
++        )
++    ):
++        return existing_plan
++
++    completed = (
++        _completed_recommendations(existing_plan)
++        if existing_plan is not None and force
++        else {}
++    )
++
++    if time_budget_minutes == 0:
++        return _empty_timetable_plan(
++            user=user,
++            plan_date=plan_date,
++            current_time=current_time,
++        )
++
++    plan = _generate_daily_plan_core(
++        user=user,
++        time_budget_minutes=time_budget_minutes,
++        now=current_time,
++        force=(
++            force
++            or (
++                existing_plan is not None
++                and existing_plan.time_budget_minutes != time_budget_minutes
++            )
++        ),
++    )
++    _restore_completed_recommendations(
++        plan=plan,
++        completed=completed,
++    )
++    allocate_plan_recommendations(
++        plan=plan,
++        session_numbers=open_sessions,
++    )
++    return plan
++
++
++def generate_daily_plan(
++    *,
++    user,
++    time_budget_minutes=DEFAULT_TIME_BUDGET_MINUTES,
++    now=None,
++    force=False,
++):
++    timetable = configured_timetable_for_user(user=user)
++    if timetable is not None:
++        return generate_daily_plan_from_timetable(
++            user=user,
++            timetable=timetable,
++            now=now,
++            force=force,
++        )
++    return _generate_daily_plan_core(
++        user=user,
++        time_budget_minutes=time_budget_minutes,
++        now=now,
++        force=force,
++    )
++
++
++def timetable_day_summary(*, timetable, plan):
++    fixed_blocks = {
++        block.session_number: block
++        for block in timetable_blocks_for_date(
++            timetable=timetable,
++            plan_date=plan.plan_date,
++        )
++    }
++    allocations_by_session = defaultdict(list)
++    for allocation in plan.timetable_allocations.select_related(
++        "recommendation",
++        "recommendation__question",
++        "recommendation__topic__section__roadmap",
++    ):
++        allocations_by_session[allocation.session_number].append(allocation)
++
++    sessions = []
++    for session_number in timetable.session_numbers:
++        fixed_block = fixed_blocks.get(session_number)
++        allocations = tuple(
++            allocations_by_session.get(session_number, ())
++        )
++        used_minutes = sum(
++            allocation.allocated_minutes for allocation in allocations
++        )
++        sessions.append(
++            {
++                "number": session_number,
++                "fixed_block": fixed_block,
++                "allocations": allocations,
++                "used_minutes": used_minutes,
++                "remaining_minutes": (
++                    0 if fixed_block else SESSION_MINUTES - used_minutes
++                ),
++                "is_available": fixed_block is None,
++            }
++        )
++
++    return {
++        "timetable_sessions": tuple(sessions),
++        "available_session_count": sum(
++            session["is_available"] for session in sessions
++        ),
++        "fixed_block_count": len(fixed_blocks),
++    }
++
+ def plan_summary(*, plan):
+     recommendations = list(
+         plan.recommendations.select_related(
+diff --git a/apps/planner/urls.py b/apps/planner/urls.py
+index 716e0bbe8e7c3cf3bf1592b0ea4cc4dbd9fb33a7..f77260233728441c9768bb1e07785255c57c8e2e 100644
+--- a/apps/planner/urls.py
++++ b/apps/planner/urls.py
+@@ -1,17 +1,46 @@
+ from django.urls import path
+ 
+-from . import views
++from . import timetable_views, views
+ 
+ app_name = "planner"
+ 
+ urlpatterns = [
+-    path("", views.today_plan, name="today"),
+-    path("regenerate/", views.regenerate_plan, name="regenerate"),
++    path("", timetable_views.plan_entry, name="today"),
++    path("regenerate/", timetable_views.regenerate_entry, name="regenerate"),
++    path("timetable/", timetable_views.weekly_timetable, name="timetable"),
++    path(
++        "timetable/today/",
++        timetable_views.today_timetable,
++        name="timetable_today",
++    ),
++    path(
++        "timetable/settings/",
++        timetable_views.update_timetable_settings,
++        name="timetable_settings",
++    ),
++    path(
++        "timetable/<int:weekday>/<int:session_number>/",
++        timetable_views.timetable_block,
++        name="timetable_block",
++    ),
++    path(
++        "timetable/blocks/<int:block_id>/delete/",
++        timetable_views.delete_timetable_block,
++        name="delete_timetable_block",
++    ),
+     path(
+         "recommendations/<int:recommendation_id>/toggle/",
+         views.toggle_recommendation,
+         name="toggle_recommendation",
+     ),
+-    path("sessions/start/", views.start_session, name="start_session"),
+-    path("sessions/finish/", views.finish_session, name="finish_session"),
++    path(
++        "sessions/start/",
++        timetable_views.start_session_entry,
++        name="start_session",
++    ),
++    path(
++        "sessions/finish/",
++        timetable_views.finish_session_entry,
++        name="finish_session",
++    ),
+ ]
+diff --git a/templates/base.html b/templates/base.html
+index 98958b85d0b5fd7045ca021d49a0f8829dabefe1..8b70107af31be8bc3b693e8ef29315aefcff78cb 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -12,6 +12,7 @@
+     <link rel="stylesheet" href="{% static 'css/roadmaps.css' %}">
+     <link rel="stylesheet" href="{% static 'css/youtube_roadmaps.css' %}">
+     <link rel="stylesheet" href="{% static 'css/planner.css' %}">
++    <link rel="stylesheet" href="{% static 'css/timetable.css' %}">
+     <link rel="stylesheet" href="{% static 'css/interviews.css' %}">
+     <link rel="stylesheet" href="{% static 'css/goals.css' %}">
+     <link rel="stylesheet" href="{% static 'css/evidence.css' %}">
+diff --git a/templates/planner/today.html b/templates/planner/today.html
+index 1f8b3da91b37dedfa50f7b542c85b1ae8447ea27..db05b96a49f4bd94b23c2e3c0b2467d4d8f4e358 100644
+--- a/templates/planner/today.html
++++ b/templates/planner/today.html
+@@ -11,6 +11,7 @@
+         <p>A focused session assembled from what is due, what is in progress and what needs attention.</p>
+     </div>
+     <div class="planner-header-actions">
++        <a class="button button-secondary" href="{% url 'planner:timetable' %}">Weekly timetable</a>
+         {% if active_session %}
+             <form method="post" action="{% url 'planner:finish_session' %}">
+                 {% csrf_token %}
