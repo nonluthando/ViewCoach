@@ -43,7 +43,7 @@ def _activate_workspace(request, workspace):
 @require_POST
 def portfolio_demo_start(request):
     if not settings.PORTFOLIO_DEMO_ENABLED:
-        raise Http404("The recruiter demo is not enabled.")
+        raise Http404("The demo is not enabled.")
 
     if request.user.is_authenticated:
         if is_portfolio_demo_user(request.user):
@@ -66,7 +66,7 @@ def portfolio_demo_start(request):
     _activate_workspace(request, workspace)
     messages.success(
         request,
-        ("Your isolated recruiter demo is ready. Changes affect only this temporary workspace."),
+        ("Your isolated demo is ready. Changes affect only this temporary workspace."),
     )
     return redirect("portfolio_demo_guide")
 
