@@ -1,191 +1,413 @@
-{% extends "base.html" %}
+{%{% extends "base.html" %}
 
-{% block title %}ProofLoop | Adaptive interview readiness case study{% endblock %}
-{% block body_class %}portfolio-public-page portfolio-showcase-page{% endblock %}
+{% block title %}ProofLoop | Interview preparation that knows what to do next{% endblock %}
+{% block meta_description %}ProofLoop helps software engineering candidates learn, practise, prove their experience and rehearse for interviews in one focused workspace.{% endblock %}
+{% block body_class %}portfolio-public-page proofloop-landing-page{% endblock %}
 
 {% block content %}
-<section class="portfolio-case-hero">
-    <div>
-        <p class="eyebrow">Portfolio case study</p>
-        <h1>ProofLoop turns scattered interview preparation into one measurable readiness loop.</h1>
-        <p class="lead">
-            A full-stack Django product connecting learning roadmaps, retrieval
-            practice, spaced review, project evidence, mock interviews and
-            goal-aware daily planning.
+
+<section class="pl-hero">
+    <div class="pl-hero-copy">
+        <div class="pl-brand">
+            <span class="pl-brand-mark">P</span>
+            <span>ProofLoop</span>
+        </div>
+
+        <p class="pl-eyebrow">INTERVIEW PREPARATION, WITHOUT THE GUESSWORK</p>
+
+        <h1>Prepare for the interview you actually want.</h1>
+
+        <p class="pl-hero-text">
+            Learn what matters, practise what you know, build evidence from your
+            experience, and see what deserves your attention next.
         </p>
-        <div class="button-row">
-            {% if portfolio_demo_active %}
-                <a class="button" href="{% url 'portfolio_demo_guide' %}">
-                    Continue demo
+
+        <div class="pl-actions">
+            {% if user.is_authenticated %}
+                <a class="pl-button pl-button-primary" href="{% url 'dashboard' %}">
+                    Open workspace
                 </a>
-            {% elif user.is_authenticated %}
-                <a class="button" href="{% url 'dashboard' %}">Open my workspace</a>
-            {% elif portfolio_demo_enabled %}
-                <form method="post" action="{% url 'portfolio_demo_start' %}">
-                    {% csrf_token %}
-                    <button class="button" type="submit">
-                        Create isolated demo workspace
-                    </button>
-                </form>
             {% else %}
-                <span class="portfolio-demo-status">
-                    Interactive demo is temporarily disabled.
-                </span>
+                {% if portfolio_demo_enabled %}
+                    <form method="post" action="{% url 'portfolio_demo_start' %}">
+                        {% csrf_token %}
+                        <button class="pl-button pl-button-primary" type="submit">
+                            Explore the demo
+                        </button>
+                    </form>
+                {% endif %}
+                <a class="pl-button pl-button-secondary" href="{% url 'signup' %}">
+                    Create account
+                </a>
             {% endif %}
-            <a class="button button-secondary"
-               href="https://github.com/nonluthando/ViewCoach"
-               target="_blank" rel="noopener noreferrer">
-                View GitHub repository
-            </a>
+        </div>
+
+        <div class="pl-trust-row">
+            <span>Learn</span>
+            <i></i>
+            <span>Practise</span>
+            <i></i>
+            <span>Prove</span>
+            <i></i>
+            <span>Rehearse</span>
         </div>
     </div>
-    <aside class="portfolio-case-summary">
-        <span>Built by Luthando Mbuyane</span>
-        <dl>
-            <div><dt>Backend</dt><dd>Django + PostgreSQL</dd></div>
-            <div><dt>Planning</dt><dd>Explainable scoring + OR-Tools</dd></div>
-            <div><dt>AI</dt><dd>Gemini + pgvector RAG</dd></div>
-            <div><dt>Quality</dt><dd>pytest regression suites</dd></div>
-        </dl>
-    </aside>
-</section>
 
-<section class="portfolio-metric-strip" aria-label="Project scope">
-    <article><strong>9</strong><span>connected product domains</span></article>
-    <article><strong>3</strong><span>roadmap ownership models</span></article>
-    <article><strong>4</strong><span>interview question types</span></article>
-    <article><strong>1</strong><span>explainable planning engine</span></article>
-</section>
+    <div class="pl-hero-visual">
+        <div class="pl-glow"></div>
 
-<section class="portfolio-case-section">
-    <header>
-        <p class="eyebrow">Problem</p>
-        <h2>Preparation tools store information. They rarely decide what deserves attention.</h2>
-    </header>
-    <div class="portfolio-problem-grid">
-        <article>
-            <span>01</span>
-            <h3>Learning is fragmented</h3>
-            <p>Courses, playlists, notes and personal roadmaps live in separate places.</p>
-        </article>
-        <article>
-            <span>02</span>
-            <h3>Practice loses context</h3>
-            <p>Question banks are disconnected from mistakes, evidence and real goals.</p>
-        </article>
-        <article>
-            <span>03</span>
-            <h3>Planning becomes guesswork</h3>
-            <p>A candidate still has to decide what to study today and why.</p>
-        </article>
+        <div class="pl-dashboard">
+            <div class="pl-dashboard-top">
+                <div class="pl-mini-brand">
+                    <span class="pl-mini-mark">P</span>
+                    ProofLoop
+                </div>
+
+                <div class="pl-avatar">L</div>
+            </div>
+
+            <div class="pl-dashboard-body">
+                <div class="pl-greeting">
+                    <span>YOUR PREPARATION</span>
+                    <h2>Good morning.</h2>
+                </div>
+
+                <div class="pl-dashboard-grid">
+                    <div class="pl-focus-card">
+                        <div class="pl-card-label">TODAY'S FOCUS</div>
+                        <h3>Explain RAG retrieval trade-offs</h3>
+                        <p>Selected from your current preparation.</p>
+
+                        <div class="pl-progress">
+                            <span style="width: 72%;"></span>
+                        </div>
+
+                        <div class="pl-focus-meta">
+                            <span>72% confidence</span>
+                            <span>35 min</span>
+                        </div>
+                    </div>
+
+                    <div class="pl-readiness-card">
+                        <div class="pl-card-label">READINESS</div>
+
+                        <div class="pl-score">
+                            <strong>72</strong>
+                            <span>/100</span>
+                        </div>
+
+                        <p>You're building momentum.</p>
+
+                        <div class="pl-score-bars">
+                            <span style="height: 72%;"></span>
+                            <span style="height: 48%;"></span>
+                            <span style="height: 82%;"></span>
+                            <span style="height: 61%;"></span>
+                            <span style="height: 91%;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pl-section-heading">
+                    <span>PREPARATION LOOP</span>
+                    <small>Keep moving</small>
+                </div>
+
+                <div class="pl-loop">
+                    <div class="pl-loop-item pl-loop-complete">
+                        <span class="pl-loop-icon">✓</span>
+                        <div>
+                            <strong>Learn</strong>
+                            <small>Roadmap foundations</small>
+                        </div>
+                    </div>
+
+                    <div class="pl-loop-item pl-loop-current">
+                        <span class="pl-loop-icon">2</span>
+                        <div>
+                            <strong>Practise</strong>
+                            <small>Retrieval & explanation</small>
+                        </div>
+                    </div>
+
+                    <div class="pl-loop-item">
+                        <span class="pl-loop-icon">3</span>
+                        <div>
+                            <strong>Prove</strong>
+                            <small>Projects & stories</small>
+                        </div>
+                    </div>
+
+                    <div class="pl-loop-item">
+                        <span class="pl-loop-icon">4</span>
+                        <div>
+                            <strong>Rehearse</strong>
+                            <small>Mock interview</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pl-floating-card pl-floating-review">
+            <span class="pl-floating-icon">✓</span>
+            <div>
+                <strong>3 reviews due</strong>
+                <small>Ready when you are</small>
+            </div>
+        </div>
+
+        <div class="pl-floating-card pl-floating-next">
+            <span class="pl-floating-icon">→</span>
+            <div>
+                <strong>Your next step</strong>
+                <small>API architecture</small>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="portfolio-case-section">
-    <header>
-        <p class="eyebrow">Product response</p>
-        <h2>One preparation loop, with explicit boundaries between its parts.</h2>
-    </header>
-    <div class="portfolio-flow" aria-label="ProofLoop preparation loop">
-        <article><span>1</span><strong>Set a goal</strong><small>Role, stage and time available</small></article>
-        <article><span>2</span><strong>Build knowledge</strong><small>Curated, imported and personal roadmaps</small></article>
-        <article><span>3</span><strong>Practise recall</strong><small>Questions, notes and spaced review</small></article>
-        <article><span>4</span><strong>Connect evidence</strong><small>Projects, decisions and STAR stories</small></article>
-        <article><span>5</span><strong>Rehearse</strong><small>Mixed mock interviews and reflection</small></article>
-        <article><span>6</span><strong>Plan next</strong><small>Explainable daily recommendations</small></article>
-    </div>
+
+<section class="pl-intro">
+    <p class="pl-eyebrow">ONE WORKSPACE. FOUR WAYS TO PREPARE.</p>
+    <h2>Everything you need to become interview-ready.</h2>
+    <p>
+        ProofLoop connects the different parts of preparation instead of leaving
+        you to figure out what comes next.
+    </p>
 </section>
 
-<section class="portfolio-case-section">
-    <header>
-        <p class="eyebrow">Product demo</p>
-        <h2>A complete seeded product journey—not an empty account.</h2>
+
+<section class="pl-pillars">
+    <article class="pl-pillar pl-pillar-featured">
+        <div class="pl-pillar-number">01</div>
+        <div class="pl-pillar-icon">↗</div>
+        <h3>Learn</h3>
         <p>
-            Every visitor receives a private temporary workspace. They can edit,
-            complete and delete data without affecting another visitor, then reset
-            everything in one click.
+            Build focused knowledge with structured roadmaps, topics and
+            resources aligned to the role you're preparing for.
         </p>
-    </header>
-    <ol class="portfolio-demo-preview">
-        <li><strong>Dashboard</strong><span>Readiness, reviews, evidence and the next task</span></li>
-        <li><strong>Daily plan</strong><span>Optimised work with visible rationale</span></li>
-        <li><strong>User roadmap</strong><span>Create, edit, reorder and focus topics</span></li>
-        <li><strong>Topic workspace</strong><span>Notes, links, progress and evidence</span></li>
-        <li><strong>Question card</strong><span>A complete answer with review history</span></li>
-        <li><strong>Project evidence</strong><span>Architecture, decisions and trade-offs</span></li>
-        <li><strong>Mock interview</strong><span>Completed answers and confidence ratings</span></li>
-        <li><strong>Goal readiness</strong><span>Preparation connected to a target role</span></li>
-    </ol>
+        <div class="pl-pillar-preview">
+            <span>Backend Engineering</span>
+            <div><b style="width: 78%;"></b></div>
+            <small>12 of 16 topics complete</small>
+        </div>
+    </article>
+
+    <article class="pl-pillar">
+        <div class="pl-pillar-number">02</div>
+        <div class="pl-pillar-icon">✦</div>
+        <h3>Practise</h3>
+        <p>
+            Turn knowledge into reliable recall through questions, review and
+            deliberate practice.
+        </p>
+        <div class="pl-question-preview">
+            <span>QUESTION</span>
+            <strong>What makes an API idempotent?</strong>
+            <small>Review · Technical</small>
+        </div>
+    </article>
+
+    <article class="pl-pillar">
+        <div class="pl-pillar-number">03</div>
+        <div class="pl-pillar-icon">◇</div>
+        <h3>Prove</h3>
+        <p>
+            Connect your projects, technical decisions and behavioural stories
+            to the skills you're preparing to demonstrate.
+        </p>
+        <div class="pl-proof-preview">
+            <span>PROJECT EVIDENCE</span>
+            <strong>Adaptive planner</strong>
+            <small>Django · PostgreSQL · OR-Tools</small>
+        </div>
+    </article>
+
+    <article class="pl-pillar">
+        <div class="pl-pillar-number">04</div>
+        <div class="pl-pillar-icon">◌</div>
+        <h3>Rehearse</h3>
+        <p>
+            Simulate the interview, reflect on your answers and understand where
+            your preparation still needs work.
+        </p>
+        <div class="pl-interview-preview">
+            <div>
+                <span>MOCK INTERVIEW</span>
+                <strong>Technical · 32 min</strong>
+            </div>
+            <b>Start →</b>
+        </div>
+    </article>
 </section>
 
-<section class="portfolio-case-section">
-    <header>
-        <p class="eyebrow">Architecture</p>
-        <h2>Modular Django domains joined through services, not template logic.</h2>
-    </header>
-    <div class="portfolio-architecture-grid">
-        <article>
-            <h3>Application layer</h3>
-            <p>Accounts, goals, roadmaps, questions, reviews, planner, evidence, interviews and knowledge.</p>
-        </article>
-        <article>
-            <h3>Persistence</h3>
-            <p>PostgreSQL relational integrity, transactional workflows and pgvector retrieval.</p>
-        </article>
-        <article>
-            <h3>Planning</h3>
-            <p>Candidate generation, explainable scoring, compulsory work and OR-Tools optimisation.</p>
-        </article>
-        <article>
-            <h3>AI boundary</h3>
-            <p>Grounded assistance and editable drafts that remain outside review until approved.</p>
-        </article>
+
+<section class="pl-showcase">
+    <div class="pl-showcase-copy">
+        <p class="pl-eyebrow">YOUR PREPARATION, CONNECTED</p>
+        <h2>Stop switching between ten different tools.</h2>
+        <p>
+            Your roadmap, questions, reviews, projects and interview practice
+            belong to the same preparation journey.
+        </p>
+
+        <div class="pl-showcase-list">
+            <div>
+                <span>01</span>
+                <p><strong>Know what you're learning</strong><br>Track the topics that matter.</p>
+            </div>
+            <div>
+                <span>02</span>
+                <p><strong>Know what you're forgetting</strong><br>Use review to strengthen recall.</p>
+            </div>
+            <div>
+                <span>03</span>
+                <p><strong>Know what you've actually done</strong><br>Turn experience into evidence.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="pl-showcase-visual">
+        <div class="pl-roadmap-window">
+            <div class="pl-window-bar">
+                <span></span><span></span><span></span>
+                <small>My roadmap</small>
+            </div>
+
+            <div class="pl-roadmap-content">
+                <div class="pl-roadmap-header">
+                    <div>
+                        <span>ROADMAP</span>
+                        <h3>Backend Engineering</h3>
+                    </div>
+                    <b>78%</b>
+                </div>
+
+                <div class="pl-roadmap-line"></div>
+
+                <div class="pl-roadmap-topic pl-topic-done">
+                    <span>✓</span>
+                    <div>
+                        <strong>REST APIs</strong>
+                        <small>8 topics · mastered</small>
+                    </div>
+                    <b>100%</b>
+                </div>
+
+                <div class="pl-roadmap-topic pl-topic-active">
+                    <span>●</span>
+                    <div>
+                        <strong>Authentication</strong>
+                        <small>6 topics · in progress</small>
+                    </div>
+                    <b>72%</b>
+                </div>
+
+                <div class="pl-roadmap-topic">
+                    <span>○</span>
+                    <div>
+                        <strong>System Design</strong>
+                        <small>10 topics · upcoming</small>
+                    </div>
+                    <b>24%</b>
+                </div>
+
+                <div class="pl-roadmap-topic">
+                    <span>○</span>
+                    <div>
+                        <strong>Distributed Systems</strong>
+                        <small>8 topics · upcoming</small>
+                    </div>
+                    <b>0%</b>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="portfolio-case-section">
-    <header>
-        <p class="eyebrow">Engineering decisions</p>
-        <h2>The trade-offs are part of the product story.</h2>
-    </header>
-    <div class="portfolio-decision-grid">
-        <article>
-            <h3>One roadmap domain, several source types</h3>
-            <p>Curated, imported and personal paths reuse progress and planning while retaining ownership.</p>
-            <small>Trade-off: stricter source-aware routing for far less duplicated behaviour.</small>
-        </article>
-        <article>
-            <h3>Human approval before AI content enters review</h3>
-            <p>Generated cards remain editable drafts until the candidate confirms them.</p>
-            <small>Trade-off: one extra step for better trust and retrieval quality.</small>
-        </article>
-        <article>
-            <h3>Optimisation with a deterministic fallback</h3>
-            <p>The planner can optimise within a time budget but still works when the solver is unavailable.</p>
-            <small>Trade-off: two selection paths that require shared policy tests.</small>
-        </article>
-        <article>
-            <h3>Isolated demo workspaces</h3>
-            <p>Visitors receive temporary accounts instead of sharing mutable credentials.</p>
-            <small>Trade-off: cleanup and capacity controls for a reliable portfolio experience.</small>
-        </article>
+
+<section class="pl-personalisation">
+    <div class="pl-personalisation-visual">
+        <div class="pl-recommendation">
+            <div class="pl-rec-top">
+                <span class="pl-rec-dot"></span>
+                <span>PERSONALISED NEXT STEP</span>
+            </div>
+
+            <h3>Explain RAG retrieval trade-offs</h3>
+
+            <div class="pl-rec-time">
+                <span>35 minutes</span>
+                <span>Technical explanation</span>
+            </div>
+
+            <div class="pl-rec-reason">
+                <span>Why this?</span>
+                <p>
+                    Relevant to your target role, your recent review performance,
+                    and your current preparation gaps.
+                </p>
+            </div>
+
+            <button type="button" class="pl-rec-button">Continue preparing →</button>
+        </div>
+    </div>
+
+    <div class="pl-personalisation-copy">
+        <p class="pl-eyebrow">NOT JUST ANOTHER QUESTION BANK</p>
+        <h2>Know what deserves your attention next.</h2>
+        <p>
+            ProofLoop looks at your goals, progress, review history and evidence
+            to help turn a huge preparation list into a focused next step.
+        </p>
+
+        <div class="pl-signal-list">
+            <div>
+                <span>✓</span>
+                <p><strong>Your goal</strong><br>What role are you preparing for?</p>
+            </div>
+            <div>
+                <span>✓</span>
+                <p><strong>Your progress</strong><br>What have you already covered?</p>
+            </div>
+            <div>
+                <span>✓</span>
+                <p><strong>Your gaps</strong><br>What still needs attention?</p>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="portfolio-case-cta">
-    <div>
-        <p class="eyebrow">Explore the implementation</p>
-        <h2>See the connected workflows with realistic data already in place.</h2>
+
+<section class="pl-final">
+    <div class="pl-final-orb"></div>
+
+    <p class="pl-eyebrow">YOUR NEXT INTERVIEW STARTS HERE</p>
+    <h2>Know what to prepare next.</h2>
+    <p>
+        Turn scattered preparation into a focused loop you can actually follow.
+    </p>
+
+    <div class="pl-actions pl-final-actions">
+        {% if user.is_authenticated %}
+            <a class="pl-button pl-button-primary" href="{% url 'dashboard' %}">
+                Open workspace
+            </a>
+        {% else %}
+            {% if portfolio_demo_enabled %}
+                <form method="post" action="{% url 'portfolio_demo_start' %}">
+                    {% csrf_token %}
+                    <button class="pl-button pl-button-primary" type="submit">
+                        Explore the demo
+                    </button>
+                </form>
+            {% endif %}
+            <a class="pl-button pl-button-light" href="{% url 'signup' %}">
+                Create account
+            </a>
+        {% endif %}
     </div>
-    {% if portfolio_demo_enabled and not user.is_authenticated %}
-        <form method="post" action="{% url 'portfolio_demo_start' %}">
-            {% csrf_token %}
-            <button class="button" type="submit">Start demo</button>
-        </form>
-    {% elif portfolio_demo_active %}
-        <a class="button" href="{% url 'portfolio_demo_guide' %}">Continue demo</a>
-    {% else %}
-        <a class="button" href="{% url 'dashboard' %}">Open workspace</a>
-    {% endif %}
 </section>
+
 {% endblock %}
