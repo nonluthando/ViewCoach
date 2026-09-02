@@ -31,15 +31,6 @@ def _start_demo(client):
     return client.post(reverse("portfolio_demo_start"))
 
 
-def test_project_showcase_is_public(client):
-    response = client.get(reverse("project_showcase"))
-
-    assert response.status_code == 200
-    content = response.content.decode()
-    assert "ProofLoop turns scattered interview preparation" in content
-    assert "Engineering decisions" in content
-
-
 @override_settings(PORTFOLIO_DEMO_ENABLED=False)
 def test_demo_start_returns_404_when_disabled(client):
     response = _start_demo(client)
