@@ -1,413 +1,668 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}ProofLoop | Interview preparation that knows what to do next{% endblock %}
-{% block meta_description %}ProofLoop helps software engineering candidates learn, practise, prove their experience and rehearse for interviews in one focused workspace.{% endblock %}
-{% block body_class %}portfolio-public-page proofloop-landing-page{% endblock %}
+{% block meta_description %}
+Prepare for software engineering interviews with one connected workspace for learning,
+practice, project evidence and mock interviews.
+{% endblock %}
+{% block body_class %}proofloop-landing-page{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/proofloop-landing.css' %}">
+{% endblock %}
 
 {% block content %}
 
-<section class="pl-hero">
-    <div class="pl-hero-copy">
-        <div class="pl-brand">
-            <span class="pl-brand-mark">P</span>
-            <span>ProofLoop</span>
-        </div>
+<main class="pl-landing">
 
-        <p class="pl-eyebrow">INTERVIEW PREPARATION, WITHOUT THE GUESSWORK</p>
+    <!-- HERO -->
+    <section class="pl-hero">
+        <div class="pl-container pl-hero-grid">
 
-        <h1>Prepare for the interview you actually want.</h1>
-
-        <p class="pl-hero-text">
-            Learn what matters, practise what you know, build evidence from your
-            experience, and see what deserves your attention next.
-        </p>
-
-        <div class="pl-actions">
-            {% if user.is_authenticated %}
-                <a class="pl-button pl-button-primary" href="{% url 'dashboard' %}">
-                    Open workspace
-                </a>
-            {% else %}
-                {% if portfolio_demo_enabled %}
-                    <form method="post" action="{% url 'portfolio_demo_start' %}">
-                        {% csrf_token %}
-                        <button class="pl-button pl-button-primary" type="submit">
-                            Explore the demo
-                        </button>
-                    </form>
-                {% endif %}
-                <a class="pl-button pl-button-secondary" href="{% url 'signup' %}">
-                    Create account
-                </a>
-            {% endif %}
-        </div>
-
-        <div class="pl-trust-row">
-            <span>Learn</span>
-            <i></i>
-            <span>Practise</span>
-            <i></i>
-            <span>Prove</span>
-            <i></i>
-            <span>Rehearse</span>
-        </div>
-    </div>
-
-    <div class="pl-hero-visual">
-        <div class="pl-glow"></div>
-
-        <div class="pl-dashboard">
-            <div class="pl-dashboard-top">
-                <div class="pl-mini-brand">
-                    <span class="pl-mini-mark">P</span>
-                    ProofLoop
+            <div class="pl-hero-copy">
+                <div class="pl-brand">
+                    <span class="pl-brand-mark">P</span>
+                    <span>ProofLoop</span>
                 </div>
 
-                <div class="pl-avatar">L</div>
-            </div>
+                <p class="pl-eyebrow">INTERVIEW PREPARATION, CONNECTED</p>
 
-            <div class="pl-dashboard-body">
-                <div class="pl-greeting">
-                    <span>YOUR PREPARATION</span>
-                    <h2>Good morning.</h2>
+                <h1>
+                    Know what to prepare
+                    <span>next.</span>
+                </h1>
+
+                <p class="pl-hero-lead">
+                    ProofLoop connects what you learn, practise, build and rehearse
+                    so you can spend your preparation time on what actually matters.
+                </p>
+
+                <div class="pl-actions">
+                    {% if user.is_authenticated %}
+                        <a class="pl-button pl-button-primary"
+                           href="{% url 'dashboard' %}">
+                            Open workspace
+                            <span>→</span>
+                        </a>
+                    {% else %}
+                        {% if portfolio_demo_enabled %}
+                            <form method="post"
+                                  action="{% url 'portfolio_demo_start' %}">
+                                {% csrf_token %}
+                                <button class="pl-button pl-button-primary"
+                                        type="submit">
+                                    Explore the demo
+                                    <span>→</span>
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        <a class="pl-button pl-button-secondary"
+                           href="{% url 'project_showcase' %}">
+                            See how it works
+                        </a>
+                    {% endif %}
                 </div>
 
-                <div class="pl-dashboard-grid">
-                    <div class="pl-focus-card">
-                        <div class="pl-card-label">TODAY'S FOCUS</div>
-                        <h3>Explain RAG retrieval trade-offs</h3>
-                        <p>Selected from your current preparation.</p>
+                <div class="pl-trust-row">
+                    <span>Learn</span>
+                    <i></i>
+                    <span>Practise</span>
+                    <i></i>
+                    <span>Prove</span>
+                    <i></i>
+                    <span>Rehearse</span>
+                </div>
+            </div>
 
-                        <div class="pl-progress">
-                            <span style="width: 72%;"></span>
+            <!-- HERO PRODUCT PREVIEW -->
+            <div class="pl-hero-product">
+                <div class="pl-product-glow"></div>
+
+                <div class="pl-dashboard-window">
+
+                    <div class="pl-dashboard-topbar">
+                        <div class="pl-mini-brand">
+                            <span class="pl-mini-brand-mark">P</span>
+                            <strong>ProofLoop</strong>
                         </div>
 
-                        <div class="pl-focus-meta">
-                            <span>72% confidence</span>
-                            <span>35 min</span>
+                        <div class="pl-window-controls">
+                            <span></span>
+                            <span></span>
+                            <span></span>
                         </div>
                     </div>
 
-                    <div class="pl-readiness-card">
-                        <div class="pl-card-label">READINESS</div>
+                    <div class="pl-dashboard-body">
 
-                        <div class="pl-score">
-                            <strong>72</strong>
-                            <span>/100</span>
-                        </div>
+                        <aside class="pl-dashboard-sidebar">
+                            <div class="pl-sidebar-item pl-sidebar-active">
+                                <span>⌂</span>
+                                Dashboard
+                            </div>
+                            <div class="pl-sidebar-item">
+                                <span>◫</span>
+                                Roadmaps
+                            </div>
+                            <div class="pl-sidebar-item">
+                                <span>◉</span>
+                                Practise
+                            </div>
+                            <div class="pl-sidebar-item">
+                                <span>◇</span>
+                                Evidence
+                            </div>
+                            <div class="pl-sidebar-item">
+                                <span>◌</span>
+                                Interviews
+                            </div>
+                        </aside>
 
-                        <p>You're building momentum.</p>
+                        <div class="pl-dashboard-main">
 
-                        <div class="pl-score-bars">
-                            <span style="height: 72%;"></span>
-                            <span style="height: 48%;"></span>
-                            <span style="height: 82%;"></span>
-                            <span style="height: 61%;"></span>
-                            <span style="height: 91%;"></span>
+                            <div class="pl-dashboard-heading">
+                                <div>
+                                    <p>Good morning</p>
+                                    <h2>Today's preparation</h2>
+                                </div>
+
+                                <div class="pl-avatar">LM</div>
+                            </div>
+
+                            <div class="pl-dashboard-stats">
+
+                                <div class="pl-stat-card">
+                                    <span class="pl-stat-icon pl-icon-purple">↗</span>
+                                    <div>
+                                        <small>Readiness</small>
+                                        <strong>72%</strong>
+                                    </div>
+                                    <em>+8%</em>
+                                </div>
+
+                                <div class="pl-stat-card">
+                                    <span class="pl-stat-icon pl-icon-blue">✓</span>
+                                    <div>
+                                        <small>Topics</small>
+                                        <strong>18 / 24</strong>
+                                    </div>
+                                    <em>75%</em>
+                                </div>
+
+                                <div class="pl-stat-card">
+                                    <span class="pl-stat-icon pl-icon-pink">?</span>
+                                    <div>
+                                        <small>Due today</small>
+                                        <strong>7</strong>
+                                    </div>
+                                    <em>Reviews</em>
+                                </div>
+
+                            </div>
+
+                            <div class="pl-dashboard-columns">
+
+                                <div class="pl-focus-card">
+                                    <div class="pl-card-heading">
+                                        <div>
+                                            <small>YOUR NEXT FOCUS</small>
+                                            <h3>Explain RAG retrieval trade-offs</h3>
+                                        </div>
+                                        <span class="pl-focus-badge">35 min</span>
+                                    </div>
+
+                                    <div class="pl-progress">
+                                        <span style="width: 68%"></span>
+                                    </div>
+
+                                    <div class="pl-focus-meta">
+                                        <span>Technical explanation</span>
+                                        <strong>68%</strong>
+                                    </div>
+
+                                    <div class="pl-reason">
+                                        <span>✦</span>
+                                        <div>
+                                            <strong>Why this now?</strong>
+                                            <p>
+                                                Relevant to your target role and
+                                                weaker in your recent practice.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pl-readiness-card">
+                                    <div class="pl-card-heading">
+                                        <small>READINESS</small>
+                                        <span>Target role</span>
+                                    </div>
+
+                                    <div class="pl-ring">
+                                        <div>
+                                            <strong>72</strong>
+                                            <small>/100</small>
+                                        </div>
+                                    </div>
+
+                                    <p>AI Application Engineer</p>
+                                </div>
+
+                            </div>
+
+                            <div class="pl-loop-card">
+                                <div class="pl-loop-title">
+                                    <small>PREPARATION LOOP</small>
+                                    <span>Today</span>
+                                </div>
+
+                                <div class="pl-loop">
+                                    <div class="pl-loop-step pl-loop-done">
+                                        <span>✓</span>
+                                        <strong>Learn</strong>
+                                    </div>
+
+                                    <div class="pl-loop-line pl-line-done"></div>
+
+                                    <div class="pl-loop-step pl-loop-current">
+                                        <span>2</span>
+                                        <strong>Practise</strong>
+                                    </div>
+
+                                    <div class="pl-loop-line"></div>
+
+                                    <div class="pl-loop-step">
+                                        <span>3</span>
+                                        <strong>Prove</strong>
+                                    </div>
+
+                                    <div class="pl-loop-line"></div>
+
+                                    <div class="pl-loop-step">
+                                        <span>4</span>
+                                        <strong>Rehearse</strong>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
 
-                <div class="pl-section-heading">
-                    <span>PREPARATION LOOP</span>
-                    <small>Keep moving</small>
-                </div>
-
-                <div class="pl-loop">
-                    <div class="pl-loop-item pl-loop-complete">
-                        <span class="pl-loop-icon">✓</span>
-                        <div>
-                            <strong>Learn</strong>
-                            <small>Roadmap foundations</small>
-                        </div>
-                    </div>
-
-                    <div class="pl-loop-item pl-loop-current">
-                        <span class="pl-loop-icon">2</span>
-                        <div>
-                            <strong>Practise</strong>
-                            <small>Retrieval & explanation</small>
-                        </div>
-                    </div>
-
-                    <div class="pl-loop-item">
-                        <span class="pl-loop-icon">3</span>
-                        <div>
-                            <strong>Prove</strong>
-                            <small>Projects & stories</small>
-                        </div>
-                    </div>
-
-                    <div class="pl-loop-item">
-                        <span class="pl-loop-icon">4</span>
-                        <div>
-                            <strong>Rehearse</strong>
-                            <small>Mock interview</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="pl-floating-card pl-floating-review">
-            <span class="pl-floating-icon">✓</span>
-            <div>
-                <strong>3 reviews due</strong>
-                <small>Ready when you are</small>
-            </div>
-        </div>
-
-        <div class="pl-floating-card pl-floating-next">
-            <span class="pl-floating-icon">→</span>
-            <div>
-                <strong>Your next step</strong>
-                <small>API architecture</small>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-<section class="pl-intro">
-    <p class="pl-eyebrow">ONE WORKSPACE. FOUR WAYS TO PREPARE.</p>
-    <h2>Everything you need to become interview-ready.</h2>
-    <p>
-        ProofLoop connects the different parts of preparation instead of leaving
-        you to figure out what comes next.
-    </p>
-</section>
-
-
-<section class="pl-pillars">
-    <article class="pl-pillar pl-pillar-featured">
-        <div class="pl-pillar-number">01</div>
-        <div class="pl-pillar-icon">↗</div>
-        <h3>Learn</h3>
-        <p>
-            Build focused knowledge with structured roadmaps, topics and
-            resources aligned to the role you're preparing for.
-        </p>
-        <div class="pl-pillar-preview">
-            <span>Backend Engineering</span>
-            <div><b style="width: 78%;"></b></div>
-            <small>12 of 16 topics complete</small>
-        </div>
-    </article>
-
-    <article class="pl-pillar">
-        <div class="pl-pillar-number">02</div>
-        <div class="pl-pillar-icon">✦</div>
-        <h3>Practise</h3>
-        <p>
-            Turn knowledge into reliable recall through questions, review and
-            deliberate practice.
-        </p>
-        <div class="pl-question-preview">
-            <span>QUESTION</span>
-            <strong>What makes an API idempotent?</strong>
-            <small>Review · Technical</small>
-        </div>
-    </article>
-
-    <article class="pl-pillar">
-        <div class="pl-pillar-number">03</div>
-        <div class="pl-pillar-icon">◇</div>
-        <h3>Prove</h3>
-        <p>
-            Connect your projects, technical decisions and behavioural stories
-            to the skills you're preparing to demonstrate.
-        </p>
-        <div class="pl-proof-preview">
-            <span>PROJECT EVIDENCE</span>
-            <strong>Adaptive planner</strong>
-            <small>Django · PostgreSQL · OR-Tools</small>
-        </div>
-    </article>
-
-    <article class="pl-pillar">
-        <div class="pl-pillar-number">04</div>
-        <div class="pl-pillar-icon">◌</div>
-        <h3>Rehearse</h3>
-        <p>
-            Simulate the interview, reflect on your answers and understand where
-            your preparation still needs work.
-        </p>
-        <div class="pl-interview-preview">
-            <div>
-                <span>MOCK INTERVIEW</span>
-                <strong>Technical · 32 min</strong>
-            </div>
-            <b>Start →</b>
-        </div>
-    </article>
-</section>
-
-
-<section class="pl-showcase">
-    <div class="pl-showcase-copy">
-        <p class="pl-eyebrow">YOUR PREPARATION, CONNECTED</p>
-        <h2>Stop switching between ten different tools.</h2>
-        <p>
-            Your roadmap, questions, reviews, projects and interview practice
-            belong to the same preparation journey.
-        </p>
-
-        <div class="pl-showcase-list">
-            <div>
-                <span>01</span>
-                <p><strong>Know what you're learning</strong><br>Track the topics that matter.</p>
-            </div>
-            <div>
-                <span>02</span>
-                <p><strong>Know what you're forgetting</strong><br>Use review to strengthen recall.</p>
-            </div>
-            <div>
-                <span>03</span>
-                <p><strong>Know what you've actually done</strong><br>Turn experience into evidence.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="pl-showcase-visual">
-        <div class="pl-roadmap-window">
-            <div class="pl-window-bar">
-                <span></span><span></span><span></span>
-                <small>My roadmap</small>
-            </div>
-
-            <div class="pl-roadmap-content">
-                <div class="pl-roadmap-header">
+                <div class="pl-floating-card pl-floating-review">
+                    <span class="pl-floating-icon">✓</span>
                     <div>
-                        <span>ROADMAP</span>
-                        <h3>Backend Engineering</h3>
+                        <strong>7 reviews due</strong>
+                        <small>Spaced practice</small>
                     </div>
-                    <b>78%</b>
                 </div>
 
-                <div class="pl-roadmap-line"></div>
-
-                <div class="pl-roadmap-topic pl-topic-done">
-                    <span>✓</span>
+                <div class="pl-floating-card pl-floating-roadmap">
+                    <span class="pl-floating-icon">↗</span>
                     <div>
-                        <strong>REST APIs</strong>
-                        <small>8 topics · mastered</small>
+                        <strong>Roadmap 75%</strong>
+                        <small>Backend fundamentals</small>
                     </div>
-                    <b>100%</b>
                 </div>
 
-                <div class="pl-roadmap-topic pl-topic-active">
-                    <span>●</span>
-                    <div>
-                        <strong>Authentication</strong>
-                        <small>6 topics · in progress</small>
-                    </div>
-                    <b>72%</b>
-                </div>
-
-                <div class="pl-roadmap-topic">
-                    <span>○</span>
-                    <div>
-                        <strong>System Design</strong>
-                        <small>10 topics · upcoming</small>
-                    </div>
-                    <b>24%</b>
-                </div>
-
-                <div class="pl-roadmap-topic">
-                    <span>○</span>
-                    <div>
-                        <strong>Distributed Systems</strong>
-                        <small>8 topics · upcoming</small>
-                    </div>
-                    <b>0%</b>
-                </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
 
-<section class="pl-personalisation">
-    <div class="pl-personalisation-visual">
-        <div class="pl-recommendation">
-            <div class="pl-rec-top">
-                <span class="pl-rec-dot"></span>
-                <span>PERSONALISED NEXT STEP</span>
-            </div>
+    <!-- FOUR AREAS -->
+    <section class="pl-four-pillars">
+        <div class="pl-container">
 
-            <h3>Explain RAG retrieval trade-offs</h3>
-
-            <div class="pl-rec-time">
-                <span>35 minutes</span>
-                <span>Technical explanation</span>
-            </div>
-
-            <div class="pl-rec-reason">
-                <span>Why this?</span>
+            <div class="pl-section-intro">
+                <p class="pl-eyebrow">ONE PREPARATION SYSTEM</p>
+                <h2>Everything you need to become interview-ready.</h2>
                 <p>
-                    Relevant to your target role, your recent review performance,
-                    and your current preparation gaps.
+                    Your preparation shouldn't live across ten different tools.
+                    ProofLoop brings the important pieces together.
                 </p>
             </div>
 
-            <button type="button" class="pl-rec-button">Continue preparing →</button>
+            <div class="pl-pillar-grid">
+
+                <article class="pl-pillar pl-pillar-purple">
+                    <div class="pl-pillar-number">01</div>
+                    <div class="pl-pillar-icon">◎</div>
+                    <h3>Learn</h3>
+                    <p>
+                        Build structured knowledge with focused roadmaps,
+                        resources and topic progress.
+                    </p>
+                    <span>Know what matters →</span>
+                </article>
+
+                <article class="pl-pillar pl-pillar-blue">
+                    <div class="pl-pillar-number">02</div>
+                    <div class="pl-pillar-icon">?</div>
+                    <h3>Practise</h3>
+                    <p>
+                        Turn knowledge into reliable recall with questions,
+                        review and mistake-aware repetition.
+                    </p>
+                    <span>Make recall reliable →</span>
+                </article>
+
+                <article class="pl-pillar pl-pillar-pink">
+                    <div class="pl-pillar-number">03</div>
+                    <div class="pl-pillar-icon">◇</div>
+                    <h3>Prove</h3>
+                    <p>
+                        Connect your projects, technical decisions and
+                        behavioural stories to the skills you need to demonstrate.
+                    </p>
+                    <span>Turn experience into proof →</span>
+                </article>
+
+                <article class="pl-pillar pl-pillar-lilac">
+                    <div class="pl-pillar-number">04</div>
+                    <div class="pl-pillar-icon">◌</div>
+                    <h3>Rehearse</h3>
+                    <p>
+                        Simulate the interview with mock interviews,
+                        reflection and measurable readiness.
+                    </p>
+                    <span>Practise under pressure →</span>
+                </article>
+
+            </div>
         </div>
-    </div>
+    </section>
 
-    <div class="pl-personalisation-copy">
-        <p class="pl-eyebrow">NOT JUST ANOTHER QUESTION BANK</p>
-        <h2>Know what deserves your attention next.</h2>
-        <p>
-            ProofLoop looks at your goals, progress, review history and evidence
-            to help turn a huge preparation list into a focused next step.
-        </p>
 
-        <div class="pl-signal-list">
-            <div>
-                <span>✓</span>
-                <p><strong>Your goal</strong><br>What role are you preparing for?</p>
+    <!-- PRODUCT SHOWCASE -->
+    <section class="pl-showcase">
+        <div class="pl-container">
+
+            <div class="pl-section-intro pl-showcase-intro">
+                <p class="pl-eyebrow">THE WORKSPACE</p>
+                <h2>Preparation that feels like one connected product.</h2>
+                <p>
+                    Move from learning to practice to evidence without losing
+                    the context along the way.
+                </p>
             </div>
-            <div>
-                <span>✓</span>
-                <p><strong>Your progress</strong><br>What have you already covered?</p>
+
+            <!-- ROADMAP PREVIEW -->
+            <div class="pl-showcase-row">
+
+                <div class="pl-showcase-copy">
+                    <span class="pl-showcase-label">LEARN</span>
+                    <h3>A roadmap built around your goal.</h3>
+                    <p>
+                        Follow a focused path instead of trying to learn everything.
+                        Track topics, resources and progress in one place.
+                    </p>
+                </div>
+
+                <div class="pl-ui-preview pl-roadmap-preview">
+
+                    <div class="pl-preview-header">
+                        <div>
+                            <small>MY ROADMAP</small>
+                            <strong>Backend Engineering</strong>
+                        </div>
+                        <span>75%</span>
+                    </div>
+
+                    <div class="pl-roadmap-progress">
+                        <span></span>
+                    </div>
+
+                    <div class="pl-roadmap-items">
+
+                        <div class="pl-roadmap-item pl-complete">
+                            <span>✓</span>
+                            <div>
+                                <strong>Python fundamentals</strong>
+                                <small>8 topics · Complete</small>
+                            </div>
+                            <b>100%</b>
+                        </div>
+
+                        <div class="pl-roadmap-item pl-active">
+                            <span>2</span>
+                            <div>
+                                <strong>Data structures</strong>
+                                <small>12 topics · In progress</small>
+                            </div>
+                            <b>72%</b>
+                        </div>
+
+                        <div class="pl-roadmap-item">
+                            <span>3</span>
+                            <div>
+                                <strong>System design</strong>
+                                <small>9 topics · Upcoming</small>
+                            </div>
+                            <b>24%</b>
+                        </div>
+
+                        <div class="pl-roadmap-item">
+                            <span>4</span>
+                            <div>
+                                <strong>Cloud & deployment</strong>
+                                <small>7 topics · Upcoming</small>
+                            </div>
+                            <b>0%</b>
+                        </div>
+
+                    </div>
+
+                </div>
             </div>
-            <div>
-                <span>✓</span>
-                <p><strong>Your gaps</strong><br>What still needs attention?</p>
+
+
+            <!-- PRACTISE PREVIEW -->
+            <div class="pl-showcase-row pl-showcase-reverse">
+
+                <div class="pl-showcase-copy">
+                    <span class="pl-showcase-label">PRACTISE</span>
+                    <h3>Turn studying into retrieval.</h3>
+                    <p>
+                        Review questions when they are due and see where your
+                        understanding is getting stronger—or weaker.
+                    </p>
+                </div>
+
+                <div class="pl-ui-preview pl-question-preview">
+
+                    <div class="pl-question-top">
+                        <span>TECHNICAL QUESTION</span>
+                        <span>3 of 7</span>
+                    </div>
+
+                    <div class="pl-question-body">
+                        <div class="pl-question-tag">Python · Backend</div>
+
+                        <h3>
+                            What is the difference between a list and a tuple
+                            in Python?
+                        </h3>
+
+                        <div class="pl-answer-placeholder">
+                            <span>⌘</span>
+                            <p>Explain your answer...</p>
+                        </div>
+
+                        <div class="pl-question-actions">
+                            <button type="button">Review later</button>
+                            <button type="button">Reveal answer</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+
+            <!-- EVIDENCE PREVIEW -->
+            <div class="pl-showcase-row">
+
+                <div class="pl-showcase-copy">
+                    <span class="pl-showcase-label">PROVE</span>
+                    <h3>Your projects become interview evidence.</h3>
+                    <p>
+                        Capture decisions, trade-offs, incidents and behavioural
+                        stories while the experience is still fresh.
+                    </p>
+                </div>
+
+                <div class="pl-ui-preview pl-evidence-preview">
+
+                    <div class="pl-preview-header">
+                        <div>
+                            <small>PROJECT EVIDENCE</small>
+                            <strong>ViewCoach / ProofLoop</strong>
+                        </div>
+                        <span class="pl-evidence-count">12 items</span>
+                    </div>
+
+                    <div class="pl-evidence-list">
+
+                        <div class="pl-evidence-item">
+                            <span class="pl-evidence-icon">◇</span>
+                            <div>
+                                <strong>Optimisation with deterministic fallback</strong>
+                                <small>Architecture decision · Planning</small>
+                            </div>
+                            <span class="pl-evidence-arrow">→</span>
+                        </div>
+
+                        <div class="pl-evidence-item">
+                            <span class="pl-evidence-icon">◇</span>
+                            <div>
+                                <strong>Human approval before AI content</strong>
+                                <small>Product reasoning · Trust boundary</small>
+                            </div>
+                            <span class="pl-evidence-arrow">→</span>
+                        </div>
+
+                        <div class="pl-evidence-item">
+                            <span class="pl-evidence-icon">◇</span>
+                            <div>
+                                <strong>Debugged a production-specific failure</strong>
+                                <small>Ownership · Debugging · Communication</small>
+                            </div>
+                            <span class="pl-evidence-arrow">→</span>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- PERSONALISATION -->
+    <section class="pl-personalisation">
+        <div class="pl-container">
+
+            <div class="pl-personalisation-grid">
+
+                <div class="pl-personalisation-copy">
+                    <p class="pl-eyebrow">EXPLAINABLE PERSONALISATION</p>
+
+                    <h2>
+                        Not just another list of things
+                        <span>to study.</span>
+                    </h2>
+
+                    <p>
+                        ProofLoop looks at your goal, progress, review history
+                        and preparation state to help decide what deserves your
+                        attention next.
+                    </p>
+
+                    <div class="pl-reason-points">
+                        <div>
+                            <span>01</span>
+                            <p>What you already know</p>
+                        </div>
+                        <div>
+                            <span>02</span>
+                            <p>Where your recall is weak</p>
+                        </div>
+                        <div>
+                            <span>03</span>
+                            <p>What your target role requires</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pl-next-focus">
+
+                    <div class="pl-focus-top">
+                        <span class="pl-focus-small">YOUR NEXT FOCUS</span>
+                        <span class="pl-focus-time">35 min</span>
+                    </div>
+
+                    <div class="pl-focus-main">
+                        <div class="pl-focus-symbol">✦</div>
+
+                        <h3>Explain RAG retrieval trade-offs</h3>
+
+                        <p>
+                            Technical explanation
+                            <span>·</span>
+                            AI Application Engineer
+                        </p>
+                    </div>
+
+                    <div class="pl-focus-reason">
+                        <span>Why this now?</span>
+                        <strong>3 signals</strong>
+
+                        <ul>
+                            <li>
+                                <span>✓</span>
+                                Relevant to your target role
+                            </li>
+                            <li>
+                                <span>✓</span>
+                                Weak recent practice performance
+                            </li>
+                            <li>
+                                <span>✓</span>
+                                Architecture topic still incomplete
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="pl-focus-footer">
+                        <span>Recommended next</span>
+                        <button type="button">Start practice →</button>
+                    </div>
+
+                </div>
+
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
 
-<section class="pl-final">
-    <div class="pl-final-orb"></div>
+    <!-- FINAL CTA -->
+    <section class="pl-final-cta">
+        <div class="pl-container">
 
-    <p class="pl-eyebrow">YOUR NEXT INTERVIEW STARTS HERE</p>
-    <h2>Know what to prepare next.</h2>
-    <p>
-        Turn scattered preparation into a focused loop you can actually follow.
-    </p>
+            <div class="pl-final-inner">
 
-    <div class="pl-actions pl-final-actions">
-        {% if user.is_authenticated %}
-            <a class="pl-button pl-button-primary" href="{% url 'dashboard' %}">
-                Open workspace
-            </a>
-        {% else %}
-            {% if portfolio_demo_enabled %}
-                <form method="post" action="{% url 'portfolio_demo_start' %}">
-                    {% csrf_token %}
-                    <button class="pl-button pl-button-primary" type="submit">
-                        Explore the demo
-                    </button>
-                </form>
-            {% endif %}
-            <a class="pl-button pl-button-light" href="{% url 'signup' %}">
-                Create account
-            </a>
-        {% endif %}
-    </div>
-</section>
+                <div class="pl-final-decoration pl-decoration-one"></div>
+                <div class="pl-final-decoration pl-decoration-two"></div>
+
+                <p class="pl-eyebrow">YOUR NEXT STEP</p>
+
+                <h2>Know what to prepare next.</h2>
+
+                <p>
+                    Turn scattered interview preparation into one focused,
+                    measurable workflow.
+                </p>
+
+                <div class="pl-final-actions">
+
+                    {% if user.is_authenticated %}
+
+                        <a class="pl-button pl-button-primary"
+                           href="{% url 'dashboard' %}">
+                            Open workspace
+                            <span>→</span>
+                        </a>
+
+                    {% else %}
+
+                        {% if portfolio_demo_enabled %}
+                            <form method="post"
+                                  action="{% url 'portfolio_demo_start' %}">
+                                {% csrf_token %}
+                                <button class="pl-button pl-button-primary"
+                                        type="submit">
+                                    Explore the demo
+                                    <span>→</span>
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        <a class="pl-text-link"
+                           href="{% url 'signup' %}">
+                            Create an account
+                        </a>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+</main>
 
 {% endblock %}
