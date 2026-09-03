@@ -460,3 +460,41 @@
         animation-iteration-count: 1 !important;
     }
 }
+/* ProofLoop white-surface pass */
+
+:root {
+    --proofloop-cream: #ffffff;
+    --proofloop-cream-deep: #ffffff;
+    --proofloop-surface: #ffffff;
+    --proofloop-surface-muted: #ffffff;
+
+    --pl-cream: #ffffff;
+    --pl-cream-2: #ffffff;
+    --pl-surface: #ffffff;
+    --pl-surface-muted: #ffffff;
+}
+
+html,
+body {
+    background: #ffffff;
+}
+
+.app-body .app-shell,
+.app-body .app-main,
+.app-body .proofloop-workspace-main {
+    background: #ffffff;
+}
+
+.app-body .app-topbar,
+.app-body .app-mobile-header,
+.app-body .proofloop-shell-topbar {
+    background: rgba(255, 255, 255, 0.96);
+}
+
+/* Remove decorative glow/shadow treatment from the white workspace. */
+.app-body .proofloop-icon-button,
+.app-body .dashboard-v3-icon-button,
+.app-body .dashboard-v3-card,
+.app-body .dashboard-v3-metrics article {
+    box-shadow: none;
+}
