@@ -1,10 +1,19 @@
 /*
- * ViewCoach visual identity correction.
+ * ViewCoach / ProofLoop Visual Identity
  *
- * This stylesheet is intentionally loaded after the existing application CSS.
- * It preserves the current responsive layouts and behaviour while replacing
- * the generic cobalt/glow/pill treatment with a flatter study-workbench style.
+ * Loaded LAST in base.html.
+ *
+ * Purpose:
+ * - Keep existing layout/component styles intact.
+ * - Unify the legacy ViewCoach (--vc-*), Dashboard V3 (--d3-*),
+ *   and ProofLoop workspace (--pl-*) design systems.
+ * - Replace the previous warm brown / cream / emerald treatment
+ *   with a blue / cool-gray / white visual identity.
  */
+
+/* ==========================================================================
+   1. GLOBAL VISUAL TOKENS
+   ========================================================================== */
 
 :root {
     --vc2-navy: #0f172a;
@@ -25,8 +34,13 @@
 
     --vc2-success: #16a34a;
     --vc2-success-soft: #f0fdf4;
+
     --vc2-warning: #d97706;
+    --vc2-warning-soft: #fffbeb;
+
     --vc2-danger: #dc2626;
+    --vc2-danger-soft: #fef2f2;
+
     --vc2-youtube: #dc2626;
 
     --vc2-radius-sm: 0.25rem;
@@ -35,6 +49,11 @@
 
     --vc2-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
+
+
+/* ==========================================================================
+   2. LEGACY VIEWCOACH TOKEN BRIDGE
+   ========================================================================== */
 
 .app-body {
     --vc-burgundy: var(--vc2-blue);
@@ -55,56 +74,127 @@
     background: var(--vc2-canvas);
 }
 
-/* Flat actions: no glow, bounce or soft-SaaS treatment. */
 
-.app-body .button {
+/* ==========================================================================
+   3. DASHBOARD V3 TOKEN BRIDGE
+   ========================================================================== */
+
+.app-body {
+    --d3-copper: var(--vc2-blue);
+    --d3-copper-dark: var(--vc2-blue-dark);
+    --d3-copper-soft: var(--vc2-blue-soft);
+
+    --d3-charcoal: var(--vc2-text);
+    --d3-canvas: var(--vc2-canvas);
+
+    --d3-surface: var(--vc2-surface);
+    --d3-surface-muted: #f8fafc;
+
+    --d3-border: var(--vc2-border);
+    --d3-border-strong: var(--vc2-border-strong);
+
+    --d3-muted: var(--vc2-muted);
+}
+
+
+/* ==========================================================================
+   4. PROOFLOOP WORKSPACE TOKEN BRIDGE
+   ========================================================================== */
+
+.app-body {
+    --pl-ink: var(--vc2-text);
+
+    --pl-cream: var(--vc2-canvas);
+    --pl-surface: var(--vc2-surface);
+    --pl-surface-muted: #f8fafc;
+
+    --pl-emerald: var(--vc2-blue);
+    --pl-emerald-dark: var(--vc2-blue-dark);
+
+    --pl-amber: var(--vc2-warning);
+
+    --pl-border: var(--vc2-border);
+    --pl-border-strong: var(--vc2-border-strong);
+
+    --pl-muted: var(--vc2-muted);
+}
+
+
+/* ==========================================================================
+   5. APPLICATION CANVAS
+   ========================================================================== */
+
+.app-body,
+.app-main,
+.app-shell,
+.app-main-wrapper {
+    background: var(--vc2-canvas);
+    color: var(--vc2-text);
+}
+
+.app-body a {
+    color: var(--vc2-blue-dark);
+}
+
+.app-body a:hover {
+    color: var(--vc2-blue);
+}
+
+
+/* ==========================================================================
+   6. BUTTONS
+   ========================================================================== */
+
+.app-body .button,
+.app-body .button-primary {
     border-color: var(--vc2-blue-dark);
     border-radius: var(--vc2-radius-sm);
     color: #ffffff;
     background: var(--vc2-blue);
     box-shadow: none;
-    transition: border-color 120ms ease, background 120ms ease;
+    transform: none;
 }
 
-.app-body .button:hover {
+.app-body .button:hover,
+.app-body .button-primary:hover {
     border-color: var(--vc2-blue-dark);
+    color: #ffffff;
     background: var(--vc2-blue-dark);
     box-shadow: none;
     transform: none;
 }
 
-.app-body .button:active {
-    transform: none;
-}
-
-.app-body .button-secondary {
+.app-body .button-secondary,
+.app-body .button-outline {
     border-color: var(--vc2-border-strong);
+    border-radius: var(--vc2-radius-sm);
     color: var(--vc2-text);
     background: var(--vc2-surface);
     box-shadow: none;
 }
 
-.app-body .button-secondary:hover {
-    border-color: var(--vc2-text);
+.app-body .button-secondary:hover,
+.app-body .button-outline:hover {
+    border-color: #94a3b8;
     color: var(--vc2-text);
     background: #f8fafc;
+    box-shadow: none;
 }
 
-/* Links and kickers. */
 
-.app-body a,
-.app-body .eyebrow,
-.dashboard-v2-kicker,
-.source-page-kicker {
-    color: var(--vc2-blue-dark);
-}
+/* ==========================================================================
+   7. FOCUS STATES
+   ========================================================================== */
 
 .app-body :focus-visible {
     outline: 2px solid var(--vc2-blue);
     outline-offset: 2px;
 }
 
-/* Shell and navigation. */
+
+/* ==========================================================================
+   8. SIDEBAR
+   ========================================================================== */
 
 .app-sidebar {
     border-right: 1px solid var(--vc2-navy-soft);
@@ -112,11 +202,21 @@
     box-shadow: none;
 }
 
-.app-brand-mark {
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: var(--vc2-radius-sm);
-    background: var(--vc2-blue);
+.app-brand-mark,
+.proofloop-mark {
     box-shadow: none;
+}
+
+.proofloop-mark i:nth-child(1) {
+    background: var(--vc2-blue);
+}
+
+.proofloop-mark i:nth-child(2) {
+    background: var(--vc2-blue-dark);
+}
+
+.proofloop-wordmark {
+    color: #ffffff;
 }
 
 .app-nav-link {
@@ -124,8 +224,7 @@
 }
 
 .app-nav-link.is-active {
-    padding-left: calc(0.75rem - 3px);
-    border-left: 3px solid #60a5fa;
+    border-left-color: #60a5fa;
     color: #ffffff;
     background: rgba(255, 255, 255, 0.09);
     box-shadow: none;
@@ -135,37 +234,66 @@
     background: rgba(255, 255, 255, 0.12);
 }
 
+.app-sidebar-footer {
+    border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+
+/* ==========================================================================
+   9. TOPBAR
+   ========================================================================== */
+
 .app-topbar {
+    border-bottom-color: var(--vc2-border);
     background: var(--vc2-surface);
+    box-shadow: none;
     backdrop-filter: none;
 }
 
-.app-topbar .app-account-trigger,
-.app-topbar .app-account-menu-desktop .app-account-panel,
-.app-account-panel {
-    border-radius: var(--vc2-radius);
-    box-shadow: none;
+.app-topbar .eyebrow {
+    color: var(--vc2-blue-dark);
 }
 
-.app-topbar .app-account-avatar,
-.mobile-account-avatar {
-    background: var(--vc2-navy-soft);
+.topbar-heading {
+    color: var(--vc2-text);
 }
 
-.app-main,
-.app-shell {
-    background: var(--vc2-canvas);
+.proofloop-shell-stages li {
+    color: var(--vc2-muted);
 }
 
+.proofloop-shell-stages li.is-current {
+    color: var(--vc2-blue-dark);
+}
+
+.proofloop-shell-stages li.is-current span {
+    color: var(--vc2-blue);
+}
+
+
+/* ==========================================================================
+   10. MOBILE SHELL
+   ========================================================================== */
+
+.app-mobile-header,
 .app-mobile-navigation {
+    border-color: var(--vc2-border);
+    background: var(--vc2-surface);
     box-shadow: none;
+}
+
+.app-mobile-brand .proofloop-wordmark {
+    color: var(--vc2-text);
 }
 
 .mobile-nav-link.is-active {
     color: var(--vc2-blue-dark);
 }
 
-/* Shared surfaces: edges provide hierarchy; shadows no longer do. */
+
+/* ==========================================================================
+   11. SHARED CARDS / SURFACES
+   ========================================================================== */
 
 .app-body .form-card,
 .app-body .empty-state,
@@ -180,9 +308,9 @@
 .app-body .history-item,
 .app-body .topic-workspace-panel,
 .app-body .topic-sidebar-panel,
-.dashboard-v2-stat,
-.dashboard-v2-card,
-.dashboard-v2-learning-source,
+.dashboard-v3-stat,
+.dashboard-v3-card,
+.dashboard-v3-learning-source,
 .source-switcher > a,
 .source-roadmap-card,
 .youtube-detail-media,
@@ -196,16 +324,17 @@
     box-shadow: none;
 }
 
-.app-body .message {
-    border-radius: var(--vc2-radius-sm);
-    box-shadow: none;
-}
+
+/* ==========================================================================
+   12. FORM ELEMENTS
+   ========================================================================== */
 
 .app-body input,
 .app-body textarea,
 .app-body select {
-    border-radius: var(--vc2-radius-sm);
     border-color: var(--vc2-border);
+    border-radius: var(--vc2-radius-sm);
+    color: var(--vc2-text);
     background: var(--vc2-surface);
 }
 
@@ -216,15 +345,17 @@
     outline: 2px solid rgba(37, 99, 235, 0.18);
 }
 
-/* Badges are labels, not floating pills. */
+
+/* ==========================================================================
+   13. BADGES
+   ========================================================================== */
 
 .app-body .badge,
-.dashboard-v2-pill,
-.dashboard-v2-quick-links nav strong,
+.dashboard-v3-pill,
+.dashboard-v3-quick-links nav strong,
 .source-badge,
 .youtube-detail-meta span,
 .youtube-video-status {
-    border: 1px solid currentColor;
     border-radius: var(--vc2-radius-sm);
     box-shadow: none;
 }
@@ -254,80 +385,81 @@
     background: #f1f5f9;
 }
 
-/* Dashboard. */
 
-.dashboard-v2-header h1 {
+/* ==========================================================================
+   14. DASHBOARD V3
+   ========================================================================== */
+
+.dashboard-v3-kicker {
+    color: var(--vc2-blue-dark);
+}
+
+.dashboard-v3-header h1,
+.dashboard-v3-card h2,
+.dashboard-v3-card h3 {
     color: var(--vc2-text);
 }
 
-.dashboard-v2-stat {
-    min-height: 7.5rem;
+.dashboard-v3-icon-button:hover {
+    border-color: var(--vc2-blue);
+    color: var(--vc2-blue-dark);
 }
 
-.dashboard-v2-stat strong {
-    font-size: 1.8rem;
-}
-
-.dashboard-v2-pill {
-    color: var(--vc2-muted);
-    background: #f1f5f9;
-}
-
-.dashboard-v2-plan-focus {
+.dashboard-v3-plan-focus {
     border-color: #bfdbfe;
-    border-radius: var(--vc2-radius);
-    background: #eff6ff;
+    background: var(--vc2-blue-soft);
     box-shadow: none;
 }
 
-.dashboard-v2-plan-focus.is-complete {
+.dashboard-v3-plan-focus.is-complete {
     border-color: #bbf7d0;
     background: var(--vc2-success-soft);
 }
 
-.dashboard-v2-plan-icon,
-.dashboard-v2-source-icon.is-viewcoach {
-    border-radius: var(--vc2-radius-sm);
+.dashboard-v3-source-icon.is-viewcoach {
     background: var(--vc2-blue);
     box-shadow: none;
 }
 
-.dashboard-v2-source-icon.is-youtube {
-    border-radius: var(--vc2-radius-sm);
-    background: var(--vc2-youtube);
-    box-shadow: none;
-}
-
-.dashboard-v2-duration,
-.dashboard-v2-progress-value {
+.dashboard-v3-duration,
+.dashboard-v3-progress-value {
     color: var(--vc2-blue-dark);
 }
 
-.dashboard-v2-learning-list > a:hover strong,
-.dashboard-v2-quick-links nav a:hover {
-    color: var(--vc2-blue-dark);
+.dashboard-v3-progress-track {
+    background: #e2e8f0;
 }
 
-.dashboard-v2-readiness-ring {
-    box-shadow: inset 0 0 0 1px var(--vc2-border);
-    background:
-        radial-gradient(circle at center, var(--vc2-surface) 59%, transparent 60%),
-        conic-gradient(
-            var(--vc2-blue) calc(var(--readiness) * 1%),
-            #e2e8f0 0
-        );
+.dashboard-v3-progress-track > span {
+    background: var(--vc2-blue);
 }
 
-.dashboard-v2-quick-links nav strong {
+.dashboard-v3-quick-links nav strong {
     color: var(--vc2-blue-dark);
     background: var(--vc2-blue-soft);
 }
 
-/* Roadmap source catalogue and workspaces. */
 
-.source-switcher > a {
-    transition: border-color 120ms ease, background 120ms ease;
+/* ==========================================================================
+   15. NAVIGATION
+   ========================================================================== */
+
+.app-body .sidebar-nav-container a:hover {
+    background: #f8fafc;
 }
+
+.app-body .sidebar-nav-container .is-active {
+    color: var(--vc2-blue-dark);
+}
+
+.app-body .nav-section-title {
+    color: var(--vc2-muted);
+}
+
+
+/* ==========================================================================
+   16. ROADMAPS
+   ========================================================================== */
 
 .source-switcher > a:hover,
 .source-switcher > a.is-active {
@@ -339,17 +471,9 @@
     box-shadow: inset 3px 0 0 var(--vc2-blue);
 }
 
-.source-switcher-icon {
-    border-radius: var(--vc2-radius-sm);
-    box-shadow: none;
-}
-
-.source-switcher-icon.is-viewcoach {
-    background: var(--vc2-blue);
-}
-
-.source-roadmap-card {
-    transition: border-color 120ms ease, background 120ms ease;
+.source-badge.is-viewcoach {
+    color: var(--vc2-blue-dark);
+    background: var(--vc2-blue-soft);
 }
 
 .source-roadmap-card:hover {
@@ -359,46 +483,138 @@
     transform: none;
 }
 
-.source-badge.is-viewcoach {
-    color: var(--vc2-blue-dark);
-    background: var(--vc2-blue-soft);
-}
-
-.source-roadmap-card h3 a:hover,
-.youtube-video-row-main:hover strong {
-    color: var(--vc2-blue-dark);
-}
-
 .source-roadmap-progress,
 .roadmap-progress-track {
-    border-radius: 2px;
     background: #e2e8f0;
 }
 
 .source-roadmap-progress > span,
 .roadmap-progress-track > span {
-    border-radius: 0;
     background: var(--vc2-blue);
 }
 
-.source-empty-state {
-    border-radius: var(--vc2-radius);
-    background: #f8fafc;
+
+/* ==========================================================================
+   17. PROOFLOOP WORKSPACE
+   ========================================================================== */
+
+.proofloop-workspace,
+.proofloop-workspace-shell {
+    color: var(--vc2-text);
+    background: var(--vc2-canvas);
 }
 
-.youtube-roadmap-thumbnail > span {
+.proofloop-workspace-panel,
+.proofloop-workspace-card {
+    border-color: var(--vc2-border);
+    background: var(--vc2-surface);
     box-shadow: none;
 }
 
-.youtube-detail-meta span {
-    color: var(--vc2-muted);
-    background: #f1f5f9;
+.proofloop-workspace a {
+    color: var(--vc2-blue-dark);
 }
 
-.youtube-video-row img,
-.youtube-video-placeholder {
-    border-radius: var(--vc2-radius-sm);
+.proofloop-workspace a:hover {
+    color: var(--vc2-blue);
 }
+
+.proofloop-workspace .is-active,
+.proofloop-workspace .is-current {
+    border-color: var(--vc2-blue);
+    color: var(--vc2-blue-dark);
+    background: var(--vc2-blue-soft);
+}
+
+.proofloop-workspace .progress-track {
+    background: #e2e8f0;
+}
+
+.proofloop-workspace .progress-track > span {
+    background: var(--vc2-blue);
+}
+
+
+/* ==========================================================================
+   18. EVIDENCE / REVIEWS / INTERVIEWS / GOALS
+   ========================================================================== */
+
+.app-body .evidence-card,
+.app-body .review-card,
+.app-body .interview-card,
+.app-body .goal-card,
+.app-body .knowledge-card,
+.app-body .editorial-card {
+    border-color: var(--vc2-border);
+    background: var(--vc2-surface);
+    box-shadow: none;
+}
+
+.app-body .evidence-card:hover,
+.app-body .review-card:hover,
+.app-body .interview-card:hover,
+.app-body .goal-card:hover,
+.app-body .knowledge-card:hover,
+.app-body .editorial-card:hover {
+    border-color: var(--vc2-border-strong);
+    box-shadow: none;
+    transform: none;
+}
+
+.app-body .evidence-card .eyebrow,
+.app-body .review-card .eyebrow,
+.app-body .interview-card .eyebrow,
+.app-body .goal-card .eyebrow {
+    color: var(--vc2-blue-dark);
+}
+
+
+/* ==========================================================================
+   19. PROGRESS / STATUS
+   ========================================================================== */
+
+.app-body .progress-track,
+.app-body .progress-bar-track {
+    background: #e2e8f0;
+}
+
+.app-body .progress-track > span,
+.app-body .progress-bar {
+    background: var(--vc2-blue);
+}
+
+.app-body .status-complete,
+.app-body .is-complete {
+    color: var(--vc2-success);
+}
+
+.app-body .status-warning {
+    color: var(--vc2-warning);
+}
+
+.app-body .status-danger {
+    color: var(--vc2-danger);
+}
+
+
+/* ==========================================================================
+   20. MESSAGES / TOASTS
+   ========================================================================== */
+
+.app-body .message,
+.app-body .message-toast {
+    border-color: var(--vc2-border);
+    border-left-color: var(--vc2-blue);
+    border-radius: var(--vc2-radius-sm);
+    color: var(--vc2-text);
+    background: var(--vc2-surface);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+
+/* ==========================================================================
+   21. YOUTUBE / MEDIA
+   ========================================================================== */
 
 .youtube-video-status {
     color: var(--vc2-muted);
@@ -415,57 +631,46 @@
     background: var(--vc2-blue-soft);
 }
 
-/* Reduce rounded treatment inherited by older sections. */
 
-.app-body .roadmap-card,
-.app-body .roadmap-section,
-.app-body .planner-card,
-.app-body .interview-card,
-.app-body .goal-card,
-.app-body .evidence-card,
-.app-body .knowledge-card {
-    border-radius: var(--vc2-radius);
-    box-shadow: none;
+/* ==========================================================================
+   22. REMOVE OLD WARM VISUAL EFFECTS
+   ========================================================================== */
+
+.app-body .dashboard-v3-card,
+.app-body .dashboard-v3-stat,
+.app-body .source-roadmap-card,
+.app-body .proofloop-workspace-card {
+    background-image: none;
 }
 
-.app-body .roadmap-card:hover,
-.app-body .planner-card:hover,
-.app-body .interview-card:hover,
-.app-body .goal-card:hover,
-.app-body .evidence-card:hover,
-.app-body .knowledge-card:hover {
-    box-shadow: none;
-    transform: none;
+.app-body .glow,
+.app-body .ambient-glow,
+.app-body .decorative-glow {
+    display: none;
 }
 
-/* Keep responsive behaviour, but make the mobile shell equally flat. */
+
+/* ==========================================================================
+   23. MOBILE
+   ========================================================================== */
 
 @media (max-width: 48rem) {
-    .app-mobile-header,
-    .app-mobile-navigation {
-        background: var(--vc2-surface);
-        box-shadow: none;
-    }
-
     .app-main {
         background: var(--vc2-canvas);
     }
 
-    .dashboard-v2-header h1,
-    .source-page-header h1 {
-        letter-spacing: -0.03em;
-    }
-
-    .dashboard-v2-card,
-    .dashboard-v2-learning-source,
+    .dashboard-v3-card,
+    .dashboard-v3-stat,
     .source-roadmap-card,
-    .youtube-detail-copy,
-    .youtube-detail-progress,
-    .youtube-video-outline,
-    .youtube-player-panel {
+    .proofloop-workspace-card {
         border-radius: var(--vc2-radius);
     }
 }
+
+
+/* ==========================================================================
+   24. REDUCED MOTION
+   ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
     .app-body *,
