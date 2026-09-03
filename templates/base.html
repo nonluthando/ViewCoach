@@ -5,8 +5,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#ffffff">
+
     <title>{% block title %}ProofLoop{% endblock %}</title>
-    <meta name="description" content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}">
+
+    <meta
+        name="description"
+        content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}"
+    >
 
     <!-- Core SaaS Token & Layout -->
     <link rel="stylesheet" href="{% static 'css/saas-theme.css' %}">
@@ -27,6 +32,9 @@
     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
     <link rel="stylesheet" href="{% static 'css/proofloop-workspace.css' %}">
+
+    <!-- Page-specific stylesheet -->
+    {% block page_styles %}{% endblock %}
 
     <!-- Final Visual Identity / Theme Overrides -->
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
@@ -69,7 +77,11 @@
 
                 <div class="app-sidebar-guidance">
                     <p>Focused preparation, without the guesswork.</p>
-                    <a href="{% url 'knowledge:help_assistant' %}" class="link-action">
+
+                    <a
+                        href="{% url 'knowledge:help_assistant' %}"
+                        class="link-action"
+                    >
                         Ask the Help Assistant →
                     </a>
                 </div>
@@ -87,6 +99,7 @@
             <header class="app-topbar proofloop-shell-topbar">
 
                 <div class="app-topbar-copy proofloop-shell-topbar-copy">
+
                     <span class="eyebrow">
                         Adaptive interview-readiness workspace
                     </span>
@@ -94,11 +107,15 @@
                     <strong class="topbar-heading">
                         Build a preparation loop you can measure and explain.
                     </strong>
+
                 </div>
 
                 {% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
 
-                    <ol class="proofloop-shell-stages" aria-label="Preparation stages">
+                    <ol
+                        class="proofloop-shell-stages"
+                        aria-label="Preparation stages"
+                    >
 
                         <li class="{% if url_name == 'dashboard' or namespace == 'planner' %}is-current{% endif %}">
                             <span>01</span>Plan
@@ -132,7 +149,11 @@
 
             <header class="app-mobile-header">
 
-                <a class="app-mobile-brand" href="{% url 'dashboard' %}">
+                <a
+                    class="app-mobile-brand"
+                    href="{% url 'dashboard' %}"
+                >
+
                     <span class="proofloop-mark" aria-hidden="true">
                         <i></i><i></i>
                     </span>
@@ -140,6 +161,7 @@
                     <span class="proofloop-wordmark">
                         ProofLoop
                     </span>
+
                 </a>
 
                 <div class="app-mobile-header-actions">
@@ -153,9 +175,17 @@
 {% else %}
 
     <header class="site-header">
-        <nav class="nav container" aria-label="Primary navigation">
 
-            <a class="brand proofloop-public-brand" href="{% url 'home' %}">
+        <nav
+            class="nav container"
+            aria-label="Primary navigation"
+        >
+
+            <a
+                class="brand proofloop-public-brand"
+                href="{% url 'home' %}"
+            >
+
                 <span class="proofloop-mark" aria-hidden="true">
                     <i></i><i></i>
                 </span>
@@ -163,23 +193,36 @@
                 <span class="brand-name">
                     ProofLoop
                 </span>
+
             </a>
 
             <div class="nav-actions">
-                <a href="{% url 'project_showcase' %}" class="nav-link">
+
+                <a
+                    href="{% url 'project_showcase' %}"
+                    class="nav-link"
+                >
                     Project
                 </a>
 
-                <a href="{% url 'login' %}" class="nav-link">
+                <a
+                    href="{% url 'login' %}"
+                    class="nav-link"
+                >
                     Log in
                 </a>
 
-                <a class="button button-primary" href="{% url 'signup' %}">
+                <a
+                    class="button button-primary"
+                    href="{% url 'signup' %}"
+                >
                     Create account
                 </a>
+
             </div>
 
         </nav>
+
     </header>
 
     <main class="container page-content public-content">
@@ -191,7 +234,11 @@
         {% endif %}
 
         {% if messages %}
-            <div class="message-region" aria-live="polite">
+
+            <div
+                class="message-region"
+                aria-live="polite"
+            >
 
                 {% for message in messages %}
 
@@ -202,6 +249,7 @@
                 {% endfor %}
 
             </div>
+
         {% endif %}
 
         {% block content %}{% endblock %}
