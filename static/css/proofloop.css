@@ -9,7 +9,7 @@
     --proofloop-ink: #162522;
     --proofloop-ink-soft: #233430;
     --proofloop-ink-muted: #354843;
-    --proofloop-cream: #f3f0e8;
+    --proofloop-cream: #ffffff;
     --proofloop-cream-deep: #ebe6db;
     --proofloop-surface: #fffdf8;
     --proofloop-surface-muted: #f8f5ee;
@@ -1060,17 +1060,4 @@ body {
         animation-iteration-count: 1 !important;
     }
 
-}
-html {
-    background: #ffffff;
-}
-
-.public-body {
-    min-height: 100vh;
-    color: var(--proofloop-text);
-    background: #ffffff;
-}
-
-.proofloop-landing-page {
-    background: #ffffff;
 }
