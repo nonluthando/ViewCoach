@@ -3,30 +3,35 @@
  *
  * Loaded LAST in base.html.
  *
- * Purpose:
- * - Keep existing layout/component styles intact.
- * - Unify the legacy ViewCoach (--vc-*), Dashboard V3 (--d3-*),
- *   and ProofLoop workspace (--pl-*) design systems.
- * - Replace the previous warm brown / cream / emerald treatment
- *   with a blue / cool-gray / white visual identity.
+ * PURPOSE:
+ * - Preserve all existing layout and component styling.
+ * - Preserve typography, spacing, shadows, radii, transitions and hierarchy.
+ * - Unify the existing ViewCoach, Dashboard V3 and ProofLoop Workspace
+ *   colour systems into one blue / navy / cool-grey / white identity.
+ *
+ * IMPORTANT:
+ * This file is intentionally colour-focused.
+ * It should NOT flatten or redesign existing components.
  */
 
+
 /* ==========================================================================
-   1. GLOBAL VISUAL TOKENS
+   1. CORE BLUE / COOL-GREY PALETTE
    ========================================================================== */
 
 :root {
-    --vc2-navy: #0f172a;
-    --vc2-navy-soft: #1e293b;
-
     --vc2-blue: #2563eb;
     --vc2-blue-dark: #1d4ed8;
     --vc2-blue-soft: #eff6ff;
 
-    --vc2-surface: #ffffff;
+    --vc2-navy: #0f172a;
+    --vc2-navy-soft: #1e293b;
+
     --vc2-canvas: #f8fafc;
+    --vc2-surface: #ffffff;
 
     --vc2-text: #0f172a;
+    --vc2-text-soft: #334155;
     --vc2-muted: #64748b;
 
     --vc2-border: #e2e8f0;
@@ -42,12 +47,6 @@
     --vc2-danger-soft: #fef2f2;
 
     --vc2-youtube: #dc2626;
-
-    --vc2-radius-sm: 0.25rem;
-    --vc2-radius: 0.45rem;
-    --vc2-radius-lg: 0.65rem;
-
-    --vc2-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 
@@ -69,9 +68,6 @@
 
     --vc-border: var(--vc2-border);
     --vc-border-strong: var(--vc2-border-strong);
-
-    color: var(--vc2-text);
-    background: var(--vc2-canvas);
 }
 
 
@@ -79,7 +75,7 @@
    3. DASHBOARD V3 TOKEN BRIDGE
    ========================================================================== */
 
-.app-body {
+.dashboard-v3-page {
     --d3-copper: var(--vc2-blue);
     --d3-copper-dark: var(--vc2-blue-dark);
     --d3-copper-soft: var(--vc2-blue-soft);
@@ -101,10 +97,15 @@
    4. PROOFLOOP WORKSPACE TOKEN BRIDGE
    ========================================================================== */
 
-.app-body {
+.proofloop-workspace,
+.proofloop-workspace-shell {
     --pl-ink: var(--vc2-text);
+    --pl-ink-2: #1e293b;
+    --pl-ink-3: #334155;
 
     --pl-cream: var(--vc2-canvas);
+    --pl-cream-2: #eef2f7;
+
     --pl-surface: var(--vc2-surface);
     --pl-surface-muted: #f8fafc;
 
@@ -124,13 +125,15 @@
    5. APPLICATION CANVAS
    ========================================================================== */
 
-.app-body,
-.app-main,
-.app-shell,
-.app-main-wrapper {
-    background: var(--vc2-canvas);
+.app-body {
     color: var(--vc2-text);
+    background-color: var(--vc2-canvas);
 }
+
+
+/* ==========================================================================
+   6. GLOBAL LINKS
+   ========================================================================== */
 
 .app-body a {
     color: var(--vc2-blue-dark);
@@ -142,96 +145,84 @@
 
 
 /* ==========================================================================
-   6. BUTTONS
+   7. PRIMARY ACTION COLOURS
    ========================================================================== */
 
-.app-body .button,
 .app-body .button-primary {
+    background-color: var(--vc2-blue);
     border-color: var(--vc2-blue-dark);
-    border-radius: var(--vc2-radius-sm);
     color: #ffffff;
-    background: var(--vc2-blue);
-    box-shadow: none;
-    transform: none;
 }
 
-.app-body .button:hover,
 .app-body .button-primary:hover {
+    background-color: var(--vc2-blue-dark);
     border-color: var(--vc2-blue-dark);
     color: #ffffff;
-    background: var(--vc2-blue-dark);
-    box-shadow: none;
-    transform: none;
 }
+
+
+/* ==========================================================================
+   8. SECONDARY ACTION COLOURS
+   ========================================================================== */
 
 .app-body .button-secondary,
 .app-body .button-outline {
+    background-color: #ffffff;
     border-color: var(--vc2-border-strong);
-    border-radius: var(--vc2-radius-sm);
     color: var(--vc2-text);
-    background: var(--vc2-surface);
-    box-shadow: none;
 }
 
 .app-body .button-secondary:hover,
 .app-body .button-outline:hover {
+    background-color: #f8fafc;
     border-color: #94a3b8;
     color: var(--vc2-text);
-    background: #f8fafc;
-    box-shadow: none;
 }
 
 
 /* ==========================================================================
-   7. FOCUS STATES
+   9. FOCUS COLOUR
    ========================================================================== */
 
 .app-body :focus-visible {
-    outline: 2px solid var(--vc2-blue);
-    outline-offset: 2px;
+    outline-color: var(--vc2-blue);
 }
 
 
 /* ==========================================================================
-   8. SIDEBAR
+   10. SIDEBAR
    ========================================================================== */
 
 .app-sidebar {
-    border-right: 1px solid var(--vc2-navy-soft);
-    background: var(--vc2-navy);
-    box-shadow: none;
-}
-
-.app-brand-mark,
-.proofloop-mark {
-    box-shadow: none;
+    background-color: var(--vc2-navy);
+    border-right-color: var(--vc2-navy-soft);
 }
 
 .proofloop-mark i:nth-child(1) {
-    background: var(--vc2-blue);
+    background-color: var(--vc2-blue);
 }
 
 .proofloop-mark i:nth-child(2) {
-    background: var(--vc2-blue-dark);
+    background-color: var(--vc2-blue-dark);
 }
 
 .proofloop-wordmark {
     color: #ffffff;
 }
 
-.app-nav-link {
-    border-radius: var(--vc2-radius-sm);
-}
+
+/* ==========================================================================
+   11. SIDEBAR NAVIGATION
+   ========================================================================== */
 
 .app-nav-link.is-active {
+    background-color: rgba(255, 255, 255, 0.09);
     border-left-color: #60a5fa;
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.09);
-    box-shadow: none;
 }
 
 .app-nav-link.is-active:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
 .app-sidebar-footer {
@@ -240,14 +231,12 @@
 
 
 /* ==========================================================================
-   9. TOPBAR
+   12. TOP BAR
    ========================================================================== */
 
 .app-topbar {
+    background-color: #ffffff;
     border-bottom-color: var(--vc2-border);
-    background: var(--vc2-surface);
-    box-shadow: none;
-    backdrop-filter: none;
 }
 
 .app-topbar .eyebrow {
@@ -272,14 +261,13 @@
 
 
 /* ==========================================================================
-   10. MOBILE SHELL
+   13. MOBILE HEADER / NAVIGATION
    ========================================================================== */
 
 .app-mobile-header,
 .app-mobile-navigation {
+    background-color: #ffffff;
     border-color: var(--vc2-border);
-    background: var(--vc2-surface);
-    box-shadow: none;
 }
 
 .app-mobile-brand .proofloop-wordmark {
@@ -292,112 +280,46 @@
 
 
 /* ==========================================================================
-   11. SHARED CARDS / SURFACES
-   ========================================================================== */
-
-.app-body .form-card,
-.app-body .empty-state,
-.app-body .filter-panel,
-.app-body .type-card,
-.app-body .question-card,
-.app-body .stat-card,
-.app-body .content-card,
-.app-body .practice-card,
-.app-body .reveal-workspace,
-.app-body .review-list-item,
-.app-body .history-item,
-.app-body .topic-workspace-panel,
-.app-body .topic-sidebar-panel,
-.dashboard-v3-stat,
-.dashboard-v3-card,
-.dashboard-v3-learning-source,
-.source-switcher > a,
-.source-roadmap-card,
-.youtube-detail-media,
-.youtube-detail-copy,
-.youtube-detail-progress,
-.youtube-video-outline,
-.youtube-player-panel {
-    border-color: var(--vc2-border);
-    border-radius: var(--vc2-radius);
-    background: var(--vc2-surface);
-    box-shadow: none;
-}
-
-
-/* ==========================================================================
-   12. FORM ELEMENTS
+   14. FORM CONTROLS
    ========================================================================== */
 
 .app-body input,
 .app-body textarea,
 .app-body select {
+    background-color: #ffffff;
     border-color: var(--vc2-border);
-    border-radius: var(--vc2-radius-sm);
     color: var(--vc2-text);
-    background: var(--vc2-surface);
 }
 
 .app-body input:focus,
 .app-body textarea:focus,
 .app-body select:focus {
     border-color: var(--vc2-blue);
-    outline: 2px solid rgba(37, 99, 235, 0.18);
+    outline-color: rgba(37, 99, 235, 0.18);
 }
 
 
 /* ==========================================================================
-   13. BADGES
+   15. COMMON STATUS / ACCENT COLOURS
    ========================================================================== */
 
-.app-body .badge,
-.dashboard-v3-pill,
-.dashboard-v3-quick-links nav strong,
-.source-badge,
-.youtube-detail-meta span,
-.youtube-video-status {
-    border-radius: var(--vc2-radius-sm);
-    box-shadow: none;
-}
-
 .app-body .badge-technical {
-    color: #1d4ed8;
-    background: #eff6ff;
-}
-
-.app-body .badge-concept {
-    color: #166534;
-    background: #f0fdf4;
-}
-
-.app-body .badge-behavioural {
-    color: #92400e;
-    background: #fffbeb;
-}
-
-.app-body .badge-debug {
-    color: #b91c1c;
-    background: #fef2f2;
+    background-color: var(--vc2-blue-soft);
+    color: var(--vc2-blue-dark);
 }
 
 .app-body .badge-neutral {
+    background-color: #f1f5f9;
     color: #475569;
-    background: #f1f5f9;
 }
 
 
 /* ==========================================================================
-   14. DASHBOARD V3
+   16. DASHBOARD V3 ACCENTS
    ========================================================================== */
 
 .dashboard-v3-kicker {
     color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-header h1,
-.dashboard-v3-card h2,
-.dashboard-v3-card h3 {
-    color: var(--vc2-text);
 }
 
 .dashboard-v3-icon-button:hover {
@@ -406,19 +328,12 @@
 }
 
 .dashboard-v3-plan-focus {
+    background-color: var(--vc2-blue-soft);
     border-color: #bfdbfe;
-    background: var(--vc2-blue-soft);
-    box-shadow: none;
-}
-
-.dashboard-v3-plan-focus.is-complete {
-    border-color: #bbf7d0;
-    background: var(--vc2-success-soft);
 }
 
 .dashboard-v3-source-icon.is-viewcoach {
-    background: var(--vc2-blue);
-    box-shadow: none;
+    background-color: var(--vc2-blue);
 }
 
 .dashboard-v3-duration,
@@ -427,44 +342,27 @@
 }
 
 .dashboard-v3-progress-track {
-    background: #e2e8f0;
+    background-color: #e2e8f0;
 }
 
 .dashboard-v3-progress-track > span {
-    background: var(--vc2-blue);
+    background-color: var(--vc2-blue);
 }
 
 .dashboard-v3-quick-links nav strong {
+    background-color: var(--vc2-blue-soft);
     color: var(--vc2-blue-dark);
-    background: var(--vc2-blue-soft);
 }
 
 
 /* ==========================================================================
-   15. NAVIGATION
-   ========================================================================== */
-
-.app-body .sidebar-nav-container a:hover {
-    background: #f8fafc;
-}
-
-.app-body .sidebar-nav-container .is-active {
-    color: var(--vc2-blue-dark);
-}
-
-.app-body .nav-section-title {
-    color: var(--vc2-muted);
-}
-
-
-/* ==========================================================================
-   16. ROADMAPS
+   17. ROADMAP / SOURCE ACCENTS
    ========================================================================== */
 
 .source-switcher > a:hover,
 .source-switcher > a.is-active {
+    background-color: #f8fafc;
     border-color: #93c5fd;
-    background: #f8fafc;
 }
 
 .source-switcher > a.is-active {
@@ -472,213 +370,176 @@
 }
 
 .source-badge.is-viewcoach {
+    background-color: var(--vc2-blue-soft);
     color: var(--vc2-blue-dark);
-    background: var(--vc2-blue-soft);
-}
-
-.source-roadmap-card:hover {
-    border-color: #94a3b8;
-    background: #ffffff;
-    box-shadow: none;
-    transform: none;
 }
 
 .source-roadmap-progress,
 .roadmap-progress-track {
-    background: #e2e8f0;
+    background-color: #e2e8f0;
 }
 
 .source-roadmap-progress > span,
 .roadmap-progress-track > span {
-    background: var(--vc2-blue);
+    background-color: var(--vc2-blue);
 }
 
 
 /* ==========================================================================
-   17. PROOFLOOP WORKSPACE
+   18. PROOFLOOP WORKSPACE ACCENTS
    ========================================================================== */
 
-.proofloop-workspace,
-.proofloop-workspace-shell {
-    color: var(--vc2-text);
-    background: var(--vc2-canvas);
-}
-
-.proofloop-workspace-panel,
-.proofloop-workspace-card {
-    border-color: var(--vc2-border);
-    background: var(--vc2-surface);
-    box-shadow: none;
-}
-
-.proofloop-workspace a {
+.proofloop-workspace a,
+.proofloop-workspace-shell a {
     color: var(--vc2-blue-dark);
 }
 
-.proofloop-workspace a:hover {
+.proofloop-workspace a:hover,
+.proofloop-workspace-shell a:hover {
     color: var(--vc2-blue);
 }
 
 .proofloop-workspace .is-active,
 .proofloop-workspace .is-current {
+    background-color: var(--vc2-blue-soft);
     border-color: var(--vc2-blue);
     color: var(--vc2-blue-dark);
-    background: var(--vc2-blue-soft);
-}
-
-.proofloop-workspace .progress-track {
-    background: #e2e8f0;
-}
-
-.proofloop-workspace .progress-track > span {
-    background: var(--vc2-blue);
 }
 
 
 /* ==========================================================================
-   18. EVIDENCE / REVIEWS / INTERVIEWS / GOALS
-   ========================================================================== */
-
-.app-body .evidence-card,
-.app-body .review-card,
-.app-body .interview-card,
-.app-body .goal-card,
-.app-body .knowledge-card,
-.app-body .editorial-card {
-    border-color: var(--vc2-border);
-    background: var(--vc2-surface);
-    box-shadow: none;
-}
-
-.app-body .evidence-card:hover,
-.app-body .review-card:hover,
-.app-body .interview-card:hover,
-.app-body .goal-card:hover,
-.app-body .knowledge-card:hover,
-.app-body .editorial-card:hover {
-    border-color: var(--vc2-border-strong);
-    box-shadow: none;
-    transform: none;
-}
-
-.app-body .evidence-card .eyebrow,
-.app-body .review-card .eyebrow,
-.app-body .interview-card .eyebrow,
-.app-body .goal-card .eyebrow {
-    color: var(--vc2-blue-dark);
-}
-
-
-/* ==========================================================================
-   19. PROGRESS / STATUS
+   19. PROGRESS
    ========================================================================== */
 
 .app-body .progress-track,
 .app-body .progress-bar-track {
-    background: #e2e8f0;
+    background-color: #e2e8f0;
 }
 
 .app-body .progress-track > span,
 .app-body .progress-bar {
-    background: var(--vc2-blue);
-}
-
-.app-body .status-complete,
-.app-body .is-complete {
-    color: var(--vc2-success);
-}
-
-.app-body .status-warning {
-    color: var(--vc2-warning);
-}
-
-.app-body .status-danger {
-    color: var(--vc2-danger);
+    background-color: var(--vc2-blue);
 }
 
 
 /* ==========================================================================
-   20. MESSAGES / TOASTS
+   20. MESSAGE / TOAST ACCENTS
    ========================================================================== */
 
 .app-body .message,
 .app-body .message-toast {
+    background-color: #ffffff;
     border-color: var(--vc2-border);
     border-left-color: var(--vc2-blue);
-    border-radius: var(--vc2-radius-sm);
     color: var(--vc2-text);
-    background: var(--vc2-surface);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
 
 /* ==========================================================================
-   21. YOUTUBE / MEDIA
+   21. HARD-CODED DASHBOARD WARM COLOURS
    ========================================================================== */
 
-.youtube-video-status {
-    color: var(--vc2-muted);
-    background: #f1f5f9;
-}
+/*
+ * These overrides exist because Dashboard V3 contains some warm colours
+ * directly in component rules rather than through tokens.
+ *
+ * We only replace the colour — not the component styling.
+ */
 
-.youtube-video-row.is-complete .youtube-video-status {
-    color: var(--vc2-success);
-    background: var(--vc2-success-soft);
-}
-
-.youtube-video-row.is-progress .youtube-video-status {
+.dashboard-v3-page .dashboard-v3-kicker {
     color: var(--vc2-blue-dark);
-    background: var(--vc2-blue-soft);
+}
+
+.dashboard-v3-page .dashboard-v3-duration {
+    color: var(--vc2-blue-dark);
+}
+
+.dashboard-v3-page .dashboard-v3-progress-value {
+    color: var(--vc2-blue-dark);
 }
 
 
 /* ==========================================================================
-   22. REMOVE OLD WARM VISUAL EFFECTS
+   22. HARD-CODED WORKSPACE WARM COLOURS
    ========================================================================== */
 
-.app-body .dashboard-v3-card,
-.app-body .dashboard-v3-stat,
-.app-body .source-roadmap-card,
-.app-body .proofloop-workspace-card {
-    background-image: none;
+/*
+ * The workspace token bridge above handles the majority of the palette.
+ * These selectors provide colour-only fallbacks for components that use
+ * direct colour declarations.
+ */
+
+.proofloop-workspace .workspace-accent,
+.proofloop-workspace .workspace-primary {
+    color: var(--vc2-blue);
 }
 
-.app-body .glow,
-.app-body .ambient-glow,
-.app-body .decorative-glow {
-    display: none;
+.proofloop-workspace .workspace-accent-bg,
+.proofloop-workspace .workspace-primary-bg {
+    background-color: var(--vc2-blue-soft);
 }
 
 
 /* ==========================================================================
-   23. MOBILE
+   23. PORTFOLIO DEMO ACCENTS
    ========================================================================== */
 
-@media (max-width: 48rem) {
-    .app-main {
-        background: var(--vc2-canvas);
-    }
-
-    .dashboard-v3-card,
-    .dashboard-v3-stat,
-    .source-roadmap-card,
-    .proofloop-workspace-card {
-        border-radius: var(--vc2-radius);
-    }
+.portfolio-demo {
+    --portfolio-primary: var(--vc2-blue);
+    --portfolio-primary-dark: var(--vc2-blue-dark);
+    --portfolio-primary-soft: var(--vc2-blue-soft);
 }
 
 
 /* ==========================================================================
-   24. REDUCED MOTION
+   24. PUBLIC FALLBACK
    ========================================================================== */
 
-@media (prefers-reduced-motion: reduce) {
-    .app-body *,
-    .app-body *::before,
-    .app-body *::after {
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-    }
+.public-body {
+    background-color: #ffffff;
+    color: var(--vc2-text);
 }
+
+.public-body .button-primary {
+    background-color: var(--vc2-blue);
+    border-color: var(--vc2-blue-dark);
+    color: #ffffff;
+}
+
+.public-body .button-primary:hover {
+    background-color: var(--vc2-blue-dark);
+    border-color: var(--vc2-blue-dark);
+}
+
+.public-body a {
+    color: var(--vc2-blue-dark);
+}
+
+.public-body a:hover {
+    color: var(--vc2-blue);
+}
+
+
+/* ==========================================================================
+   25. IMPORTANT: NO LAYOUT OVERRIDES
+   ========================================================================== */
+
+/*
+ * Deliberately do NOT set:
+ *
+ * - box-shadow
+ * - transform
+ * - border-radius
+ * - padding
+ * - margin
+ * - font-family
+ * - font-size
+ * - line-height
+ * - display
+ * - position
+ * - width / height
+ *
+ * Existing component styles own those properties.
+ *
+ * This file owns visual identity only.
+ */
