@@ -1,545 +1,124 @@
 /*
- * ViewCoach / ProofLoop Visual Identity
+ * ProofLoop Visual Identity
  *
- * Loaded LAST in base.html.
+ * Final theme override.
  *
  * PURPOSE:
- * - Preserve all existing layout and component styling.
- * - Preserve typography, spacing, shadows, radii, transitions and hierarchy.
- * - Unify the existing ViewCoach, Dashboard V3 and ProofLoop Workspace
- *   colour systems into one blue / navy / cool-grey / white identity.
+ * Keep the existing ProofLoop visual identity.
+ * Replace cream / beige surfaces with white and cool-neutral whites.
  *
- * IMPORTANT:
- * This file is intentionally colour-focused.
- * It should NOT flatten or redesign existing components.
+ * DO NOT change:
+ * - typography
+ * - spacing
+ * - layout
+ * - shadows
+ * - border radii
+ * - green accents
+ * - burgundy accents
+ * - amber accents
+ */
+
+:root {
+    --proofloop-white: #ffffff;
+    --proofloop-canvas: #f8fafc;
+    --proofloop-border: #e2e8e0;
+}
+
+
+/* ==========================================================================
+   ProofLoop Workspace
+   ========================================================================== */
+
+.proofloop-workspace {
+    --pl-cream: #ffffff;
+    --pl-cream-2: #f8fafc;
+    --pl-surface: #ffffff;
+    --pl-surface-muted: #f8fafc;
+
+    /* KEEP EXISTING BRAND COLOURS */
+    /* --pl-emerald remains unchanged */
+    /* --pl-amber remains unchanged */
+}
+
+
+/* ==========================================================================
+   Dashboard V3
+   ========================================================================== */
+
+.dashboard-v3-page {
+    /*
+     * Keep the existing dashboard accent colours.
+     * Only change the canvas/surface colours.
+     */
+    --d3-canvas: #f8fafc;
+    --d3-surface: #ffffff;
+    --d3-surface-muted: #f8fafc;
+}
+
+
+/* ==========================================================================
+   General Application Canvas
+   ========================================================================== */
+
+.app-body {
+    background-color: #f8fafc;
+}
+
+
+/* ==========================================================================
+   White Surfaces
+   ========================================================================== */
+
+.proofloop-workspace,
+.proofloop-workspace .proofloop-card,
+.dashboard-v3-page .dashboard-v3-card,
+.dashboard-v3-page .dashboard-v3-stat {
+    background-color: #ffffff;
+}
+
+
+/* ==========================================================================
+   Existing Warm Backgrounds → White
+   ========================================================================== */
+
+.proofloop-workspace .proofloop-section,
+.proofloop-workspace .proofloop-panel {
+    background-color: #ffffff;
+}
+
+
+/* ==========================================================================
+   Keep Existing Brand Colours
+   ========================================================================== */
+
+/*
+ * Intentionally no overrides for:
+ *
+ * --pl-emerald
+ * --pl-emerald-dark
+ * --pl-amber
+ * --d3-copper
+ * burgundy
+ * green
+ *
+ * Those are part of the existing ProofLoop identity and should remain.
  */
 
 
 /* ==========================================================================
-   1. CORE BLUE / COOL-GREY PALETTE
+   Public Pages
    ========================================================================== */
 
-:root {
-    --vc2-blue: #2563eb;
-    --vc2-blue-dark: #1d4ed8;
-    --vc2-blue-soft: #eff6ff;
-
-    --vc2-navy: #0f172a;
-    --vc2-navy-soft: #1e293b;
-
-    --vc2-canvas: #f8fafc;
-    --vc2-surface: #ffffff;
-
-    --vc2-text: #0f172a;
-    --vc2-text-soft: #334155;
-    --vc2-muted: #64748b;
-
-    --vc2-border: #e2e8f0;
-    --vc2-border-strong: #cbd5e1;
-
-    --vc2-success: #16a34a;
-    --vc2-success-soft: #f0fdf4;
-
-    --vc2-warning: #d97706;
-    --vc2-warning-soft: #fffbeb;
-
-    --vc2-danger: #dc2626;
-    --vc2-danger-soft: #fef2f2;
-
-    --vc2-youtube: #dc2626;
-}
-
-
-/* ==========================================================================
-   2. LEGACY VIEWCOACH TOKEN BRIDGE
-   ========================================================================== */
-
-.app-body {
-    --vc-burgundy: var(--vc2-blue);
-    --vc-burgundy-dark: var(--vc2-blue-dark);
-    --vc-burgundy-soft: var(--vc2-blue-soft);
-
-    --vc-ivory: var(--vc2-canvas);
-    --vc-paper: var(--vc2-surface);
-    --vc-paper-strong: var(--vc2-surface);
-
-    --vc-ink: var(--vc2-text);
-    --vc-muted: var(--vc2-muted);
-
-    --vc-border: var(--vc2-border);
-    --vc-border-strong: var(--vc2-border-strong);
-}
-
-
-/* ==========================================================================
-   3. DASHBOARD V3 TOKEN BRIDGE
-   ========================================================================== */
-
-.dashboard-v3-page {
-    --d3-copper: var(--vc2-blue);
-    --d3-copper-dark: var(--vc2-blue-dark);
-    --d3-copper-soft: var(--vc2-blue-soft);
-
-    --d3-charcoal: var(--vc2-text);
-    --d3-canvas: var(--vc2-canvas);
-
-    --d3-surface: var(--vc2-surface);
-    --d3-surface-muted: #f8fafc;
-
-    --d3-border: var(--vc2-border);
-    --d3-border-strong: var(--vc2-border-strong);
-
-    --d3-muted: var(--vc2-muted);
-}
-
-
-/* ==========================================================================
-   4. PROOFLOOP WORKSPACE TOKEN BRIDGE
-   ========================================================================== */
-
-.proofloop-workspace,
-.proofloop-workspace-shell {
-    --pl-ink: var(--vc2-text);
-    --pl-ink-2: #1e293b;
-    --pl-ink-3: #334155;
-
-    --pl-cream: var(--vc2-canvas);
-    --pl-cream-2: #eef2f7;
-
-    --pl-surface: var(--vc2-surface);
-    --pl-surface-muted: #f8fafc;
-
-    --pl-emerald: var(--vc2-blue);
-    --pl-emerald-dark: var(--vc2-blue-dark);
-
-    --pl-amber: var(--vc2-warning);
-
-    --pl-border: var(--vc2-border);
-    --pl-border-strong: var(--vc2-border-strong);
-
-    --pl-muted: var(--vc2-muted);
-}
-
-
-/* ==========================================================================
-   5. APPLICATION CANVAS
-   ========================================================================== */
-
-.app-body {
-    color: var(--vc2-text);
-    background-color: var(--vc2-canvas);
-}
-
-
-/* ==========================================================================
-   6. GLOBAL LINKS
-   ========================================================================== */
-
-.app-body a {
-    color: var(--vc2-blue-dark);
-}
-
-.app-body a:hover {
-    color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   7. PRIMARY ACTION COLOURS
-   ========================================================================== */
-
-.app-body .button-primary {
-    background-color: var(--vc2-blue);
-    border-color: var(--vc2-blue-dark);
-    color: #ffffff;
-}
-
-.app-body .button-primary:hover {
-    background-color: var(--vc2-blue-dark);
-    border-color: var(--vc2-blue-dark);
-    color: #ffffff;
-}
-
-
-/* ==========================================================================
-   8. SECONDARY ACTION COLOURS
-   ========================================================================== */
-
-.app-body .button-secondary,
-.app-body .button-outline {
+.public-body {
     background-color: #ffffff;
-    border-color: var(--vc2-border-strong);
-    color: var(--vc2-text);
-}
-
-.app-body .button-secondary:hover,
-.app-body .button-outline:hover {
-    background-color: #f8fafc;
-    border-color: #94a3b8;
-    color: var(--vc2-text);
 }
 
 
 /* ==========================================================================
-   9. FOCUS COLOUR
-   ========================================================================== */
-
-.app-body :focus-visible {
-    outline-color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   10. SIDEBAR
-   ========================================================================== */
-
-.app-sidebar {
-    background-color: var(--vc2-navy);
-    border-right-color: var(--vc2-navy-soft);
-}
-
-.proofloop-mark i:nth-child(1) {
-    background-color: var(--vc2-blue);
-}
-
-.proofloop-mark i:nth-child(2) {
-    background-color: var(--vc2-blue-dark);
-}
-
-.proofloop-wordmark {
-    color: #ffffff;
-}
-
-
-/* ==========================================================================
-   11. SIDEBAR NAVIGATION
-   ========================================================================== */
-
-.app-nav-link.is-active {
-    background-color: rgba(255, 255, 255, 0.09);
-    border-left-color: #60a5fa;
-    color: #ffffff;
-}
-
-.app-nav-link.is-active:hover {
-    background-color: rgba(255, 255, 255, 0.12);
-}
-
-.app-sidebar-footer {
-    border-top-color: rgba(255, 255, 255, 0.12);
-}
-
-
-/* ==========================================================================
-   12. TOP BAR
-   ========================================================================== */
-
-.app-topbar {
-    background-color: #ffffff;
-    border-bottom-color: var(--vc2-border);
-}
-
-.app-topbar .eyebrow {
-    color: var(--vc2-blue-dark);
-}
-
-.topbar-heading {
-    color: var(--vc2-text);
-}
-
-.proofloop-shell-stages li {
-    color: var(--vc2-muted);
-}
-
-.proofloop-shell-stages li.is-current {
-    color: var(--vc2-blue-dark);
-}
-
-.proofloop-shell-stages li.is-current span {
-    color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   13. MOBILE HEADER / NAVIGATION
+   Mobile
    ========================================================================== */
 
 .app-mobile-header,
 .app-mobile-navigation {
     background-color: #ffffff;
-    border-color: var(--vc2-border);
 }
-
-.app-mobile-brand .proofloop-wordmark {
-    color: var(--vc2-text);
-}
-
-.mobile-nav-link.is-active {
-    color: var(--vc2-blue-dark);
-}
-
-
-/* ==========================================================================
-   14. FORM CONTROLS
-   ========================================================================== */
-
-.app-body input,
-.app-body textarea,
-.app-body select {
-    background-color: #ffffff;
-    border-color: var(--vc2-border);
-    color: var(--vc2-text);
-}
-
-.app-body input:focus,
-.app-body textarea:focus,
-.app-body select:focus {
-    border-color: var(--vc2-blue);
-    outline-color: rgba(37, 99, 235, 0.18);
-}
-
-
-/* ==========================================================================
-   15. COMMON STATUS / ACCENT COLOURS
-   ========================================================================== */
-
-.app-body .badge-technical {
-    background-color: var(--vc2-blue-soft);
-    color: var(--vc2-blue-dark);
-}
-
-.app-body .badge-neutral {
-    background-color: #f1f5f9;
-    color: #475569;
-}
-
-
-/* ==========================================================================
-   16. DASHBOARD V3 ACCENTS
-   ========================================================================== */
-
-.dashboard-v3-kicker {
-    color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-icon-button:hover {
-    border-color: var(--vc2-blue);
-    color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-plan-focus {
-    background-color: var(--vc2-blue-soft);
-    border-color: #bfdbfe;
-}
-
-.dashboard-v3-source-icon.is-viewcoach {
-    background-color: var(--vc2-blue);
-}
-
-.dashboard-v3-duration,
-.dashboard-v3-progress-value {
-    color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-progress-track {
-    background-color: #e2e8f0;
-}
-
-.dashboard-v3-progress-track > span {
-    background-color: var(--vc2-blue);
-}
-
-.dashboard-v3-quick-links nav strong {
-    background-color: var(--vc2-blue-soft);
-    color: var(--vc2-blue-dark);
-}
-
-
-/* ==========================================================================
-   17. ROADMAP / SOURCE ACCENTS
-   ========================================================================== */
-
-.source-switcher > a:hover,
-.source-switcher > a.is-active {
-    background-color: #f8fafc;
-    border-color: #93c5fd;
-}
-
-.source-switcher > a.is-active {
-    box-shadow: inset 3px 0 0 var(--vc2-blue);
-}
-
-.source-badge.is-viewcoach {
-    background-color: var(--vc2-blue-soft);
-    color: var(--vc2-blue-dark);
-}
-
-.source-roadmap-progress,
-.roadmap-progress-track {
-    background-color: #e2e8f0;
-}
-
-.source-roadmap-progress > span,
-.roadmap-progress-track > span {
-    background-color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   18. PROOFLOOP WORKSPACE ACCENTS
-   ========================================================================== */
-
-.proofloop-workspace a,
-.proofloop-workspace-shell a {
-    color: var(--vc2-blue-dark);
-}
-
-.proofloop-workspace a:hover,
-.proofloop-workspace-shell a:hover {
-    color: var(--vc2-blue);
-}
-
-.proofloop-workspace .is-active,
-.proofloop-workspace .is-current {
-    background-color: var(--vc2-blue-soft);
-    border-color: var(--vc2-blue);
-    color: var(--vc2-blue-dark);
-}
-
-
-/* ==========================================================================
-   19. PROGRESS
-   ========================================================================== */
-
-.app-body .progress-track,
-.app-body .progress-bar-track {
-    background-color: #e2e8f0;
-}
-
-.app-body .progress-track > span,
-.app-body .progress-bar {
-    background-color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   20. MESSAGE / TOAST ACCENTS
-   ========================================================================== */
-
-.app-body .message,
-.app-body .message-toast {
-    background-color: #ffffff;
-    border-color: var(--vc2-border);
-    border-left-color: var(--vc2-blue);
-    color: var(--vc2-text);
-}
-
-
-/* ==========================================================================
-   21. HARD-CODED DASHBOARD WARM COLOURS
-   ========================================================================== */
-
-/*
- * These overrides exist because Dashboard V3 contains some warm colours
- * directly in component rules rather than through tokens.
- *
- * We only replace the colour — not the component styling.
- */
-
-.dashboard-v3-page .dashboard-v3-kicker {
-    color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-page .dashboard-v3-duration {
-    color: var(--vc2-blue-dark);
-}
-
-.dashboard-v3-page .dashboard-v3-progress-value {
-    color: var(--vc2-blue-dark);
-}
-
-
-/* ==========================================================================
-   22. HARD-CODED WORKSPACE WARM COLOURS
-   ========================================================================== */
-
-/*
- * The workspace token bridge above handles the majority of the palette.
- * These selectors provide colour-only fallbacks for components that use
- * direct colour declarations.
- */
-
-.proofloop-workspace .workspace-accent,
-.proofloop-workspace .workspace-primary {
-    color: var(--vc2-blue);
-}
-
-.proofloop-workspace .workspace-accent-bg,
-.proofloop-workspace .workspace-primary-bg {
-    background-color: var(--vc2-blue-soft);
-}
-
-
-/* ==========================================================================
-   23. PORTFOLIO DEMO ACCENTS
-   ========================================================================== */
-
-.portfolio-demo {
-    --portfolio-primary: var(--vc2-blue);
-    --portfolio-primary-dark: var(--vc2-blue-dark);
-    --portfolio-primary-soft: var(--vc2-blue-soft);
-}
-
-
-/* ==========================================================================
-   24. PUBLIC FALLBACK
-   ========================================================================== */
-
-.public-body {
-    background-color: #ffffff;
-    color: var(--vc2-text);
-}
-
-.public-body .button-primary {
-    background-color: var(--vc2-blue);
-    border-color: var(--vc2-blue-dark);
-    color: #ffffff;
-}
-
-.public-body .button-primary:hover {
-    background-color: var(--vc2-blue-dark);
-    border-color: var(--vc2-blue-dark);
-}
-
-.public-body a {
-    color: var(--vc2-blue-dark);
-}
-
-.public-body a:hover {
-    color: var(--vc2-blue);
-}
-
-
-/* ==========================================================================
-   25. IMPORTANT: NO LAYOUT OVERRIDES
-   ========================================================================== */
-
-/*
- * Deliberately do NOT set:
- *
- * - box-shadow
- * - transform
- * - border-radius
- * - padding
- * - margin
- * - font-family
- * - font-size
- * - line-height
- * - display
- * - position
- * - width / height
- *
- * Existing component styles own those properties.
- *
- * This file owns visual identity only.
- */
