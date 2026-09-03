@@ -1059,4 +1059,18 @@ body {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
     }
+
+}
+html {
+    background: #ffffff;
+}
+
+.public-body {
+    min-height: 100vh;
+    color: var(--proofloop-text);
+    background: #ffffff;
+}
+
+.proofloop-landing-page {
+    background: #ffffff;
 }
