@@ -1,7 +1,13 @@
+{% load static %}
 {% extends "base.html" %}
 
 {% block title %}ProofLoop | Adaptive interview-readiness workspace{% endblock %}
 {% block meta_description %}Turn learning, practice and experience into measurable interview readiness with one adaptive preparation workspace.{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{% static 'css/proofloop.css' %}">
+{% endblock %}
+
 {% block body_class %}portfolio-public-page proofloop-landing-page{% endblock %}
 
 {% block content %}
@@ -97,6 +103,7 @@
             ProofLoop keeps each layer distinct while carrying useful context forward.
         </p>
     </header>
+
     <div class="proofloop-layer-grid">
         <article>
             <span>01</span>
@@ -104,18 +111,21 @@
             <p>Focused roadmaps, topic notes and source-aware resources.</p>
             <small>Know what matters for the role.</small>
         </article>
+
         <article>
             <span>02</span>
             <h3>Retrieval</h3>
             <p>Question cards, spaced review and mistake-aware repetition.</p>
             <small>Make recall reliable under pressure.</small>
         </article>
+
         <article>
             <span>03</span>
             <h3>Evidence</h3>
             <p>Projects, decisions, incidents and reusable behavioural stories.</p>
             <small>Turn experience into proof.</small>
         </article>
+
         <article>
             <span>04</span>
             <h3>Readiness</h3>
@@ -128,24 +138,31 @@
 <section class="proofloop-evidence-section" aria-labelledby="proofloop-evidence-heading">
     <div>
         <p class="eyebrow">Evidence, not vague confidence</p>
-        <h2 id="proofloop-evidence-heading">Preparation becomes stronger when the system can show why.</h2>
+        <h2 id="proofloop-evidence-heading">
+            Preparation becomes stronger when the system can show why.
+        </h2>
         <p>
             Readiness is based on visible work: completed topics, review quality,
             interview practice and evidence connected to the role.
         </p>
-        <a href="{% url 'project_showcase' %}">Explore the engineering decisions →</a>
+        <a href="{% url 'project_showcase' %}">
+            Explore the engineering decisions →
+        </a>
     </div>
+
     <div class="proofloop-evidence-stack" aria-label="Evidence card examples">
         <article>
             <span>Architecture decision</span>
             <strong>Human approval before AI drafts enter review</strong>
             <small>Trust boundary · Product reasoning · Testing</small>
         </article>
+
         <article>
             <span>Project evidence</span>
             <strong>Adaptive planner with deterministic fallback</strong>
             <small>Django · PostgreSQL · OR-Tools</small>
         </article>
+
         <article>
             <span>Behavioural story</span>
             <strong>Diagnosed a production-specific locking failure</strong>
