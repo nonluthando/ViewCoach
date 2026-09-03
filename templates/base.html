@@ -7,10 +7,10 @@
     <meta name="theme-color" content="#ffffff">
     <title>{% block title %}ProofLoop{% endblock %}</title>
     <meta name="description" content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}">
-    
-    <!-- Core SaaS Token & Layout Overrides -->
+
+    <!-- Core SaaS Token & Layout -->
     <link rel="stylesheet" href="{% static 'css/saas-theme.css' %}">
-    
+
     <!-- Component & Page Stylesheets -->
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
     <link rel="stylesheet" href="{% static 'css/reviews.css' %}">
@@ -27,13 +27,24 @@
     <link rel="stylesheet" href="{% static 'css/roadmap-sources.css' %}">
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
     <link rel="stylesheet" href="{% static 'css/proofloop-workspace.css' %}">
+
+    <!-- Final Visual Identity / Theme Overrides -->
+    <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
 </head>
+
 <body class="saas-body {% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
+
 {% if user.is_authenticated %}
+
     <div class="app-shell">
+
         <aside class="app-sidebar" aria-label="Application navigation">
+
             <a class="app-brand proofloop-shell-brand" href="{% url 'dashboard' %}">
-                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
+                <span class="proofloop-mark" aria-hidden="true">
+                    <i></i><i></i>
+                </span>
+
                 <span class="proofloop-shell-brand-copy">
                     <strong class="proofloop-wordmark">ProofLoop</strong>
                     <small class="badge-subtle">Readiness workspace</small>
@@ -41,9 +52,12 @@
             </a>
 
             <div class="proofloop-sidebar-loop" aria-label="Preparation loop">
-                <span>Plan</span><i class="dot"></i>
-                <span>Learn</span><i class="dot"></i>
-                <span>Retain</span><i class="dot"></i>
+                <span>Plan</span>
+                <i class="dot"></i>
+                <span>Learn</span>
+                <i class="dot"></i>
+                <span>Retain</span>
+                <i class="dot"></i>
                 <span>Prove</span>
             </div>
 
@@ -52,80 +66,157 @@
             </div>
 
             <div class="app-sidebar-footer">
+
                 <div class="app-sidebar-guidance">
                     <p>Focused preparation, without the guesswork.</p>
-                    <a href="{% url 'knowledge:help_assistant' %}" class="link-action">Ask the Help Assistant →</a>
+                    <a href="{% url 'knowledge:help_assistant' %}" class="link-action">
+                        Ask the Help Assistant →
+                    </a>
                 </div>
+
                 <div class="app-sidebar-account">
                     {% include "includes/app_account_menu.html" with placement="desktop" %}
                 </div>
+
             </div>
+
         </aside>
 
         <div class="app-main-wrapper">
+
             <header class="app-topbar proofloop-shell-topbar">
+
                 <div class="app-topbar-copy proofloop-shell-topbar-copy">
-                    <span class="eyebrow">Adaptive interview-readiness workspace</span>
-                    <strong class="topbar-heading">Build a preparation loop you can measure and explain.</strong>
+                    <span class="eyebrow">
+                        Adaptive interview-readiness workspace
+                    </span>
+
+                    <strong class="topbar-heading">
+                        Build a preparation loop you can measure and explain.
+                    </strong>
                 </div>
+
                 {% with namespace=request.resolver_match.namespace url_name=request.resolver_match.url_name %}
+
                     <ol class="proofloop-shell-stages" aria-label="Preparation stages">
-                        <li class="{% if url_name == 'dashboard' or namespace == 'planner' %}is-current{% endif %}"><span>01</span>Plan</li>
-                        <li class="{% if url_name == 'learn' or namespace == 'roadmaps' %}is-current{% endif %}"><span>02</span>Learn</li>
-                        <li class="{% if namespace == 'reviews' or namespace == 'questions' %}is-current{% endif %}"><span>03</span>Retain</li>
-                        <li class="{% if namespace == 'evidence' %}is-current{% endif %}"><span>04</span>Prove</li>
-                        <li class="{% if url_name == 'interview' or namespace == 'interviews' or namespace == 'goals' %}is-current{% endif %}"><span>05</span>Rehearse</li>
+
+                        <li class="{% if url_name == 'dashboard' or namespace == 'planner' %}is-current{% endif %}">
+                            <span>01</span>Plan
+                        </li>
+
+                        <li class="{% if url_name == 'learn' or namespace == 'roadmaps' %}is-current{% endif %}">
+                            <span>02</span>Learn
+                        </li>
+
+                        <li class="{% if namespace == 'reviews' or namespace == 'questions' %}is-current{% endif %}">
+                            <span>03</span>Retain
+                        </li>
+
+                        <li class="{% if namespace == 'evidence' %}is-current{% endif %}">
+                            <span>04</span>Prove
+                        </li>
+
+                        <li class="{% if url_name == 'interview' or namespace == 'interviews' or namespace == 'goals' %}is-current{% endif %}">
+                            <span>05</span>Rehearse
+                        </li>
+
                     </ol>
+
                 {% endwith %}
+
                 <div class="app-topbar-actions">
                     {% include "includes/app_account_menu.html" with placement="desktop" %}
                 </div>
+
             </header>
 
             <header class="app-mobile-header">
+
                 <a class="app-mobile-brand" href="{% url 'dashboard' %}">
-                    <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
-                    <span class="proofloop-wordmark">ProofLoop</span>
+                    <span class="proofloop-mark" aria-hidden="true">
+                        <i></i><i></i>
+                    </span>
+
+                    <span class="proofloop-wordmark">
+                        ProofLoop
+                    </span>
                 </a>
+
                 <div class="app-mobile-header-actions">
                     {% include "includes/app_account_menu.html" with placement="mobile" %}
                 </div>
+
             </header>
 
             <main class="app-main page-content {% block main_class %}{% endblock %}">
+
 {% else %}
+
     <header class="site-header">
         <nav class="nav container" aria-label="Primary navigation">
+
             <a class="brand proofloop-public-brand" href="{% url 'home' %}">
-                <span class="proofloop-mark" aria-hidden="true"><i></i><i></i></span>
-                <span class="brand-name">ProofLoop</span>
+                <span class="proofloop-mark" aria-hidden="true">
+                    <i></i><i></i>
+                </span>
+
+                <span class="brand-name">
+                    ProofLoop
+                </span>
             </a>
+
             <div class="nav-actions">
-                <a href="{% url 'project_showcase' %}" class="nav-link">Project</a>
-                <a href="{% url 'login' %}" class="nav-link">Log in</a>
-                <a class="button button-primary" href="{% url 'signup' %}">Create account</a>
+                <a href="{% url 'project_showcase' %}" class="nav-link">
+                    Project
+                </a>
+
+                <a href="{% url 'login' %}" class="nav-link">
+                    Log in
+                </a>
+
+                <a class="button button-primary" href="{% url 'signup' %}">
+                    Create account
+                </a>
             </div>
+
         </nav>
     </header>
 
     <main class="container page-content public-content">
+
 {% endif %}
+
         {% if portfolio_demo_active %}
             {% include "includes/portfolio_demo_banner.html" %}
         {% endif %}
+
         {% if messages %}
             <div class="message-region" aria-live="polite">
+
                 {% for message in messages %}
-                    <div class="message-toast message-{{ message.tags }}">{{ message }}</div>
+
+                    <div class="message-toast message-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+
                 {% endfor %}
+
             </div>
         {% endif %}
+
         {% block content %}{% endblock %}
+
     </main>
+
 {% if user.is_authenticated %}
+
         </div>
+
         {% include "includes/app_mobile_navigation.html" %}
+
     </div>
+
 {% endif %}
+
 </body>
 </html>
