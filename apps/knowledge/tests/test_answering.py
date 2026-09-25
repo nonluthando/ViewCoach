@@ -2,7 +2,6 @@ import pytest
 
 from apps.knowledge.answering import (
     REFUSAL_ANSWER,
-    AnswerGenerationError,
     answer_question,
 )
 from apps.knowledge.models import KnowledgeQueryLog
@@ -35,6 +34,24 @@ def result(
         heading="Planner selection",
         content="The planner prioritises due review work.",
         source_path="knowledge_docs/product/planner.md",
+        similarity=similarity,
+    )
+
+
+def other_result(
+    *,
+    chunk_id=2,
+    slug="roadmaps",
+    similarity=0.7,
+):
+    return RetrievedKnowledge(
+        chunk_id=chunk_id,
+        document_slug=slug,
+        document_title="Roadmaps",
+        category="PRODUCT",
+        heading="Roadmap structure",
+        content="A roadmap contains ordered topics.",
+        source_path="knowledge_docs/product/roadmaps.md",
         similarity=similarity,
     )
 
@@ -83,14 +100,50 @@ def test_model_can_refuse_when_context_is_insufficient():
 
 
 @pytest.mark.django_db
-def test_invalid_model_citation_fails_closed_and_logs_error():
-    with pytest.raises(AnswerGenerationError):
-        answer_question(
-            question="Why was this selected?",
-            retriever=lambda **kwargs: (result(),),
-            generator=FakeGenerator("This cites a missing source. [Source 9]"),
-        )
+def test_wholly_invalid_citation_is_treated_as_unsupported():
+    # A citation number outside the supplied sources means there's nothing
+    # safe to attribute the answer to. This degrades to the same refusal
+    # path as NOT_SUPPORTED rather than throwing the answer away with an
+    # exception — a single bad reference shouldn't turn into a 500.
+    grounded = answer_question(
+        question="Why was this selected?",
+        retriever=lambda **kwargs: (result(),),
+        generator=FakeGenerator("This cites a missing source. [Source 9]"),
+    )
 
+    assert grounded.supported is False
+    assert grounded.answer == REFUSAL_ANSWER
     log = KnowledgeQueryLog.objects.get()
-    assert log.status == KnowledgeQueryLog.Status.ERROR
-    assert "not supplied" in log.error_message
+    assert log.status == KnowledgeQueryLog.Status.NO_EVIDENCE
+
+
+@pytest.mark.django_db
+def test_uncited_answer_is_treated_as_unsupported_not_fully_cited():
+    # Previously, an answer with zero [Source N] references defaulted to
+    # citing *every* retrieved chunk, overstating how well-grounded it was.
+    grounded = answer_question(
+        question="Why was this selected?",
+        retriever=lambda **kwargs: (result(), other_result()),
+        generator=FakeGenerator("Due review work is prioritised first."),
+    )
+
+    assert grounded.supported is False
+    assert grounded.sources == ()
+    log = KnowledgeQueryLog.objects.get()
+    assert log.status == KnowledgeQueryLog.Status.NO_EVIDENCE
+
+
+@pytest.mark.django_db
+def test_partially_invalid_citations_keep_the_valid_sources():
+    # A mix of a real and an out-of-range citation should keep the real
+    # one rather than discarding the whole answer.
+    grounded = answer_question(
+        question="Why was this selected?",
+        retriever=lambda **kwargs: (result(), other_result()),
+        generator=FakeGenerator("Due review work is prioritised first. [Source 1] [Source 9]"),
+    )
+
+    assert grounded.supported is True
+    assert [source.number for source in grounded.sources] == [1]
+    log = KnowledgeQueryLog.objects.get()
+    assert log.status == KnowledgeQueryLog.Status.ANSWERED
