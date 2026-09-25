@@ -158,6 +158,10 @@ RAG_GENERATION_MODEL = os.getenv(
     "RAG_GENERATION_MODEL",
     "gemini-3.5-flash-lite",
 )
+RAG_JUDGE_MODEL = os.getenv(
+    "RAG_JUDGE_MODEL",
+    RAG_GENERATION_MODEL,
+)
 RAG_MAX_OUTPUT_TOKENS = int(
     os.getenv(
         "RAG_MAX_OUTPUT_TOKENS",
