@@ -70,32 +70,33 @@
     display: none;
 }
 
-.app-body .app-nav-link {
+.app-body .app-sidebar .app-nav-link {
     flex-direction: column;
     align-items: center;
     gap: 4px;
     padding: 8px 4px;
     border-radius: var(--pl2-radius-tight);
     color: rgba(255, 255, 255, 0.72);
-    font-size: 0.6rem;
+    font-size: 0.62rem;
     font-weight: 700;
+    line-height: 1.15;
     text-align: center;
     min-height: 44px;
     justify-content: center;
 }
 
-.app-body .app-nav-link .app-nav-icon svg {
+.app-body .app-sidebar .app-nav-link .app-nav-icon svg {
     width: 17px;
     height: 17px;
     stroke: currentColor;
 }
 
-.app-body .app-nav-link:hover {
+.app-body .app-sidebar .app-nav-link:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
 }
 
-.app-body .app-nav-link.is-active {
+.app-body .app-sidebar .app-nav-link.is-active {
     background: #fff;
     color: var(--pl2-canvas);
 }
@@ -188,12 +189,21 @@
     color: var(--pl2-accent);
 }
 
-@media (max-width: 48rem) {
+@media (max-width: 58rem) {
+    /*
+     * editorial.css (48rem) and proofloop-workspace.css (58rem) both set
+     * .app-sidebar to display:none on mobile — real, pre-existing rules,
+     * not the gap the original audit assumed. This block has to win that
+     * `display` declaration explicitly (transform alone can't override
+     * display:none), which is why `display: flex` is stated here even
+     * though it matches the sidebar's own default.
+     */
     .sidebar-toggle {
         display: inline-flex;
     }
 
     .app-body .app-sidebar {
+        display: flex;
         position: fixed;
         inset: 0 auto 0 0;
         height: 100%;
@@ -213,7 +223,7 @@
         padding: 6px 10px 2px;
     }
 
-    .app-body .app-nav-link {
+    .app-body .app-sidebar .app-nav-link {
         flex-direction: row;
         justify-content: flex-start;
         text-align: left;
