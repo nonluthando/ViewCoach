@@ -144,9 +144,12 @@ def _source_numbers(answer):
 
 
 def _grounded_sources(results, source_numbers):
-    selected_numbers = source_numbers or tuple(range(1, len(results) + 1))
+    # No "cite everything if nothing was cited" fallback here on purpose —
+    # an answer with no valid citation is ungrounded, not evidence that
+    # every retrieved chunk supports it. Callers decide what to do with an
+    # empty result (answer_question treats it as unsupported).
     sources = []
-    for number in selected_numbers:
+    for number in source_numbers:
         result = results[number - 1]
         excerpt = result.content.strip()
         if len(excerpt) > 320:
@@ -271,15 +274,47 @@ def answer_question(
             )
 
         source_numbers = _source_numbers(generated_answer)
-        invalid_numbers = [
-            number for number in source_numbers if number < 1 or number > len(results)
-        ]
-        if invalid_numbers:
-            raise ValueError("Gemini cited a source that was not supplied.")
+        valid_numbers = tuple(
+            number for number in source_numbers if 1 <= number <= len(results)
+        )
+
+        if not valid_numbers:
+            # Either no citation was given, or every citation pointed past
+            # the supplied sources. Either way there's nothing to safely
+            # attribute the answer to, so this is treated the same as an
+            # explicit NOT_SUPPORTED response rather than discarding a
+            # usable answer (previous behaviour: any out-of-range citation
+            # raised and threw the whole answer away) or silently citing
+            # every retrieved chunk (previous behaviour: zero citations
+            # defaulted to "all of them support it").
+            latency_ms = _elapsed_ms(started_at)
+            log = _create_log(
+                user=user,
+                question=cleaned_question,
+                answer=REFUSAL_ANSWER,
+                status=KnowledgeQueryLog.Status.NO_EVIDENCE,
+                model=model,
+                results=results,
+                sources=(),
+                latency_ms=latency_ms,
+                error_message=(
+                    f"Model answer had no valid [Source N] citation "
+                    f"(raw citations found: {source_numbers or 'none'})."
+                )[:2000],
+            )
+            return GroundedAnswer(
+                answer=REFUSAL_ANSWER,
+                sources=(),
+                supported=False,
+                status=KnowledgeQueryLog.Status.NO_EVIDENCE,
+                model=model,
+                latency_ms=latency_ms,
+                log_id=log.pk,
+            )
 
         sources = _grounded_sources(
             results,
-            source_numbers,
+            valid_numbers,
         )
         latency_ms = _elapsed_ms(started_at)
         log = _create_log(
