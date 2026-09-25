@@ -1,0 +1,235 @@
+/*
+ * Shell v2 — slate + cyan polish pass.
+ *
+ * Loaded last on purpose: base.html's existing stylesheets (particularly
+ * visual-identity-v1.css's "white-surface pass") redefine .app-shell /
+ * .app-main / .app-topbar backgrounds with `.app-body` specificity, so this
+ * file matches or exceeds that specificity to win on cascade order rather
+ * than fighting it with !important. Consolidating those five files into one
+ * source of truth is follow-up cleanup, not done here — this file is the
+ * new authoritative layer for shell chrome (sidebar/rail, topbar/canvas,
+ * mobile nav, drawer) and does not touch page-body CSS.
+ */
+
+:root {
+    --pl2-canvas: #171e2e;
+    --pl2-canvas-tint: #232c42;
+    --pl2-accent: #00c2d1;
+    --pl2-accent-strong: #00a3b0;
+    --pl2-accent-soft: #e6f7f9;
+
+    --pl2-ink: #15121f;
+    --pl2-ink-soft: #5c5568;
+    --pl2-ink-faint: #8b8494;
+    --pl2-line: #e8e6ef;
+
+    --pl2-radius-tight: 8px;
+    --pl2-radius-card: 12px;
+    --pl2-radius-pill: 999px;
+
+    --pl2-font-display: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pl2-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.app-body {
+    font-family: var(--pl2-font-body);
+}
+
+.app-body h1,
+.app-body h2,
+.app-body h3,
+.app-body .proofloop-wordmark,
+.app-body .topbar-heading {
+    font-family: var(--pl2-font-display);
+}
+
+/* ---- sidebar -> icon rail ---- */
+
+.app-body .app-sidebar {
+    width: 88px;
+    background: var(--pl2-canvas);
+    border-right: none;
+    padding: 16px 8px;
+    gap: 16px;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 40;
+}
+
+.app-body .app-sidebar .proofloop-shell-brand,
+.app-body .app-sidebar .proofloop-sidebar-loop,
+.app-body .app-sidebar .app-sidebar-guidance {
+    display: none;
+}
+
+.app-body .app-sidebar .proofloop-wordmark,
+.app-body .app-sidebar .badge-subtle {
+    color: #fff;
+}
+
+.app-body .proofloop-nav-label {
+    display: none;
+}
+
+.app-body .app-nav-link {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border-radius: var(--pl2-radius-tight);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-align: center;
+    min-height: 44px;
+    justify-content: center;
+}
+
+.app-body .app-nav-link .app-nav-icon svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+}
+
+.app-body .app-nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.app-body .app-nav-link.is-active {
+    background: #fff;
+    color: var(--pl2-canvas);
+}
+
+.app-body .app-sidebar-account {
+    margin-top: auto;
+}
+
+/* ---- topbar / canvas ---- */
+
+.app-body .app-topbar,
+.app-body .app-mobile-header {
+    position: relative;
+    overflow: hidden;
+    background: var(--pl2-canvas);
+    border-bottom: none;
+}
+
+.app-body .app-topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(640px circle at 92% -15%, rgba(255, 255, 255, 0.12), transparent 60%),
+        radial-gradient(520px circle at 105% 115%, rgba(0, 0, 0, 0.2), transparent 55%);
+}
+
+.app-body .app-topbar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.app-body .app-topbar > * {
+    position: relative;
+    z-index: 1;
+}
+
+.app-body .app-topbar .eyebrow,
+.app-body .app-topbar .topbar-heading {
+    color: #fff;
+}
+
+.app-body .proofloop-shell-stages li {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.app-body .proofloop-shell-stages li.is-current {
+    color: #fff;
+}
+
+.app-body .app-mobile-header .proofloop-wordmark {
+    color: #fff;
+}
+
+/* ---- sidebar hamburger + drawer (mobile) ---- */
+
+.sidebar-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-inline-end: 4px;
+    border-radius: var(--pl2-radius-tight);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    cursor: pointer;
+}
+
+.sidebar-toggle svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+.sidebar-overlay {
+    display: none;
+}
+
+.app-body .mobile-nav-link.is-active {
+    color: var(--pl2-accent);
+}
+
+@media (max-width: 48rem) {
+    .sidebar-toggle {
+        display: inline-flex;
+    }
+
+    .app-body .app-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        height: 100%;
+        width: min(80%, 280px);
+        overflow-y: auto;
+        transform: translateX(-100%);
+        box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.5);
+    }
+
+    .app-body .proofloop-nav-label {
+        display: block;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 6px 10px 2px;
+    }
+
+    .app-body .app-nav-link {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        font-size: 0.82rem;
+        padding: 10px;
+    }
+
+    .app-shell.sidebar-open .app-sidebar {
+        transform: translateX(0);
+    }
+
+    .app-shell.sidebar-open .sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 12, 20, 0.5);
+        z-index: 35;
+    }
+}

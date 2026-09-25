@@ -13,6 +13,9 @@
         content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}"
     >
 
+    <!-- Shell v2 type -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
     <!-- Core SaaS Token & Layout -->
     <link rel="stylesheet" href="{% static 'css/saas-theme.css' %}">
 
@@ -38,6 +41,9 @@
 
     <!-- Final Visual Identity / Theme Overrides -->
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
+
+    <!-- Shell v2 — slate + cyan polish pass (loaded last, see file header) -->
+    <link rel="stylesheet" href="{% static 'css/shell-v2.css' %}">
 </head>
 
 <body class="saas-body {% if user.is_authenticated %}app-body{% else %}public-body{% endif %} {% block body_class %}{% endblock %}">
@@ -45,6 +51,8 @@
 {% if user.is_authenticated %}
 
     <div class="app-shell">
+
+        <div class="sidebar-overlay" data-sidebar-overlay></div>
 
         <aside class="app-sidebar" aria-label="Application navigation">
 
@@ -148,6 +156,16 @@
             </header>
 
             <header class="app-mobile-header">
+
+                <button
+                    type="button"
+                    class="sidebar-toggle"
+                    data-sidebar-toggle
+                    aria-label="Toggle navigation"
+                    aria-expanded="false"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+                </button>
 
                 <a
                     class="app-mobile-brand"
@@ -263,6 +281,8 @@
         {% include "includes/app_mobile_navigation.html" %}
 
     </div>
+
+    <script src="{% static 'js/nav-shell.js' %}" defer></script>
 
 {% endif %}
 
