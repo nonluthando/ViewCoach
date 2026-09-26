@@ -1,0 +1,287 @@
+/* ==========================================================================
+   Public shell — shared primitives for every logged-out page (landing,
+   login, signup, project showcase, demo screens). Loaded unconditionally
+   from base.html, not per-page, so a bare page like login.html — which
+   has no page-specific stylesheet at all — doesn't fall through to
+   editorial.css's unrelated --vc-burgundy theme the way the landing page
+   did before this file existed. Everything here is scoped under
+   .public-body so it can never bleed into the authenticated app shell.
+
+   Landing-page-only sections (hero, layer grid, evidence band) stay in
+   proofloop.css, loaded on top of this via page_styles.
+   ========================================================================== */
+
+.public-body {
+    background: #ffffff;
+    color: var(--pl2-ink, #15121f);
+    font-family: var(--pl2-font-body, -apple-system, sans-serif);
+}
+
+.public-content {
+    background: #ffffff;
+    padding: 0 !important;
+    max-width: none !important;
+}
+
+.public-body h1,
+.public-body h2,
+.public-body h3 {
+    font-family: var(--pl2-font-display, sans-serif);
+    text-wrap: balance;
+}
+
+/* ---- header ---- */
+
+.public-body .site-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e8e6ef;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.public-body .site-header .nav {
+    max-width: 72rem;
+    margin-inline: auto;
+    padding: 1rem clamp(1.25rem, 4vw, 3rem);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.proofloop-public-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--pl2-ink, #15121f);
+    text-decoration: none;
+}
+
+.proofloop-public-brand .brand-name {
+    font-family: var(--pl2-font-display, sans-serif);
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--pl2-ink, #15121f);
+}
+
+.proofloop-mark {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: var(--pl2-canvas, #171e2e);
+    position: relative;
+    flex: none;
+}
+
+.proofloop-mark i {
+    position: absolute;
+    inset: 6px;
+    border-radius: 3px;
+    background: var(--pl2-accent, #00c2d1);
+}
+
+.proofloop-mark i:nth-child(2) {
+    inset: 10px 6px 6px 10px;
+    opacity: 0.6;
+}
+
+.public-body .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.public-body .nav-actions .nav-link {
+    color: var(--pl2-ink-soft, #5c5568);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.public-body .nav-actions .nav-link:hover {
+    color: var(--pl2-ink, #15121f);
+}
+
+/* ---- buttons ---- */
+
+.public-body .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.3rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: filter 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+    background: var(--pl2-accent, #00c2d1);
+    color: #ffffff;
+    border-color: var(--pl2-accent, #00c2d1);
+}
+
+.public-body .button:active {
+    transform: scale(0.97);
+}
+
+.public-body .button:hover {
+    filter: brightness(1.06);
+}
+
+.public-body .button-secondary {
+    background: #ffffff;
+    color: var(--pl2-ink, #15121f);
+    border-color: #d8d5e0;
+}
+
+.public-body .button-secondary:hover {
+    background: #f6f5fb;
+    filter: none;
+}
+
+.public-body .button-quiet {
+    background: transparent;
+    color: var(--pl2-ink-soft, #5c5568);
+    border-color: transparent;
+    padding-inline: 0.75rem;
+}
+
+.public-body .button-quiet:hover {
+    color: var(--pl2-ink, #15121f);
+    background: #f6f5fb;
+    filter: none;
+}
+
+.public-body .button-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ---- generic public page copy ---- */
+
+.public-body .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pl2-accent-strong, #00a3b0);
+    margin: 0;
+}
+
+.public-body .lead {
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    line-height: 1.6;
+    color: var(--pl2-ink-soft, #5c5568);
+    max-width: 56ch;
+    margin: 0.5rem 0 0;
+}
+
+/* ---- auth / form cards (login, signup) ---- */
+
+.public-body .form-card {
+    max-width: 30rem;
+    margin: clamp(2rem, 6vw, 4rem) auto;
+    padding: clamp(1.75rem, 4vw, 2.5rem);
+    background: #ffffff;
+    border: 1px solid #e8e6ef;
+    border-radius: 18px;
+    box-shadow: 0 14px 34px -18px rgba(21, 18, 31, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.public-body .form-card h1 {
+    font-size: clamp(1.6rem, 3.5vw, 2rem);
+    font-weight: 800;
+    margin: 0;
+}
+
+.public-body .form-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.public-body .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.public-body .form-field label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--pl2-ink, #15121f);
+}
+
+.public-body .form-field input,
+.public-body .form-field select,
+.public-body .form-field textarea {
+    font: inherit;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #d8d5e0;
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--pl2-ink, #15121f);
+}
+
+.public-body .form-field input:focus,
+.public-body .form-field select:focus,
+.public-body .form-field textarea:focus {
+    outline: 2px solid var(--pl2-accent, #00c2d1);
+    outline-offset: 1px;
+    border-color: var(--pl2-accent, #00c2d1);
+}
+
+.public-body .form-field .help-text {
+    font-size: 0.78rem;
+    color: var(--pl2-ink-faint, #8b8494);
+}
+
+.public-body .form-field .errorlist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    color: #dc2626;
+    font-size: 0.8rem;
+}
+
+.public-body .form-card .button {
+    align-self: flex-start;
+}
+
+.public-body .form-card > p {
+    font-size: 0.9rem;
+    color: var(--pl2-ink-soft, #5c5568);
+    margin: 0;
+}
+
+.public-body .form-card > p a {
+    color: var(--pl2-accent-strong, #00a3b0);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.public-body .form-card > p a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 40rem) {
+    .public-body .site-header .nav {
+        padding-block: 0.85rem;
+    }
+
+    .public-body .form-card {
+        margin-inline: 1rem;
+    }
+}
