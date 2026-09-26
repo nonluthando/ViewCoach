@@ -12,6 +12,36 @@ from .embeddings import GeminiEmbeddingProvider
 from .models import KnowledgeChunk, KnowledgeDocument
 
 
+def upsert_document(*, source_path, defaults):
+    """Create or update a KnowledgeDocument, tolerating a source that moved.
+
+    Looks up the document by source_path first — the normal case. If a
+    source file is renamed or moved (its slug stays the same, only its
+    path changes), a plain `update_or_create(source_path=...)` would
+    insert a *second* row instead of finding the first, and crash on
+    KnowledgeDocument.slug's unique constraint. Falls back to reusing a
+    stale row with the same slug but a different source_path — that
+    stale row is what a moved file's predecessor looks like — and
+    repoints it, rather than leaving two rows fighting over one slug.
+    """
+    document = KnowledgeDocument.objects.filter(source_path=source_path).first()
+    if document is None:
+        document = (
+            KnowledgeDocument.objects.filter(slug=defaults["slug"])
+            .exclude(source_path=source_path)
+            .first()
+        )
+
+    if document is not None:
+        for field, value in defaults.items():
+            setattr(document, field, value)
+        document.source_path = source_path
+        document.save()
+        return document, False
+
+    return KnowledgeDocument.objects.create(source_path=source_path, **defaults), True
+
+
 @dataclass(frozen=True, slots=True)
 class IngestionResult:
     document_id: int

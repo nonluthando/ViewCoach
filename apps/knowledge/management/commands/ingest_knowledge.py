@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.knowledge.ingestion import ingest_document
+from apps.knowledge.ingestion import ingest_document, upsert_document
 from apps.knowledge.models import (
     KnowledgeDocument,
     KnowledgeIngestionRun,
@@ -109,7 +109,7 @@ class Command(BaseCommand):
                 )
                 slug = slugify(file_path.stem)
 
-                document, _ = KnowledgeDocument.objects.update_or_create(
+                document, _ = upsert_document(
                     source_path=relative_path,
                     defaults={
                         "title": title,
