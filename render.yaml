@@ -3,7 +3,7 @@ services:
     name: adaptive-interview-coach
     runtime: python
     buildCommand: ./build.sh
-    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers ${WEB_CONCURRENCY:-3} --timeout 60
     healthCheckPath: /health/
     envVars:
       - key: DJANGO_SETTINGS_MODULE

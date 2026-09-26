@@ -1,412 +1,449 @@
-
-./* ==========================================================================
-   ProofLoop Landing Page
-   Visual treatment:
-   - White canvas instead of cream/beige
-   - Existing green identity preserved
-   - Existing typography preserved
-   - Existing depth/shadows preserved
-   - Cards remain, but feel lighter and integrated
-   ========================================================================== */
-
-
 /* ==========================================================================
-   Page Canvas
+   ProofLoop Landing Page — rebuilt to match the slate + cyan app brand
+   (tokens come from shell-v2.css's bare :root block, always loaded).
+
+   Previous version only set colors for classes the template no longer
+   uses (.proofloop-hero-panel, .proofloop-layer-card, .proofloop-path,
+   .proofloop-evidence-card) and never defined layout at all, so the page
+   fell back to unstyled block markup plus whatever unrelated theme
+   (editorial.css's --vc-burgundy) happened to win the cascade for a
+   bare .button. Rebuilt against the classes the current template
+   actually renders.
    ========================================================================== */
+
+:root {
+    --pl-max-width: 72rem;
+    --pl-gutter: clamp(1.25rem, 4vw, 3rem);
+}
+
+/* ---- canvas ---- */
 
 .public-body {
     background: #ffffff;
-    color: #17231f;
+    color: var(--pl2-ink, #15121f);
+    font-family: var(--pl2-font-body, -apple-system, sans-serif);
 }
 
 .public-content {
     background: #ffffff;
+    padding: 0 !important;
+    max-width: none !important;
 }
 
+.public-body h1,
+.public-body h2,
+.public-body h3 {
+    font-family: var(--pl2-font-display, sans-serif);
+    text-wrap: balance;
+}
 
-/* ==========================================================================
-   Header
-   ========================================================================== */
+/* ---- header ---- */
 
 .site-header {
     background: #ffffff;
-    border-bottom: 1px solid #e7ece9;
+    border-bottom: 1px solid #e8e6ef;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.site-header .nav {
+    max-width: var(--pl-max-width);
+    margin-inline: auto;
+    padding: 1rem var(--pl-gutter);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .proofloop-public-brand {
-    color: #17231f;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--pl2-ink, #15121f);
+    text-decoration: none;
 }
 
 .proofloop-public-brand .brand-name {
-    color: #17231f;
+    font-family: var(--pl2-font-display, sans-serif);
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--pl2-ink, #15121f);
 }
 
+.proofloop-mark {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: var(--pl2-canvas, #171e2e);
+    position: relative;
+    flex: none;
+}
 
-/* ==========================================================================
-   Brand Mark
-   ========================================================================== */
-
-.proofloop-mark i:nth-child(1) {
-    background: #2c765f;
+.proofloop-mark i {
+    position: absolute;
+    inset: 6px;
+    border-radius: 3px;
+    background: var(--pl2-accent, #00c2d1);
 }
 
 .proofloop-mark i:nth-child(2) {
-    background: #185746;
+    inset: 10px 6px 6px 10px;
+    opacity: 0.6;
 }
 
-
-/* ==========================================================================
-   Navigation
-   ========================================================================== */
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
 
 .nav-actions .nav-link {
-    color: #53645e;
+    color: var(--pl2-ink-soft, #5c5568);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .nav-actions .nav-link:hover {
-    color: #17231f;
+    color: var(--pl2-ink, #15121f);
 }
 
+/* ---- buttons ---- */
 
-/* ==========================================================================
-   Buttons
-   ========================================================================== */
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.3rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: filter 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
 
-.public-body .button-primary {
-    background: #185746;
-    border-color: #185746;
+.button:active {
+    transform: scale(0.97);
+}
+
+/* Base + unmarked .button (the demo-form submit) reads as the primary CTA. */
+.button,
+.nav-actions .button {
+    background: var(--pl2-accent, #00c2d1);
     color: #ffffff;
+    border-color: var(--pl2-accent, #00c2d1);
 }
 
-.public-body .button-primary:hover {
-    background: #124438;
-    border-color: #124438;
-    color: #ffffff;
+.button:hover {
+    filter: brightness(1.06);
 }
 
+.button-secondary {
+    background: #ffffff;
+    color: var(--pl2-ink, #15121f);
+    border-color: #d8d5e0;
+}
 
-/* ==========================================================================
-   Hero
-   ========================================================================== */
+.button-secondary:hover {
+    background: #f6f5fb;
+}
+
+.button-quiet {
+    background: transparent;
+    color: var(--pl2-ink-soft, #5c5568);
+    border-color: transparent;
+    padding-inline: 0.75rem;
+}
+
+.button-quiet:hover {
+    color: var(--pl2-ink, #15121f);
+    background: #f6f5fb;
+}
+
+.button-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ---- hero ---- */
 
 .proofloop-hero {
     background: #ffffff;
-    color: #17231f;
 }
 
-
-/* Keep the hero visually strong rather than flattening it. */
-
-.proofloop-hero-panel {
-    background:
-        radial-gradient(
-            circle at 85% 15%,
-            rgba(72, 135, 113, 0.28),
-            transparent 32%
-        ),
-        linear-gradient(
-            145deg,
-            #102d25 0%,
-            #194438 52%,
-            #1d5143 100%
-        );
-
-    color: #ffffff;
-
-    border: 1px solid rgba(24, 87, 70, 0.35);
-
-    box-shadow:
-        0 22px 50px rgba(16, 45, 37, 0.18),
-        0 6px 18px rgba(16, 45, 37, 0.08);
-}
-
-
-/* ==========================================================================
-   Hero Typography
-   ========================================================================== */
-
-.proofloop-hero h1,
-.proofloop-hero-title {
-    color: #17231f;
-}
-
-.proofloop-hero-subtitle,
 .proofloop-hero-copy {
-    color: #53645e;
+    max-width: var(--pl-max-width);
+    margin-inline: auto;
+    padding: clamp(3rem, 8vw, 6rem) var(--pl-gutter) clamp(2.5rem, 6vw, 4rem);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
 }
 
-
-/* ==========================================================================
-   Hero Panel Content
-   ========================================================================== */
-
-.proofloop-hero-panel h2,
-.proofloop-hero-panel h3,
-.proofloop-hero-panel h4 {
-    color: #ffffff;
+.proofloop-transition {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--pl2-ink-soft, #5c5568);
+    background: #f6f5fb;
+    border: 1px solid #e8e6ef;
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    margin: 0;
 }
 
-.proofloop-hero-panel p {
-    color: rgba(255, 255, 255, 0.78);
+.proofloop-transition span {
+    color: var(--pl2-ink-faint, #8b8494);
 }
 
+.proofloop-hero .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pl2-accent-strong, #00a3b0);
+    margin: 0;
+}
 
-/* ==========================================================================
-   Layer / Product Story
-   ========================================================================== */
+.proofloop-hero h1 {
+    font-size: clamp(2.4rem, 5.5vw, 3.75rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--pl2-ink, #15121f);
+    margin: 0;
+    max-width: 20ch;
+}
+
+.proofloop-hero .lead {
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    line-height: 1.6;
+    color: var(--pl2-ink-soft, #5c5568);
+    max-width: 56ch;
+    margin: 0;
+}
+
+.proofloop-hero-signals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 44rem;
+    margin: 1.5rem 0 0;
+    padding-top: 1.75rem;
+    border-top: 1px solid #e8e6ef;
+}
+
+.proofloop-hero-signals div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.proofloop-hero-signals dt {
+    font-family: var(--pl2-font-display, sans-serif);
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--pl2-ink, #15121f);
+}
+
+.proofloop-hero-signals dd {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--pl2-ink-faint, #8b8494);
+}
+
+/* ---- layer section ---- */
 
 .proofloop-layer-section {
-    background: #ffffff;
-
-    border-top: 1px solid #e7ece9;
-    border-bottom: 1px solid #e7ece9;
+    background: #f6f5fb;
+    border-top: 1px solid #e8e6ef;
+    border-bottom: 1px solid #e8e6ef;
+    padding-block: clamp(3rem, 6vw, 4.5rem);
 }
 
-.proofloop-layer-section .section-title,
+.proofloop-layer-section > header,
+.proofloop-layer-section > div {
+    max-width: var(--pl-max-width);
+    margin-inline: auto;
+    padding-inline: var(--pl-gutter);
+}
+
+.proofloop-layer-section header {
+    max-width: 44rem;
+    margin-bottom: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.proofloop-layer-section .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pl2-accent-strong, #00a3b0);
+    margin: 0;
+}
+
 .proofloop-layer-section h2 {
-    color: #17231f;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 800;
+    color: var(--pl2-ink, #15121f);
+    margin: 0;
 }
 
-.proofloop-layer-section .section-subtitle,
-.proofloop-layer-section p {
-    color: #53645e;
+.proofloop-layer-section header p {
+    color: var(--pl2-ink-soft, #5c5568);
+    margin: 0;
+    font-size: 1rem;
 }
 
 .proofloop-layer-grid {
-    background: transparent;
+    max-width: var(--pl-max-width);
+    margin-inline: auto;
+    padding-inline: var(--pl-gutter);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem;
 }
 
-
-/* ==========================================================================
-   Feature Cards
-   ========================================================================== */
-
-/*
- * Cards stay.
- *
- * They are just lighter and less visually dominant so the page reads as
- * one continuous product story rather than a collection of disconnected
- * boxes.
- */
-
-.proofloop-layer-card {
+.proofloop-layer-grid article {
     background: #ffffff;
-
-    border: 1px solid #dfe7e3;
-
-    box-shadow:
-        0 8px 24px rgba(23, 35, 31, 0.045);
-
-    transition:
-        border-color 180ms ease,
-        box-shadow 180ms ease,
-        transform 180ms ease;
+    border: 1px solid #e8e6ef;
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-.proofloop-layer-card:hover {
-    border-color: #9ab5aa;
-
-    box-shadow:
-        0 14px 32px rgba(23, 35, 31, 0.075);
-
-    transform: translateY(-2px);
+.proofloop-layer-grid article:hover {
+    transform: translateY(-3px);
+    border-color: #d8d5e0;
+    box-shadow: 0 14px 34px -18px rgba(21, 18, 31, 0.25);
 }
 
-.proofloop-layer-card h3,
-.proofloop-layer-card-title {
-    color: #17231f;
+.proofloop-layer-grid span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 8px;
+    background: rgba(0, 194, 209, 0.12);
+    color: var(--pl2-accent-strong, #00a3b0);
+    font-family: var(--pl2-font-display, sans-serif);
+    font-weight: 800;
+    font-size: 0.8rem;
 }
 
-.proofloop-layer-card p,
-.proofloop-layer-card-copy {
-    color: #53645e;
+.proofloop-layer-grid h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--pl2-ink, #15121f);
+    margin: 0;
 }
 
-
-/* ==========================================================================
-   Feature Tags
-   ========================================================================== */
-
-.proofloop-layer-card .tag,
-.proofloop-badge {
-    background: #e9f3ef;
-    color: #185746;
-    border-color: #cfe3da;
+.proofloop-layer-grid p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--pl2-ink-soft, #5c5568);
+    margin: 0;
 }
 
+.proofloop-layer-grid small {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--pl2-ink-faint, #8b8494);
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px dashed #e8e6ef;
+}
 
-/* ==========================================================================
-   Evidence Section
-   ========================================================================== */
+/* ---- evidence section ---- */
 
 .proofloop-evidence-section {
-    background: #f8faf9;
-
-    border-top: 1px solid #e7ece9;
-    border-bottom: 1px solid #e7ece9;
+    background: #ffffff;
+    padding-block: clamp(3.5rem, 7vw, 5.5rem);
 }
 
-.proofloop-evidence-section h2,
-.proofloop-evidence-title {
-    color: #17231f;
+.proofloop-evidence-section > div {
+    max-width: 44rem;
+    margin-inline: auto;
+    padding-inline: var(--pl-gutter);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-.proofloop-evidence-subtitle,
+.proofloop-evidence-section .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pl2-accent-strong, #00a3b0);
+    margin: 0;
+}
+
+.proofloop-evidence-section h2 {
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 800;
+    color: var(--pl2-ink, #15121f);
+    margin: 0;
+}
+
 .proofloop-evidence-section p {
-    color: #53645e;
+    color: var(--pl2-ink-soft, #5c5568);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
 }
 
-.proofloop-evidence-stack {
-    background: transparent;
+/* ---- responsive ---- */
+
+@media (max-width: 61rem) {
+    .proofloop-layer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
+@media (max-width: 40rem) {
+    .site-header .nav {
+        padding-block: 0.85rem;
+    }
 
-/* ==========================================================================
-   Evidence Cards
-   ========================================================================== */
+    .proofloop-layer-grid {
+        grid-template-columns: 1fr;
+    }
 
-.proofloop-evidence-card {
-    background: #ffffff;
+    .proofloop-hero-signals {
+        grid-template-columns: 1fr;
+        gap: 1.1rem;
+    }
 
-    border: 1px solid #dfe7e3;
+    .button-row {
+        width: 100%;
+    }
 
-    box-shadow:
-        0 10px 28px rgba(23, 35, 31, 0.055);
+    .button-row .button {
+        flex: 1 1 auto;
+    }
 }
-
-.proofloop-evidence-card h4,
-.proofloop-evidence-card-title {
-    color: #17231f;
-}
-
-.proofloop-evidence-card p {
-    color: #53645e;
-}
-
-.proofloop-evidence-card .meta-text,
-.proofloop-evidence-card time {
-    color: #73817c;
-}
-
-
-/* ==========================================================================
-   Preparation Path
-   ========================================================================== */
-
-.proofloop-path {
-    background: #ffffff;
-    border-color: #dfe7e3;
-}
-
-.proofloop-path-step {
-    background: #f8faf9;
-    border-color: #dfe7e3;
-    color: #53645e;
-}
-
-.proofloop-path-step h4,
-.proofloop-path-step-title {
-    color: #17231f;
-}
-
-.proofloop-path-step p {
-    color: #53645e;
-}
-
-
-/* Active preparation step */
-
-.proofloop-path-step.is-active,
-.proofloop-path-step.is-current {
-    background: #e9f3ef;
-    border-color: #2c765f;
-    color: #185746;
-}
-
-.proofloop-path-step.is-active .step-number,
-.proofloop-path-step.is-current .step-number {
-    color: #185746;
-}
-
-.proofloop-path-step.is-complete {
-    background: #ffffff;
-    border-color: #dfe7e3;
-    color: #53645e;
-}
-
-.proofloop-path-step.is-complete .step-icon {
-    color: #2c765f;
-}
-
-
-/* ==========================================================================
-   Message / Toast
-   ========================================================================== */
-
-.message-region .message,
-.message-toast {
-    background: #ffffff;
-    color: #17231f;
-    border-color: #dfe7e3;
-    border-left-color: #2c765f;
-
-    box-shadow:
-        0 10px 28px rgba(23, 35, 31, 0.07);
-}
-
-
-/* ==========================================================================
-   Footer
-   ========================================================================== */
-
-.public-footer,
-.site-footer {
-    background: #ffffff;
-    border-top: 1px solid #e7ece9;
-    color: #53645e;
-}
-
-.public-footer a,
-.site-footer a {
-    color: #53645e;
-}
-
-.public-footer a:hover,
-.site-footer a:hover {
-    color: #185746;
-}
-
-
-/* ==========================================================================
-   White Surface Normalisation
-   ========================================================================== */
-
-/*
- * These are intentionally limited to landing-page surfaces.
- * No typography, spacing, sizing, radius or layout changes.
- */
-
-.proofloop-hero,
-.proofloop-layer-section,
-.proofloop-path,
-.public-content {
-    background-color: #ffffff;
-}
-
-
-/* ==========================================================================
-   Preserve Visual Depth
-   ========================================================================== */
-
-/*
- * Do NOT remove:
- *
- * - shadows
- * - gradients
- * - transitions
- * - transforms
- * - border radii
- * - existing layout
- *
- * The landing page should remain visually rich.
- */
