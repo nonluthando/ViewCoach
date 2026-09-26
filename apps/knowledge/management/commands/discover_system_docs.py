@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.knowledge.discovery import discover_form_documents
-from apps.knowledge.ingestion import ingest_document
+from apps.knowledge.ingestion import ingest_document, upsert_document
 from apps.knowledge.management.commands.ingest_knowledge import _summary_from_markdown
 from apps.knowledge.models import KnowledgeDocument, KnowledgeIngestionRun
 
@@ -41,7 +41,7 @@ class Command(BaseCommand):
 
         try:
             for source_path, title, markdown in documents:
-                document, _ = KnowledgeDocument.objects.update_or_create(
+                document, _ = upsert_document(
                     source_path=source_path,
                     defaults={
                         "title": title,
