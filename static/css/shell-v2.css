@@ -37,6 +37,37 @@
     font-family: var(--pl2-font-body);
 }
 
+/* Rebrand the authenticated app's primary accent to teal without hunting
+   down every selector. Four separate design eras each still define their
+   own "brand accent" custom property -- editorial.css's burgundy,
+   dashboard-v3.css's copper, proofloop-workspace.css's emerald (used for
+   the current/active step in the shell's loop and stage indicators), and
+   visual-identity-v1.css's --vc2-blue (misnamed -- it's the same copper
+   as dashboard-v3, not blue). Custom properties inherit, so redefining
+   each one here ripples through every selector in every file that
+   references it -- buttons, links, badges, progress fills, focus rings --
+   instead of touching each one individually. Semantic status colors
+   (success/warning/danger) and third-party brand colors (--vc2-youtube)
+   are intentionally left alone. */
+
+.app-body {
+    --vc-burgundy: var(--pl2-accent);
+    --vc-burgundy-dark: var(--pl2-accent-strong);
+    --vc-burgundy-soft: var(--pl2-accent-soft);
+
+    --d3-copper: var(--pl2-accent);
+    --d3-copper-dark: var(--pl2-accent-strong);
+    --d3-copper-soft: var(--pl2-accent-soft);
+
+    --pl-emerald: var(--pl2-accent);
+    --pl-emerald-dark: var(--pl2-accent-strong);
+    --pl-emerald-soft: var(--pl2-accent-soft);
+
+    --vc2-blue: var(--pl2-accent);
+    --vc2-blue-dark: var(--pl2-accent-strong);
+    --vc2-blue-soft: var(--pl2-accent-soft);
+}
+
 .app-body h1,
 .app-body h2,
 .app-body h3,
