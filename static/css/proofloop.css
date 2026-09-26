@@ -1,178 +1,20 @@
 /* ==========================================================================
-   ProofLoop Landing Page — rebuilt to match the slate + cyan app brand
-   (tokens come from shell-v2.css's bare :root block, always loaded).
+   ProofLoop Landing Page — sections specific to this page only.
 
-   Previous version only set colors for classes the template no longer
-   uses (.proofloop-hero-panel, .proofloop-layer-card, .proofloop-path,
-   .proofloop-evidence-card) and never defined layout at all, so the page
-   fell back to unstyled block markup plus whatever unrelated theme
-   (editorial.css's --vc-burgundy) happened to win the cascade for a
-   bare .button. Rebuilt against the classes the current template
-   actually renders.
+   Header, buttons, canvas colour, .eyebrow and .lead used to live here
+   too, scoped to this page alone via {% block page_styles %} — meaning
+   every OTHER public page (login, signup, project showcase) had none of
+   it and fell straight through to editorial.css's unrelated
+   --vc-burgundy theme. Those shared primitives now live in
+   public-shell.css, loaded on every public page from base.html. This
+   file keeps only what's actually specific to the landing page: the
+   hero, the "formerly ViewCoach" transition pill, the four-layer grid,
+   and the evidence band.
    ========================================================================== */
 
 :root {
     --pl-max-width: 72rem;
     --pl-gutter: clamp(1.25rem, 4vw, 3rem);
-}
-
-/* ---- canvas ---- */
-
-.public-body {
-    background: #ffffff;
-    color: var(--pl2-ink, #15121f);
-    font-family: var(--pl2-font-body, -apple-system, sans-serif);
-}
-
-.public-content {
-    background: #ffffff;
-    padding: 0 !important;
-    max-width: none !important;
-}
-
-.public-body h1,
-.public-body h2,
-.public-body h3 {
-    font-family: var(--pl2-font-display, sans-serif);
-    text-wrap: balance;
-}
-
-/* ---- header ---- */
-
-.site-header {
-    background: #ffffff;
-    border-bottom: 1px solid #e8e6ef;
-    position: sticky;
-    top: 0;
-    z-index: 20;
-}
-
-.site-header .nav {
-    max-width: var(--pl-max-width);
-    margin-inline: auto;
-    padding: 1rem var(--pl-gutter);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.proofloop-public-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--pl2-ink, #15121f);
-    text-decoration: none;
-}
-
-.proofloop-public-brand .brand-name {
-    font-family: var(--pl2-font-display, sans-serif);
-    font-weight: 800;
-    font-size: 1.15rem;
-    color: var(--pl2-ink, #15121f);
-}
-
-.proofloop-mark {
-    display: inline-flex;
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-    background: var(--pl2-canvas, #171e2e);
-    position: relative;
-    flex: none;
-}
-
-.proofloop-mark i {
-    position: absolute;
-    inset: 6px;
-    border-radius: 3px;
-    background: var(--pl2-accent, #00c2d1);
-}
-
-.proofloop-mark i:nth-child(2) {
-    inset: 10px 6px 6px 10px;
-    opacity: 0.6;
-}
-
-.nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.nav-actions .nav-link {
-    color: var(--pl2-ink-soft, #5c5568);
-    text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.nav-actions .nav-link:hover {
-    color: var(--pl2-ink, #15121f);
-}
-
-/* ---- buttons ---- */
-
-.button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.7rem 1.3rem;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.92rem;
-    text-decoration: none;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: filter 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
-}
-
-.button:active {
-    transform: scale(0.97);
-}
-
-/* Base + unmarked .button (the demo-form submit) reads as the primary CTA. */
-.button,
-.nav-actions .button {
-    background: var(--pl2-accent, #00c2d1);
-    color: #ffffff;
-    border-color: var(--pl2-accent, #00c2d1);
-}
-
-.button:hover {
-    filter: brightness(1.06);
-}
-
-.button-secondary {
-    background: #ffffff;
-    color: var(--pl2-ink, #15121f);
-    border-color: #d8d5e0;
-}
-
-.button-secondary:hover {
-    background: #f6f5fb;
-}
-
-.button-quiet {
-    background: transparent;
-    color: var(--pl2-ink-soft, #5c5568);
-    border-color: transparent;
-    padding-inline: 0.75rem;
-}
-
-.button-quiet:hover {
-    color: var(--pl2-ink, #15121f);
-    background: #f6f5fb;
-}
-
-.button-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
 }
 
 /* ---- hero ---- */
@@ -209,15 +51,6 @@
     color: var(--pl2-ink-faint, #8b8494);
 }
 
-.proofloop-hero .eyebrow {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--pl2-accent-strong, #00a3b0);
-    margin: 0;
-}
-
 .proofloop-hero h1 {
     font-size: clamp(2.4rem, 5.5vw, 3.75rem);
     font-weight: 800;
@@ -226,14 +59,6 @@
     color: var(--pl2-ink, #15121f);
     margin: 0;
     max-width: 20ch;
-}
-
-.proofloop-hero .lead {
-    font-size: clamp(1rem, 1.6vw, 1.2rem);
-    line-height: 1.6;
-    color: var(--pl2-ink-soft, #5c5568);
-    max-width: 56ch;
-    margin: 0;
 }
 
 .proofloop-hero-signals {
@@ -291,15 +116,6 @@
     gap: 0.5rem;
 }
 
-.proofloop-layer-section .eyebrow {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--pl2-accent-strong, #00a3b0);
-    margin: 0;
-}
-
 .proofloop-layer-section h2 {
     font-size: clamp(1.5rem, 3vw, 2rem);
     font-weight: 800;
@@ -346,8 +162,8 @@
     width: 2rem;
     height: 2rem;
     border-radius: 8px;
-    background: rgba(0, 194, 209, 0.12);
-    color: var(--pl2-accent-strong, #00a3b0);
+    background: rgba(13, 148, 136, 0.12);
+    color: var(--pl2-accent-strong, #0f766e);
     font-family: var(--pl2-font-display, sans-serif);
     font-weight: 800;
     font-size: 0.8rem;
@@ -394,15 +210,6 @@
     gap: 0.75rem;
 }
 
-.proofloop-evidence-section .eyebrow {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--pl2-accent-strong, #00a3b0);
-    margin: 0;
-}
-
 .proofloop-evidence-section h2 {
     font-size: clamp(1.4rem, 3vw, 1.9rem);
     font-weight: 800;
@@ -426,10 +233,6 @@
 }
 
 @media (max-width: 40rem) {
-    .site-header .nav {
-        padding-block: 0.85rem;
-    }
-
     .proofloop-layer-grid {
         grid-template-columns: 1fr;
     }
@@ -437,13 +240,5 @@
     .proofloop-hero-signals {
         grid-template-columns: 1fr;
         gap: 1.1rem;
-    }
-
-    .button-row {
-        width: 100%;
-    }
-
-    .button-row .button {
-        flex: 1 1 auto;
     }
 }
