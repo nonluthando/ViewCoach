@@ -162,8 +162,8 @@
     width: 2rem;
     height: 2rem;
     border-radius: 8px;
-    background: rgba(0, 194, 209, 0.12);
-    color: var(--pl2-accent-strong, #00a3b0);
+    background: rgba(13, 148, 136, 0.12);
+    color: var(--pl2-accent-strong, #0f766e);
     font-family: var(--pl2-font-display, sans-serif);
     font-weight: 800;
     font-size: 0.8rem;

@@ -80,7 +80,7 @@
     position: absolute;
     inset: 6px;
     border-radius: 3px;
-    background: var(--pl2-accent, #00c2d1);
+    background: var(--pl2-accent, #0d9488);
 }
 
 .proofloop-mark i:nth-child(2) {
@@ -121,9 +121,9 @@
     cursor: pointer;
     border: 1px solid transparent;
     transition: filter 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
-    background: var(--pl2-accent, #00c2d1);
+    background: var(--pl2-accent, #0d9488);
     color: #ffffff;
-    border-color: var(--pl2-accent, #00c2d1);
+    border-color: var(--pl2-accent, #0d9488);
 }
 
 .public-body .button:active {
@@ -172,7 +172,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--pl2-accent-strong, #00a3b0);
+    color: var(--pl2-accent-strong, #0f766e);
     margin: 0;
 }
 
@@ -238,9 +238,9 @@
 .public-body .form-field input:focus,
 .public-body .form-field select:focus,
 .public-body .form-field textarea:focus {
-    outline: 2px solid var(--pl2-accent, #00c2d1);
+    outline: 2px solid var(--pl2-accent, #0d9488);
     outline-offset: 1px;
-    border-color: var(--pl2-accent, #00c2d1);
+    border-color: var(--pl2-accent, #0d9488);
 }
 
 .public-body .form-field .help-text {
@@ -267,7 +267,7 @@
 }
 
 .public-body .form-card > p a {
-    color: var(--pl2-accent-strong, #00a3b0);
+    color: var(--pl2-accent-strong, #0f766e);
     font-weight: 700;
     text-decoration: none;
 }
