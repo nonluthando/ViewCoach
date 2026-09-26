@@ -27,6 +27,8 @@
     --pl2-radius-card: 12px;
     --pl2-radius-pill: 999px;
 
+    --pl2-sidebar-width: 88px;
+
     --pl2-font-display: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --pl2-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -46,13 +48,32 @@
 /* ---- sidebar -> icon rail ---- */
 
 .app-body .app-sidebar {
-    width: 88px;
+    width: var(--pl2-sidebar-width);
     background: var(--pl2-canvas);
     border-right: none;
     padding: 16px 8px;
     gap: 16px;
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 40;
+}
+
+/* .app-sidebar is position: fixed (editorial.css) at the old, much wider
+   --vc-sidebar-width, so it's out of normal flow entirely. .app-main
+   already compensates with its own margin-left, but at the stale wide
+   value -- it just happens not to look broken because the shell and main
+   canvas are both white. .app-topbar has NO compensation at all, so the
+   88px-wide rail sits on top of it and clips the left edge of the topbar
+   copy. Resync both to the rail's real width. */
+
+.app-body .app-main,
+.app-body .app-topbar {
+    margin-left: var(--pl2-sidebar-width);
+}
+
+@media (max-width: 58rem) {
+    .app-body .app-main {
+        margin-left: 0;
+    }
 }
 
 .app-body .app-sidebar .proofloop-shell-brand,
@@ -143,6 +164,29 @@
 .app-body .app-topbar .eyebrow,
 .app-body .app-topbar .topbar-heading {
     color: #fff;
+}
+
+/* .app-topbar-copy, .proofloop-shell-stages and .app-topbar-actions are
+   flex siblings with no shrink handling, so the copy's two lines of text
+   just overflow into the stages/account-menu area at anything under a
+   very wide viewport instead of truncating. Let the copy block shrink
+   and ellipsize, and keep the other two at their natural width. */
+
+.app-body .app-topbar-copy {
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.app-body .app-topbar .eyebrow,
+.app-body .app-topbar .topbar-heading {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-body .proofloop-shell-stages,
+.app-body .app-topbar-actions {
+    flex-shrink: 0;
 }
 
 .app-body .proofloop-shell-stages li {
