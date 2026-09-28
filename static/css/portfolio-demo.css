@@ -25,7 +25,7 @@
 
 .portfolio-home-proof,
 .portfolio-case-summary {
-    background: #20282c;
+    background: #0f1d3a;
     border-radius: 8px;
     color: #fff;
     padding: 1.5rem;
@@ -33,7 +33,7 @@
 
 .portfolio-home-proof > span,
 .portfolio-case-summary > span {
-    color: #d99a7e;
+    color: #93c5fd;
     display: block;
     font-size: 0.78rem;
     font-weight: 700;
@@ -79,7 +79,7 @@
 }
 
 .portfolio-metric-strip {
-    background: #20282c;
+    background: #0f1d3a;
     color: #fff;
     display: grid;
     gap: 1px;
@@ -88,7 +88,7 @@
 }
 
 .portfolio-metric-strip article {
-    background: #20282c;
+    background: #0f1d3a;
     border: 1px solid #3a454b;
     display: grid;
     gap: 0.25rem;
@@ -96,7 +96,7 @@
 }
 
 .portfolio-metric-strip strong {
-    color: #d57952;
+    color: #60a5fa;
     font-size: 2.2rem;
 }
 
@@ -140,7 +140,7 @@
 }
 
 .portfolio-problem-grid article > span {
-    color: #a84f2a;
+    color: #2563eb;
     font-weight: 800;
 }
 
@@ -152,7 +152,7 @@
 
 .portfolio-decision-grid small {
     border-top: 1px solid #ece7e3;
-    color: #7b4936;
+    color: #1d4ed8;
     display: block;
     margin-top: 1rem;
     padding-top: 0.8rem;
@@ -166,7 +166,7 @@
 .portfolio-flow article {
     align-items: center;
     background: #fff;
-    border-left: 4px solid #a84f2a;
+    border-left: 4px solid #2563eb;
     display: grid;
     gap: 0.25rem 0.8rem;
     grid-template-columns: auto 1fr;
@@ -174,7 +174,7 @@
 }
 
 .portfolio-flow article > span {
-    color: #a84f2a;
+    color: #2563eb;
     font-size: 1.25rem;
     font-weight: 800;
     grid-row: span 2;
@@ -206,7 +206,7 @@
 
 .portfolio-case-cta {
     align-items: center;
-    background: #20282c;
+    background: #0f1d3a;
     border-radius: 8px;
     color: #fff;
     display: flex;
@@ -218,7 +218,7 @@
 }
 
 .portfolio-case-cta .eyebrow {
-    color: #d99a7e;
+    color: #93c5fd;
 }
 
 .portfolio-demo-status {
@@ -227,8 +227,8 @@
 }
 
 .portfolio-demo-banner {
-    background: #f7e9e2;
-    border: 1px solid #ddb8a7;
+    background: #eaf1ff;
+    border: 1px solid #bfdbfe;
     border-radius: 7px;
     display: grid;
     gap: 0.8rem;
@@ -242,7 +242,7 @@
 }
 
 .portfolio-demo-banner-heading span {
-    color: #913f21;
+    color: #1d4ed8;
     font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -257,9 +257,9 @@
 
 .portfolio-demo-banner nav a {
     background: #fff;
-    border: 1px solid #dfc3b7;
+    border: 1px solid #dbeafe;
     border-radius: 4px;
-    color: #20282c;
+    color: #0f1d3a;
     font-size: 0.78rem;
     padding: 0.38rem 0.52rem;
     text-decoration: none;
@@ -283,7 +283,7 @@
 .portfolio-demo-banner-actions button {
     background: transparent;
     border: 0;
-    color: #913f21;
+    color: #1d4ed8;
     cursor: pointer;
     font: inherit;
     font-size: 0.82rem;
@@ -305,7 +305,7 @@
 }
 
 .portfolio-demo-guide-progress {
-    background: #20282c;
+    background: #0f1d3a;
     border-radius: 7px;
     color: #fff;
     display: grid;
@@ -314,7 +314,7 @@
 }
 
 .portfolio-demo-guide-progress strong {
-    color: #d57952;
+    color: #60a5fa;
     font-size: 2rem;
 }
 
@@ -344,7 +344,7 @@
 }
 
 .portfolio-demo-step-number {
-    color: #a84f2a;
+    color: #2563eb;
     font-size: 1.15rem;
     font-weight: 800;
 }

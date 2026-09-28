@@ -128,7 +128,7 @@
 .app-account-panel > a:hover,
 .app-account-panel form button:hover {
     color: var(--vc-burgundy-dark);
-    background: #f3eee7;
+    background: #f1f5f9;
 }
 
 .app-account-disabled {

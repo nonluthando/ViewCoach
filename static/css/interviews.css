@@ -136,7 +136,7 @@
     overflow: hidden;
     border-radius: 999px;
     margin: 1rem 0 1.25rem;
-    background: #e8e1d8;
+    background: #f1f5f9;
 }
 
 .interview-progress-track span {
@@ -182,7 +182,7 @@
     padding: 0.28rem 0.55rem;
     border-radius: 999px;
     color: var(--vc-muted);
-    background: #eee8df;
+    background: #f1f5f9;
     font-size: 0.76rem;
     font-weight: 750;
 }
@@ -197,12 +197,12 @@
 .interview-result-struggled,
 .interview-result-skipped {
     color: var(--vc-danger);
-    background: #f8e9e7;
+    background: #fdecea;
 }
 
 .interview-result-partial {
     color: var(--vc-warning);
-    background: #fbf0df;
+    background: #fff4dc;
 }
 
 .interview-empty-state {
@@ -314,9 +314,9 @@
 }
 
 .interview-timer.is-overtime {
-    border-color: #d7a19b;
+    border-color: #fca5a5;
     color: var(--vc-danger);
-    background: #f8e9e7;
+    background: #fdecea;
 }
 
 .interview-progress {
@@ -357,7 +357,7 @@
 }
 
 .interview-answer-reveal {
-    border-color: #cdb6ba;
+    border-color: #e2e8f0;
 }
 
 .interview-response-card {
@@ -513,7 +513,7 @@
 .interview-response-notes {
     padding: 1rem;
     border-left: 2px solid var(--vc-border-strong);
-    background: #f2ede6;
+    background: #f1f5f9;
 }
 
 .interview-response-notes p:last-child {
