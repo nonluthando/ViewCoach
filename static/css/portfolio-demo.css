@@ -140,7 +140,7 @@
 }
 
 .portfolio-problem-grid article > span {
-    color: #2563eb;
+    color: var(--pl2-accent-strong, #0f766e);
     font-weight: 800;
 }
 
@@ -166,7 +166,7 @@
 .portfolio-flow article {
     align-items: center;
     background: #fff;
-    border-left: 4px solid #2563eb;
+    border-left: 4px solid var(--pl2-accent-strong, #0f766e);
     display: grid;
     gap: 0.25rem 0.8rem;
     grid-template-columns: auto 1fr;
@@ -174,7 +174,7 @@
 }
 
 .portfolio-flow article > span {
-    color: #2563eb;
+    color: var(--pl2-accent-strong, #0f766e);
     font-size: 1.25rem;
     font-weight: 800;
     grid-row: span 2;
@@ -344,7 +344,7 @@
 }
 
 .portfolio-demo-step-number {
-    color: #2563eb;
+    color: var(--pl2-accent-strong, #0f766e);
     font-size: 1.15rem;
     font-weight: 800;
 }

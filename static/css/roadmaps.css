@@ -115,6 +115,41 @@
     text-decoration: none;
 }
 
+/* course_roadmap_list.html / custom_roadmap_list.html reuse the
+   .roadmap-card class for a simpler, self-contained card, wrapped in
+   .roadmap-grid -- neither had any CSS, so cards fell back to the
+   catalogue-row .roadmap-card above (a 2-column grid meant for a very
+   different layout) and rendered as a broken zigzag. Scope a proper
+   card + grid treatment to this context specifically. */
+
+.roadmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+    gap: 1.5rem;
+}
+
+.roadmap-grid .roadmap-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--vc-border);
+    border-radius: var(--vc2-radius, 0.75rem);
+}
+
+.roadmap-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: 0.5rem;
+}
+
+.roadmap-card-actions form {
+    display: inline-flex;
+}
+
 .roadmap-breadcrumbs {
     display: flex;
     gap: 0.5rem;

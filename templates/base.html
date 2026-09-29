@@ -36,13 +36,16 @@
     <link rel="stylesheet" href="{% static 'css/portfolio-demo.css' %}">
     <link rel="stylesheet" href="{% static 'css/proofloop-workspace.css' %}">
 
+    <!-- Public shell — shared header/buttons/forms for every logged-out page -->
+    <link rel="stylesheet" href="{% static 'css/public-shell.css' %}">
+
     <!-- Page-specific stylesheet -->
     {% block page_styles %}{% endblock %}
 
     <!-- Final Visual Identity / Theme Overrides -->
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
 
-    <!-- Shell v2 — slate + cyan polish pass (loaded last, see file header) -->
+    <!-- Shell v2 — modern SaaS app shell (loaded last, see file header) -->
     <link rel="stylesheet" href="{% static 'css/shell-v2.css' %}">
 </head>
 
