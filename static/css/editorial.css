@@ -3,7 +3,7 @@
        its name for the ~40 call sites across the page stylesheets but
        points at the same sans stack as --vc-font-sans — this app uses one
        typeface, Inter, varying only by weight. */
-    --vc-ivory: #f2eee3;
+    --vc-ivory: #ffffff;
     --vc-paper: #ffffff;
     --vc-paper-strong: #ffffff;
     --vc-ink: #232b1d;
