@@ -25,7 +25,7 @@
 
 .portfolio-home-proof,
 .portfolio-case-summary {
-    background: #0f1d3a;
+    background: #1e2518;
     border-radius: 8px;
     color: #fff;
     padding: 1.5rem;
@@ -33,7 +33,7 @@
 
 .portfolio-home-proof > span,
 .portfolio-case-summary > span {
-    color: #93c5fd;
+    color: #a8b89a;
     display: block;
     font-size: 0.78rem;
     font-weight: 700;
@@ -79,7 +79,7 @@
 }
 
 .portfolio-metric-strip {
-    background: #0f1d3a;
+    background: #1e2518;
     color: #fff;
     display: grid;
     gap: 1px;
@@ -88,7 +88,7 @@
 }
 
 .portfolio-metric-strip article {
-    background: #0f1d3a;
+    background: #1e2518;
     border: 1px solid #3a454b;
     display: grid;
     gap: 0.25rem;
@@ -96,7 +96,7 @@
 }
 
 .portfolio-metric-strip strong {
-    color: #60a5fa;
+    color: #8fa37e;
     font-size: 2.2rem;
 }
 
@@ -152,7 +152,7 @@
 
 .portfolio-decision-grid small {
     border-top: 1px solid #ece7e3;
-    color: #1d4ed8;
+    color: #65785a;
     display: block;
     margin-top: 1rem;
     padding-top: 0.8rem;
@@ -206,7 +206,7 @@
 
 .portfolio-case-cta {
     align-items: center;
-    background: #0f1d3a;
+    background: #1e2518;
     border-radius: 8px;
     color: #fff;
     display: flex;
@@ -218,7 +218,7 @@
 }
 
 .portfolio-case-cta .eyebrow {
-    color: #93c5fd;
+    color: #a8b89a;
 }
 
 .portfolio-demo-status {
@@ -227,8 +227,8 @@
 }
 
 .portfolio-demo-banner {
-    background: #eaf1ff;
-    border: 1px solid #bfdbfe;
+    background: #e4e9da;
+    border: 1px solid #cddabd;
     border-radius: 7px;
     display: grid;
     gap: 0.8rem;
@@ -242,7 +242,7 @@
 }
 
 .portfolio-demo-banner-heading span {
-    color: #1d4ed8;
+    color: #65785a;
     font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -257,9 +257,9 @@
 
 .portfolio-demo-banner nav a {
     background: #fff;
-    border: 1px solid #dbeafe;
+    border: 1px solid #dcd5c4;
     border-radius: 4px;
-    color: #0f1d3a;
+    color: #1e2518;
     font-size: 0.78rem;
     padding: 0.38rem 0.52rem;
     text-decoration: none;
@@ -283,7 +283,7 @@
 .portfolio-demo-banner-actions button {
     background: transparent;
     border: 0;
-    color: #1d4ed8;
+    color: #65785a;
     cursor: pointer;
     font: inherit;
     font-size: 0.82rem;
@@ -305,7 +305,7 @@
 }
 
 .portfolio-demo-guide-progress {
-    background: #0f1d3a;
+    background: #1e2518;
     border-radius: 7px;
     color: #fff;
     display: grid;
@@ -314,7 +314,7 @@
 }
 
 .portfolio-demo-guide-progress strong {
-    color: #60a5fa;
+    color: #8fa37e;
     font-size: 2rem;
 }
 

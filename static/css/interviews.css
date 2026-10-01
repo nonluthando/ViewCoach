@@ -136,7 +136,7 @@
     overflow: hidden;
     border-radius: 999px;
     margin: 1rem 0 1.25rem;
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .interview-progress-track span {
@@ -182,7 +182,7 @@
     padding: 0.28rem 0.55rem;
     border-radius: 999px;
     color: var(--vc-muted);
-    background: #f1f5f9;
+    background: #ece6d6;
     font-size: 0.76rem;
     font-weight: 750;
 }
@@ -357,7 +357,7 @@
 }
 
 .interview-answer-reveal {
-    border-color: #e2e8f0;
+    border-color: #dcd5c4;
 }
 
 .interview-response-card {
@@ -513,7 +513,7 @@
 .interview-response-notes {
     padding: 1rem;
     border-left: 2px solid var(--vc-border-strong);
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .interview-response-notes p:last-child {

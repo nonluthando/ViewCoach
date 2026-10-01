@@ -68,7 +68,7 @@
 
 .source-switcher > a:hover,
 .source-switcher > a.is-active {
-    border-color: #a9c3fb;
+    border-color: #c4bca6;
     background: #f7f9ff;
 }
 
@@ -149,7 +149,7 @@
 
 .source-roadmap-card:hover {
     transform: translateY(-2px);
-    border-color: #b5c8ee;
+    border-color: #c4bca6;
     box-shadow: 0 16px 36px rgba(27, 42, 75, 0.1);
 }
 
@@ -530,7 +530,7 @@
     padding: 0.3rem 0.55rem;
     border-radius: 999px;
     color: var(--vc2-muted);
-    background: #eef1f5;
+    background: #ece6d6;
     font-size: 0.68rem;
     font-weight: 750;
 }
@@ -626,7 +626,7 @@
 
 .youtube-player-external p {
     max-width: 34rem;
-    color: #c7d0e2;
+    color: #c4bca6;
 }
 
 .youtube-player-actions {

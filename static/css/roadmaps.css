@@ -99,7 +99,7 @@
 .roadmap-progress-track {
     height: 0.42rem;
     overflow: hidden;
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .roadmap-progress-track span {
@@ -927,7 +927,7 @@
 }
 
 .is-selected-roadmap {
-    border-color: #9eb5c3;
+    border-color: #c4bca6;
     box-shadow: 0 0 0 2px rgba(77, 111, 130, 0.12);
 }
 

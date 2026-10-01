@@ -52,7 +52,7 @@
 .knowledge-example-card ul {
     padding-left: 1.2rem;
     margin-bottom: 0;
-    color: #526078;
+    color: #5b6652;
 }
 
 .knowledge-example-card li + li {
@@ -71,7 +71,7 @@
 .knowledge-kicker,
 .knowledge-source-number {
     margin: 0;
-    color: #526078;
+    color: #5b6652;
     font-size: 0.78rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -106,7 +106,7 @@
     width: 100%;
     min-height: 9rem;
     padding: 1rem;
-    border: 1px solid #b8bfd1;
+    border: 1px solid #c4bca6;
     border-radius: 0.7rem;
     color: inherit;
     background: #ffffff;
@@ -122,7 +122,7 @@
 .knowledge-form-footer p {
     max-width: 34rem;
     margin: 0;
-    color: #606a7e;
+    color: #5b6652;
     font-size: 0.9rem;
 }
 
@@ -177,7 +177,7 @@
 
 .knowledge-source-card p:last-child {
     margin-bottom: 0;
-    color: #526078;
+    color: #5b6652;
     font-size: 0.92rem;
 }
 

@@ -10,15 +10,15 @@
  */
 
 :root {
-    --shell-navy: #0f1d3a;
-    --shell-navy-soft: #17284d;
-    --shell-blue: #2563eb;
-    --shell-blue-dark: #1d4ed8;
-    --shell-blue-soft: #eaf1ff;
+    --shell-navy: #1e2518;
+    --shell-navy-soft: #2a331f;
+    --shell-blue: #7c8f68;
+    --shell-blue-dark: #65785a;
+    --shell-blue-soft: #e4e9da;
 
-    --shell-ink: #0f172a;
-    --shell-muted: #64748b;
-    --shell-border: #e2e8f0;
+    --shell-ink: #232b1d;
+    --shell-muted: #5b6652;
+    --shell-border: #dcd5c4;
 
     --shell-radius: 10px;
     --shell-radius-pill: 999px;
@@ -36,7 +36,7 @@
     --pl2-accent-soft: var(--shell-blue-soft);
     --pl2-ink: var(--shell-ink);
     --pl2-ink-soft: var(--shell-muted);
-    --pl2-ink-faint: #94a3b8;
+    --pl2-ink-faint: #8a9279;
     --pl2-font-body: var(--shell-font);
     --pl2-font-display: var(--shell-font);
 }
@@ -234,7 +234,7 @@
 }
 
 .app-body .app-sidebar-guidance .link-action {
-    color: #bfdbfe;
+    color: #cddabd;
     font-size: 0.8rem;
     font-weight: 700;
     text-decoration: none;

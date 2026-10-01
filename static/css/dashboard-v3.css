@@ -1,15 +1,15 @@
 /* Dashboard V3 — scoped command-centre layout. */
 
 .dashboard-v3-page {
-    --d3-copper: #2563eb;
-    --d3-copper-dark: #1d4ed8;
-    --d3-copper-soft: #eaf1ff;
-    --d3-charcoal: #0f1d3a;
-    --d3-canvas: #f8fafc;
+    --d3-copper: #7c8f68;
+    --d3-copper-dark: #65785a;
+    --d3-copper-soft: #e4e9da;
+    --d3-charcoal: #1e2518;
+    --d3-canvas: #f2eee3;
     --d3-surface: #ffffff;
-    --d3-text: #0f172a;
-    --d3-muted: #64748b;
-    --d3-border: #e2e8f0;
+    --d3-text: #232b1d;
+    --d3-muted: #5b6652;
+    --d3-border: #dcd5c4;
     --d3-blue: #4777cf;
     --d3-blue-soft: #eaf2ff;
     --d3-green: #65a458;
@@ -69,7 +69,7 @@
 }
 
 .dashboard-v3-page .app-sidebar-account .app-account-copy span {
-    color: #94a3b8;
+    color: #8a9279;
     font-size: 0.68rem;
 }
 
@@ -200,9 +200,9 @@
     gap: clamp(1.2rem, 3vw, 2.4rem);
     overflow: hidden;
     padding: clamp(1.25rem, 2.6vw, 2rem);
-    border: 1px solid #dbeafe;
+    border: 1px solid #dcd5c4;
     border-radius: var(--d3-radius);
-    background: linear-gradient(100deg, #eff6ff 0%, #f8fafc 58%, #eaf1ff 100%);
+    background: linear-gradient(100deg, #eef2e6 0%, #f2eee3 58%, #e4e9da 100%);
     box-shadow: var(--d3-shadow);
 }
 
@@ -213,7 +213,7 @@
     border-radius: 50%;
     background:
         radial-gradient(circle at center, #fff 60%, transparent 61%),
-        conic-gradient(var(--d3-copper) var(--dashboard-progress), #e2e8f0 0);
+        conic-gradient(var(--d3-copper) var(--dashboard-progress), #dcd5c4 0);
 }
 
 .dashboard-v3-plan-ring {
@@ -291,11 +291,11 @@
     min-width: 15rem;
 }
 
-.dashboard-v3-mountain .mountain-back { fill: #cbd5e1; }
-.dashboard-v3-mountain .mountain-front { fill: #475569; }
-.dashboard-v3-mountain .mountain-snow { fill: #f1f5f9; }
+.dashboard-v3-mountain .mountain-back { fill: #c4bca6; }
+.dashboard-v3-mountain .mountain-front { fill: #5b6652; }
+.dashboard-v3-mountain .mountain-snow { fill: #ece6d6; }
 .dashboard-v3-mountain .mountain-road {
-    stroke: #bfdbfe;
+    stroke: #cddabd;
     stroke-linecap: round;
     stroke-width: 9;
 }
@@ -304,7 +304,7 @@
     stroke: var(--d3-copper-dark);
     stroke-width: 2;
 }
-.dashboard-v3-mountain .mountain-sun { fill: #93c5fd; }
+.dashboard-v3-mountain .mountain-sun { fill: #a8b89a; }
 
 .dashboard-v3-metrics {
     display: grid;
@@ -328,7 +328,7 @@
 }
 
 .dashboard-v3-metric:hover {
-    border-color: #cbd5e1;
+    border-color: #c4bca6;
 }
 
 .dashboard-v3-metric-icon,
@@ -537,7 +537,7 @@
     height: 0.3rem;
     overflow: hidden;
     border-radius: 999px;
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .dashboard-v3-progress > span {
@@ -563,7 +563,7 @@
     bottom: 1rem;
     left: 0.55rem;
     width: 1px;
-    background: #e2e8f0;
+    background: #dcd5c4;
     content: "";
 }
 
@@ -580,9 +580,9 @@
 .dashboard-v3-journey-step.is-current {
     margin: 0.1rem -0.35rem;
     padding: 0.65rem 0.35rem;
-    border: 1px solid #93c5fd;
+    border: 1px solid #a8b89a;
     border-radius: var(--d3-radius-small);
-    background: #eff6ff;
+    background: #eef2e6;
 }
 
 .dashboard-v3-journey-marker {
@@ -592,7 +592,7 @@
     width: 1.15rem;
     height: 1.15rem;
     place-items: center;
-    border: 2px solid #cbd5e1;
+    border: 2px solid #c4bca6;
     border-radius: 50%;
     color: #fff;
     background: #fff;
@@ -606,12 +606,12 @@
 }
 
 .dashboard-v3-journey-step.is-current .dashboard-v3-journey-marker {
-    border: 0.28rem solid #bfdbfe;
+    border: 0.28rem solid #cddabd;
     background: var(--d3-copper);
 }
 
 .dashboard-v3-journey-step.is-next .dashboard-v3-journey-marker {
-    border-color: #94a3b8;
+    border-color: #8a9279;
 }
 
 .dashboard-v3-journey-copy {
@@ -855,7 +855,7 @@
     position: relative;
 }
 
-.dashboard-v3-calendar-day.is-muted { color: #cbd5e1; }
+.dashboard-v3-calendar-day.is-muted { color: #c4bca6; }
 .dashboard-v3-calendar-day.is-today { color: #fff; background: var(--d3-copper); }
 
 .dashboard-v3-calendar-day.has-interview:not(.is-today)::after,
@@ -1036,9 +1036,9 @@
     overflow: hidden;
     padding: 1.2rem;
     margin: 0;
-    border: 1px solid #dbeafe;
+    border: 1px solid #dcd5c4;
     border-radius: var(--d3-radius);
-    background: linear-gradient(135deg, #eff6ff, #eaf1ff);
+    background: linear-gradient(135deg, #eef2e6, #e4e9da);
 }
 
 .dashboard-v3-quote > span {
@@ -1062,7 +1062,7 @@
     position: absolute;
     right: -0.5rem;
     bottom: -1.2rem;
-    color: #94a3b8;
+    color: #8a9279;
     font-size: 7rem;
     opacity: 0.45;
 }

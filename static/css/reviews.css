@@ -44,7 +44,7 @@
 .review-list-item p,
 .history-item p {
     margin: 0;
-    color: #606a7e;
+    color: #5b6652;
 }
 
 .compact-review-item {
@@ -77,7 +77,7 @@
     padding: 1.25rem 1.5rem;
     cursor: pointer;
     color: #ffffff;
-    background: #2563eb;
+    background: #7c8f68;
     font-weight: 800;
 }
 
@@ -101,22 +101,22 @@
     display: grid;
     gap: 0.2rem;
     padding: 1rem 0.75rem;
-    border: 1px solid #cbd0de;
+    border: 1px solid #dcd5c4;
     border-radius: 0.75rem;
-    color: #0f172a;
-    background: #f7f8fb;
+    color: #232b1d;
+    background: #ece6d6;
     cursor: pointer;
     font: inherit;
     text-align: center;
 }
 
 .rating-button:hover {
-    border-color: #6874cd;
+    border-color: #65785a;
     transform: translateY(-1px);
 }
 
 .rating-button span {
-    color: #606a7e;
+    color: #5b6652;
     font-size: 0.85rem;
 }
 
@@ -136,7 +136,7 @@
 }
 
 .rating-easy {
-    border-color: #b5bce8;
+    border-color: #c4bca6;
     background: #f0f2ff;
 }
 
@@ -156,8 +156,8 @@
 }
 
 .rating-badge-easy {
-    color: #3442ad;
-    background: #e9ebff;
+    color: #65785a;
+    background: #e4e9da;
 }
 
 @media (max-width: 52rem) {

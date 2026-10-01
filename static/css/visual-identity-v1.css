@@ -8,15 +8,15 @@
  */
 
 :root {
-    --vi-blue: #2563eb;
-    --vi-blue-dark: #1d4ed8;
-    --vi-blue-soft: #eaf1ff;
+    --vi-blue: #7c8f68;
+    --vi-blue-dark: #65785a;
+    --vi-blue-soft: #e4e9da;
     --vi-surface: #ffffff;
-    --vi-canvas: #f8fafc;
-    --vi-text: #0f172a;
-    --vi-muted: #64748b;
-    --vi-border: #e2e8f0;
-    --vi-border-strong: #cbd5e1;
+    --vi-canvas: #f2eee3;
+    --vi-text: #232b1d;
+    --vi-muted: #5b6652;
+    --vi-border: #dcd5c4;
+    --vi-border-strong: #c4bca6;
     --vi-success: #14835f;
     --vi-success-soft: #eaf8f2;
     --vi-warning: #b96b13;
@@ -206,7 +206,7 @@
 
 .app-body .badge-neutral {
     color: var(--vi-muted);
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 /* Roadmap source catalogue and workspaces. */
@@ -246,7 +246,7 @@
 .source-roadmap-progress,
 .roadmap-progress-track {
     border-radius: 999px;
-    background: #e2e8f0;
+    background: #dcd5c4;
 }
 
 .source-roadmap-progress > span,
@@ -262,7 +262,7 @@
 
 .youtube-detail-meta span {
     color: var(--vi-muted);
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .youtube-video-row img,
@@ -272,7 +272,7 @@
 
 .youtube-video-status {
     color: var(--vi-muted);
-    background: #f1f5f9;
+    background: #ece6d6;
 }
 
 .youtube-video-row.is-complete .youtube-video-status {
