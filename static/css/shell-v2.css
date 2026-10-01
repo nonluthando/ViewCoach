@@ -1,40 +1,48 @@
 /*
- * Shell v2 — slate + cyan polish pass.
+ * Shell v2 — modern SaaS app shell.
  *
- * Loaded last on purpose: base.html's existing stylesheets (particularly
- * visual-identity-v1.css's "white-surface pass") redefine .app-shell /
- * .app-main / .app-topbar backgrounds with `.app-body` specificity, so this
- * file matches or exceeds that specificity to win on cascade order rather
- * than fighting it with !important. Consolidating those five files into one
- * source of truth is follow-up cleanup, not done here — this file is the
- * new authoritative layer for shell chrome (sidebar/rail, topbar/canvas,
- * mobile nav, drawer) and does not touch page-body CSS.
+ * Loaded last on purpose: earlier stylesheets (proofloop-workspace.css,
+ * visual-identity-v1.css) also touch .app-shell / .app-sidebar / .app-topbar,
+ * so this file matches or exceeds their selector specificity to win the
+ * cascade rather than fighting them with !important. This is the
+ * authoritative layer for shell chrome (sidebar, topbar, mobile nav,
+ * drawer) — it does not touch page-body CSS.
  */
 
 :root {
-    --pl2-canvas: #171e2e;
-    --pl2-canvas-tint: #232c42;
-    --pl2-accent: #0d9488;
-    --pl2-accent-strong: #0f766e;
-    --pl2-accent-soft: #ccfbf1;
+    --shell-navy: #1e2518;
+    --shell-navy-soft: #2a331f;
+    --shell-blue: #7c8f68;
+    --shell-blue-dark: #65785a;
+    --shell-blue-soft: #e4e9da;
 
-    --pl2-ink: #15121f;
-    --pl2-ink-soft: #5c5568;
-    --pl2-ink-faint: #8b8494;
-    --pl2-line: #e8e6ef;
+    --shell-ink: #232b1d;
+    --shell-muted: #5b6652;
+    --shell-border: #dcd5c4;
 
-    --pl2-radius-tight: 8px;
-    --pl2-radius-card: 12px;
-    --pl2-radius-pill: 999px;
+    --shell-radius: 10px;
+    --shell-radius-pill: 999px;
 
-    --pl2-sidebar-width: 88px;
+    --shell-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-    --pl2-font-display: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --pl2-font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* public-shell.css, proofloop.css and proofloop-landing.css (all
+       loaded only on logged-out pages) read these --pl2-* tokens with
+       hardcoded teal/dark fallbacks from an earlier, parallel rebrand;
+       defining them here keeps every page on the same modern SaaS blue
+       palette instead of two competing brand colors. */
+    --pl2-canvas: var(--shell-navy);
+    --pl2-accent: var(--shell-blue);
+    --pl2-accent-strong: var(--shell-blue-dark);
+    --pl2-accent-soft: var(--shell-blue-soft);
+    --pl2-ink: var(--shell-ink);
+    --pl2-ink-soft: var(--shell-muted);
+    --pl2-ink-faint: #8a9279;
+    --pl2-font-body: var(--shell-font);
+    --pl2-font-display: var(--shell-font);
 }
 
 .app-body {
-    font-family: var(--pl2-font-body);
+    font-family: var(--shell-font);
 }
 
 /* Rebrand the authenticated app's primary accent to teal without hunting
@@ -73,44 +81,58 @@
 .app-body h3,
 .app-body .proofloop-wordmark,
 .app-body .topbar-heading {
-    font-family: var(--pl2-font-display);
+    font-family: var(--shell-font);
+    letter-spacing: -0.01em;
 }
 
-/* ---- sidebar -> icon rail ---- */
+/* ---- sidebar ---- */
 
 .app-body .app-sidebar {
-    width: var(--pl2-sidebar-width);
-    background: var(--pl2-canvas);
+    /* app.css makes the sidebar position:fixed (for the mobile drawer);
+       at desktop widths it needs to sit back in normal flex flow so
+       .app-main-wrapper isn't pushed under it. */
+    position: static;
+    width: 17rem;
+    background: var(--shell-navy);
     border-right: none;
-    padding: 16px 8px;
-    gap: 16px;
+    padding: 1.25rem 1rem 1.5rem;
+    gap: 1.5rem;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.06);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 40;
 }
 
-/* .app-sidebar is position: fixed (editorial.css) at the old, much wider
-   --vc-sidebar-width, so it's out of normal flow entirely. .app-main
-   already compensates with its own margin-left, but at the stale wide
-   value -- it just happens not to look broken because the shell and main
-   canvas are both white. .app-topbar has NO compensation at all, so the
-   88px-wide rail sits on top of it and clips the left edge of the topbar
-   copy. Resync both to the rail's real width. */
-
-.app-body .app-main,
-.app-body .app-topbar {
-    margin-left: var(--pl2-sidebar-width);
+.app-body .app-sidebar .proofloop-shell-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.5rem 0.4rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-decoration: none;
 }
 
-@media (max-width: 58rem) {
-    .app-body .app-main {
-        margin-left: 0;
-    }
+.app-body .app-sidebar .proofloop-mark {
+    display: inline-grid;
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: var(--shell-blue);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
-.app-body .app-sidebar .proofloop-shell-brand,
-.app-body .app-sidebar .proofloop-sidebar-loop,
-.app-body .app-sidebar .app-sidebar-guidance {
-    display: none;
+.app-body .app-sidebar .proofloop-mark i {
+    display: block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.app-body .app-sidebar .proofloop-mark i + i {
+    margin-top: 3px;
+    margin-left: 6px;
 }
 
 .app-body .app-sidebar .proofloop-wordmark,
@@ -118,83 +140,143 @@
     color: #fff;
 }
 
+.app-body .app-sidebar .badge-subtle {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.app-body .proofloop-sidebar-loop {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--shell-radius);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.app-body .proofloop-sidebar-loop .dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.sidebar-nav-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.app-body .proofloop-nav-group {
+    display: grid;
+    gap: 0.15rem;
+    margin-bottom: 1.1rem;
+}
+
 .app-body .proofloop-nav-label {
-    display: none;
+    margin: 0 0 0.3rem;
+    padding-inline: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
 }
 
 .app-body .app-sidebar .app-nav-link {
-    flex-direction: column;
+    display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 8px 4px;
-    border-radius: var(--pl2-radius-tight);
+    gap: 0.75rem;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: var(--shell-radius);
     color: rgba(255, 255, 255, 0.72);
-    font-size: 0.62rem;
-    font-weight: 700;
-    line-height: 1.15;
-    text-align: center;
-    min-height: 44px;
-    justify-content: center;
+    font-size: 0.87rem;
+    font-weight: 600;
+    text-decoration: none;
 }
 
-.app-body .app-sidebar .app-nav-link .app-nav-icon svg {
+.app-body .app-sidebar .app-nav-icon svg {
     width: 17px;
     height: 17px;
+    fill: none;
     stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 .app-body .app-sidebar .app-nav-link:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
     color: #fff;
 }
 
 .app-body .app-sidebar .app-nav-link.is-active {
-    background: #fff;
-    color: var(--pl2-canvas);
+    background: var(--shell-blue);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+}
+
+.app-body .app-sidebar-footer {
+    display: grid;
+    gap: 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-body .app-sidebar-guidance p {
+    margin: 0 0 0.35rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.app-body .app-sidebar-guidance .link-action {
+    color: #cddabd;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.app-body .app-sidebar-guidance .link-action:hover {
+    color: #fff;
 }
 
 .app-body .app-sidebar-account {
     margin-top: auto;
 }
 
-/* ---- topbar / canvas ---- */
+/* ---- topbar ---- */
 
 .app-body .app-topbar,
 .app-body .app-mobile-header {
-    position: relative;
-    overflow: hidden;
-    background: var(--pl2-canvas);
-    border-bottom: none;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--shell-border);
 }
 
-.app-body .app-topbar::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(640px circle at 92% -15%, rgba(255, 255, 255, 0.12), transparent 60%),
-        radial-gradient(520px circle at 105% 115%, rgba(0, 0, 0, 0.2), transparent 55%);
+.app-body .app-topbar .eyebrow {
+    color: var(--shell-blue-dark);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
-.app-body .app-topbar::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.5;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.app-body .app-topbar > * {
-    position: relative;
-    z-index: 1;
-}
-
-.app-body .app-topbar .eyebrow,
 .app-body .app-topbar .topbar-heading {
-    color: #fff;
+    color: var(--shell-ink);
+    font-size: 0.98rem;
+    font-weight: 650;
+}
+
+.app-body .proofloop-shell-stages {
+    display: flex;
+    gap: 0.35rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
 /* .app-topbar-copy, .proofloop-shell-stages and .app-topbar-actions are
@@ -221,15 +303,36 @@
 }
 
 .app-body .proofloop-shell-stages li {
-    color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--shell-radius-pill);
+    color: var(--shell-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.app-body .proofloop-shell-stages li span {
+    margin-right: 0.35rem;
+    opacity: 0.55;
 }
 
 .app-body .proofloop-shell-stages li.is-current {
-    color: #fff;
+    background: var(--shell-blue-soft);
+    color: var(--shell-blue-dark);
 }
 
-.app-body .app-mobile-header .proofloop-wordmark {
-    color: #fff;
+.app-body .proofloop-shell-stages li.is-current span {
+    opacity: 1;
+}
+
+.app-body .app-mobile-header .proofloop-wordmark,
+.app-body .app-mobile-brand {
+    color: var(--shell-ink);
+}
+
+.app-body .app-mobile-brand .proofloop-mark {
+    background: var(--shell-blue);
 }
 
 /* ---- sidebar hamburger + drawer (mobile) ---- */
@@ -238,13 +341,13 @@
     display: none;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    margin-inline-end: 4px;
-    border-radius: var(--pl2-radius-tight);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-inline-end: 0.25rem;
+    border-radius: var(--shell-radius);
+    border: 1px solid var(--shell-border);
+    background: #fff;
+    color: var(--shell-ink);
     cursor: pointer;
 }
 
@@ -261,17 +364,16 @@
 }
 
 .app-body .mobile-nav-link.is-active {
-    color: var(--pl2-accent);
+    color: var(--shell-blue-dark);
 }
 
 @media (max-width: 58rem) {
     /*
      * editorial.css (48rem) and proofloop-workspace.css (58rem) both set
-     * .app-sidebar to display:none on mobile — real, pre-existing rules,
-     * not the gap the original audit assumed. This block has to win that
-     * `display` declaration explicitly (transform alone can't override
-     * display:none), which is why `display: flex` is stated here even
-     * though it matches the sidebar's own default.
+     * .app-sidebar to display:none on mobile, so this block has to win
+     * that `display` declaration explicitly (transform alone can't
+     * override display:none), which is why `display: flex` is stated
+     * here even though it matches the sidebar's own default.
      */
     .sidebar-toggle {
         display: inline-flex;
@@ -282,28 +384,10 @@
         position: fixed;
         inset: 0 auto 0 0;
         height: 100%;
-        width: min(80%, 280px);
+        width: min(84%, 300px);
         overflow-y: auto;
         transform: translateX(-100%);
         box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.5);
-    }
-
-    .app-body .proofloop-nav-label {
-        display: block;
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 0.62rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        padding: 6px 10px 2px;
-    }
-
-    .app-body .app-sidebar .app-nav-link {
-        flex-direction: row;
-        justify-content: flex-start;
-        text-align: left;
-        font-size: 0.82rem;
-        padding: 10px;
     }
 
     .app-shell.sidebar-open .app-sidebar {
@@ -314,7 +398,7 @@
         display: block;
         position: fixed;
         inset: 0;
-        background: rgba(10, 12, 20, 0.5);
+        background: rgba(15, 23, 42, 0.45);
         z-index: 35;
     }
 }

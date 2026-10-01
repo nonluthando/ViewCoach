@@ -34,7 +34,7 @@
 
 .public-body .site-header {
     background: #ffffff;
-    border-bottom: 1px solid #e8e6ef;
+    border-bottom: 1px solid #dcd5c4;
     position: sticky;
     top: 0;
     z-index: 20;
@@ -137,11 +137,11 @@
 .public-body .button-secondary {
     background: #ffffff;
     color: var(--pl2-ink, #15121f);
-    border-color: #d8d5e0;
+    border-color: #c4bca6;
 }
 
 .public-body .button-secondary:hover {
-    background: #f6f5fb;
+    background: #ece6d6;
     filter: none;
 }
 
@@ -154,7 +154,7 @@
 
 .public-body .button-quiet:hover {
     color: var(--pl2-ink, #15121f);
-    background: #f6f5fb;
+    background: #ece6d6;
     filter: none;
 }
 
@@ -191,7 +191,7 @@
     margin: clamp(2rem, 6vw, 4rem) auto;
     padding: clamp(1.75rem, 4vw, 2.5rem);
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 18px;
     box-shadow: 0 14px 34px -18px rgba(21, 18, 31, 0.18);
     display: flex;
@@ -229,7 +229,7 @@
 .public-body .form-field textarea {
     font: inherit;
     padding: 0.65rem 0.85rem;
-    border: 1px solid #d8d5e0;
+    border: 1px solid #c4bca6;
     border-radius: 10px;
     background: #ffffff;
     color: var(--pl2-ink, #15121f);

@@ -138,8 +138,8 @@
     padding: 0.28rem 0.5rem;
     border: 1px solid var(--vc-border);
     border-radius: 0.25rem;
-    color: #4b4540;
-    background: #eee9e2;
+    color: #5b6652;
+    background: #ece6d6;
     font-size: 0.74rem;
     font-weight: 700;
 }
@@ -483,7 +483,7 @@
     margin-top: 1.25rem;
     padding: 1rem;
     border: 1px solid var(--vc-border);
-    background: #f2ede6;
+    background: #ece6d6;
 }
 
 .question-evidence-card {

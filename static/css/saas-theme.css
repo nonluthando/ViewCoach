@@ -1,22 +1,22 @@
 :root {
-  /* Slate & Neutral Palette */
-  --bg-app: #f8fafc;
+  /* Sage & Warm Cream Palette */
+  --bg-app: #f2eee3;
   --bg-surface: #ffffff;
-  --bg-subtle: #f1f5f9;
-  
-  --border-subtle: #e2e8f0;
-  --border-strong: #cbd5e1;
-  
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-subtle: #64748b;
-  
-  /* Modern SaaS Blue Palette */
-  --primary-50: #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;
-  --primary-700: #1d4ed8;
+  --bg-subtle: #ece6d6;
+
+  --border-subtle: #dcd5c4;
+  --border-strong: #c4bca6;
+
+  --text-main: #232b1d;
+  --text-muted: #5b6652;
+  --text-subtle: #5b6652;
+
+  /* Modern SaaS Sage Palette */
+  --primary-50: #e4e9da;
+  --primary-100: #cddabd;
+  --primary-500: #8fa37e;
+  --primary-600: #7c8f68;
+  --primary-700: #65785a;
   
   /* Shadows & Radius */
   --radius-sm: 6px;

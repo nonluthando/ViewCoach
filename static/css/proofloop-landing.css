@@ -75,11 +75,11 @@
 .pl-button-secondary {
     background: #ffffff;
     color: var(--pl2-ink, #15121f);
-    border-color: #d8d5e0;
+    border-color: #c4bca6;
 }
 
 .pl-button-secondary:hover {
-    background: #f6f5fb;
+    background: #ece6d6;
 }
 
 .pl-text-link {
@@ -343,7 +343,7 @@
 
 .pl-stat-card {
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 10px;
     padding: 0.6rem;
     display: flex;
@@ -400,7 +400,7 @@
 .pl-readiness-card,
 .pl-loop-card {
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 10px;
     padding: 0.75rem;
 }
@@ -446,7 +446,7 @@
 .pl-progress {
     height: 5px;
     border-radius: 999px;
-    background: #e8e6ef;
+    background: #dcd5c4;
     margin: 0.6rem 0 0.4rem;
     overflow: hidden;
 }
@@ -510,7 +510,7 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: conic-gradient(var(--pl2-accent, #0d9488) 72%, #e8e6ef 0);
+    background: conic-gradient(var(--pl2-accent, #0d9488) 72%, #dcd5c4 0);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -588,7 +588,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #e8e6ef;
+    background: #dcd5c4;
     color: var(--pl2-ink-faint, #8b8494);
     font-size: 0.65rem;
     font-weight: 800;
@@ -620,7 +620,7 @@
 .pl-loop-line {
     flex: 1;
     height: 2px;
-    background: #e8e6ef;
+    background: #dcd5c4;
     margin: 0 0.3rem;
     margin-bottom: 1.1rem;
 }
@@ -681,9 +681,9 @@
    ========================================================================== */
 
 .pl-four-pillars {
-    background: #f6f5fb;
-    border-top: 1px solid #e8e6ef;
-    border-bottom: 1px solid #e8e6ef;
+    background: #ece6d6;
+    border-top: 1px solid #dcd5c4;
+    border-bottom: 1px solid #dcd5c4;
     padding-block: clamp(3rem, 6vw, 4.5rem);
 }
 
@@ -714,7 +714,7 @@
 
 .pl-pillar {
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 14px;
     padding: 1.5rem;
     display: flex;
@@ -725,7 +725,7 @@
 
 .pl-pillar:hover {
     transform: translateY(-3px);
-    border-color: #d8d5e0;
+    border-color: #c4bca6;
     box-shadow: 0 14px 34px -18px rgba(21, 18, 31, 0.25);
 }
 
@@ -793,7 +793,7 @@
     gap: clamp(2rem, 5vw, 4rem);
     align-items: center;
     padding-block: clamp(2rem, 5vw, 3rem);
-    border-top: 1px solid #e8e6ef;
+    border-top: 1px solid #dcd5c4;
 }
 
 .pl-showcase-row:first-of-type {
@@ -831,7 +831,7 @@
 
 .pl-ui-preview {
     background: #f7f7fb;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 14px;
     padding: 1.1rem;
     box-shadow: 0 20px 44px -28px rgba(21, 18, 31, 0.25);
@@ -868,7 +868,7 @@
 .pl-roadmap-progress {
     height: 6px;
     border-radius: 999px;
-    background: #e8e6ef;
+    background: #dcd5c4;
     overflow: hidden;
     margin-bottom: 0.9rem;
 }
@@ -891,7 +891,7 @@
     align-items: center;
     gap: 0.6rem;
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 10px;
     padding: 0.6rem 0.75rem;
 }
@@ -903,7 +903,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #e8e6ef;
+    background: #dcd5c4;
     color: var(--pl2-ink-faint, #8b8494);
     font-size: 0.68rem;
     font-weight: 800;
@@ -965,7 +965,7 @@
 
 .pl-question-body {
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 10px;
     padding: 1rem;
     display: flex;
@@ -995,7 +995,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px dashed #d8d5e0;
+    border: 1px dashed #c4bca6;
     border-radius: 8px;
     padding: 0.6rem 0.75rem;
     color: var(--pl2-ink-faint, #8b8494);
@@ -1021,7 +1021,7 @@
     font-weight: 700;
     padding: 0.45rem 0.85rem;
     border-radius: 999px;
-    border: 1px solid #d8d5e0;
+    border: 1px solid #c4bca6;
     background: #ffffff;
     color: var(--pl2-ink, #15121f);
     cursor: default;
@@ -1055,7 +1055,7 @@
     align-items: center;
     gap: 0.65rem;
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 10px;
     padding: 0.65rem 0.75rem;
 }
@@ -1100,9 +1100,9 @@
    ========================================================================== */
 
 .pl-personalisation {
-    background: #f6f5fb;
-    border-top: 1px solid #e8e6ef;
-    border-bottom: 1px solid #e8e6ef;
+    background: #ece6d6;
+    border-top: 1px solid #dcd5c4;
+    border-bottom: 1px solid #dcd5c4;
     padding-block: clamp(3.5rem, 7vw, 5.5rem);
 }
 
@@ -1161,7 +1161,7 @@
 
 .pl-next-focus {
     background: #ffffff;
-    border: 1px solid #e8e6ef;
+    border: 1px solid #dcd5c4;
     border-radius: 16px;
     padding: 1.5rem;
     box-shadow: 0 24px 48px -28px rgba(21, 18, 31, 0.25);
@@ -1193,7 +1193,7 @@
 .pl-focus-main {
     text-align: center;
     padding-block: 0.5rem 1rem;
-    border-bottom: 1px solid #e8e6ef;
+    border-bottom: 1px solid #dcd5c4;
     margin-bottom: 1rem;
 }
 

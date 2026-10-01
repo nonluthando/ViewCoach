@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#f2eee3">
 
     <title>{% block title %}ProofLoop{% endblock %}</title>
 
@@ -13,8 +13,8 @@
         content="{% block meta_description %}ProofLoop is an adaptive interview-readiness workspace that connects learning, practice and evidence.{% endblock %}"
     >
 
-    <!-- Shell v2 type -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+    <!-- App type: one typeface, Inter, varying only by weight -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 
     <!-- Core SaaS Token & Layout -->
     <link rel="stylesheet" href="{% static 'css/saas-theme.css' %}">
@@ -45,7 +45,7 @@
     <!-- Final Visual Identity / Theme Overrides -->
     <link rel="stylesheet" href="{% static 'css/visual-identity-v1.css' %}">
 
-    <!-- Shell v2 — slate + cyan polish pass (loaded last, see file header) -->
+    <!-- Shell v2 — modern SaaS app shell (loaded last, see file header) -->
     <link rel="stylesheet" href="{% static 'css/shell-v2.css' %}">
 </head>
 

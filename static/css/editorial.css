@@ -1,21 +1,25 @@
 :root {
-    --vc-ivory: #f7f4ee;
-    --vc-paper: #fffdf8;
+    /* Modern SaaS minimal palette: sage + warm cream. --vc-font-serif keeps
+       its name for the ~40 call sites across the page stylesheets but
+       points at the same sans stack as --vc-font-sans — this app uses one
+       typeface, Inter, varying only by weight. */
+    --vc-ivory: #f2eee3;
+    --vc-paper: #ffffff;
     --vc-paper-strong: #ffffff;
-    --vc-ink: #211d1b;
-    --vc-muted: #6f6862;
-    --vc-border: #ded8cf;
-    --vc-border-strong: #c9c0b6;
-    --vc-burgundy: #821f2d;
-    --vc-burgundy-dark: #641722;
-    --vc-burgundy-soft: #f5e9eb;
-    --vc-success: #3f6b4b;
-    --vc-success-soft: #edf4ee;
-    --vc-warning: #a66320;
-    --vc-danger: #a63d36;
-    --vc-sidebar-width: 15.5rem;
+    --vc-ink: #232b1d;
+    --vc-muted: #5b6652;
+    --vc-border: #dcd5c4;
+    --vc-border-strong: #c4bca6;
+    --vc-burgundy: #7c8f68;
+    --vc-burgundy-dark: #65785a;
+    --vc-burgundy-soft: #e4e9da;
+    --vc-success: #14835f;
+    --vc-success-soft: #eaf8f2;
+    --vc-warning: #b96b13;
+    --vc-danger: #b42318;
+    --vc-sidebar-width: 17rem;
     --vc-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --vc-font-serif: Georgia, "Times New Roman", serif;
+    --vc-font-serif: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 body {

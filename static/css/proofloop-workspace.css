@@ -6,27 +6,31 @@
  */
 
 :root {
-    --pl-ink: #10211f;
-    --pl-ink-2: #18302d;
-    --pl-ink-3: #27413d;
-    --pl-cream: #f2efe7;
-    --pl-cream-2: #e9e4d9;
-    --pl-surface: #fffdf8;
-    --pl-surface-muted: #f8f5ee;
-    --pl-text: #1c2b27;
-    --pl-muted: #68746f;
-    --pl-border: #d8d3c8;
-    --pl-border-strong: #c4bcaf;
-    --pl-emerald: #1f7358;
-    --pl-emerald-dark: #14533f;
-    --pl-emerald-soft: #deece5;
-    --pl-amber: #b97722;
-    --pl-amber-dark: #825018;
-    --pl-amber-soft: #f4e6cf;
-    --pl-danger: #a44a42;
+    /* Modern SaaS minimal palette — sage + warm cream, matching the
+       app-wide tokens in editorial.css. --pl-emerald keeps its name
+       (heavily referenced below as the primary action/active-state color)
+       but now points at the app's sage accent rather than literal green. */
+    --pl-ink: #1e2518;
+    --pl-ink-2: #2a331f;
+    --pl-ink-3: #3a4529;
+    --pl-cream: #f2eee3;
+    --pl-cream-2: #ece6d6;
+    --pl-surface: #ffffff;
+    --pl-surface-muted: #f2eee3;
+    --pl-text: #232b1d;
+    --pl-muted: #5b6652;
+    --pl-border: #dcd5c4;
+    --pl-border-strong: #c4bca6;
+    --pl-emerald: #7c8f68;
+    --pl-emerald-dark: #65785a;
+    --pl-emerald-soft: #e4e9da;
+    --pl-amber: #b96b13;
+    --pl-amber-dark: #92550f;
+    --pl-amber-soft: #fff4dc;
+    --pl-danger: #b42318;
     --pl-radius: 0.75rem;
     --pl-radius-small: 0.45rem;
-    --pl-shadow: 0 18px 52px rgba(16, 33, 31, 0.08);
+    --pl-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 /* Application shell */
@@ -152,7 +156,7 @@
     left: -0.46rem;
     width: 0.2rem;
     border-radius: 999px;
-    background: #76ba9d;
+    background: #8fa37e;
 }
 
 .app-body .proofloop-navigation .app-nav-icon {
@@ -179,7 +183,7 @@
 }
 
 .app-body .app-sidebar-guidance a {
-    color: #9bd2b8;
+    color: #a8b89a;
     font-size: 0.72rem;
 }
 
@@ -413,7 +417,7 @@
     grid-template-columns: minmax(0, 1.05fr) minmax(28rem, 0.95fr);
     min-height: 23rem;
     overflow: hidden;
-    border: 1px solid #243a36;
+    border: 1px solid #1e2a4a;
     border-radius: var(--pl-radius);
     background: var(--pl-ink);
     box-shadow: var(--pl-shadow);
@@ -428,7 +432,7 @@
 }
 
 .proofloop-command-copy .proofloop-kicker {
-    color: #9bd2b8;
+    color: #a8b89a;
 }
 
 .proofloop-command-label-row {
@@ -479,7 +483,7 @@
     height: 100%;
     display: block;
     border-radius: inherit;
-    background: #70bd99;
+    background: #8fa37e;
 }
 
 .proofloop-command-meta {
@@ -523,15 +527,15 @@
 
 .proofloop-command-actions .button {
     min-height: 2.85rem;
-    border-color: #70bd99;
-    background: #70bd99;
-    color: #10211f;
+    border-color: #8fa37e;
+    background: #8fa37e;
+    color: #1e2518;
 }
 
 .proofloop-command-actions .button:hover {
-    border-color: #9bd2b8;
-    background: #9bd2b8;
-    color: #10211f;
+    border-color: #a8b89a;
+    background: #a8b89a;
+    color: #1e2518;
 }
 
 .proofloop-command-actions .button-secondary {
@@ -570,7 +574,7 @@
 }
 
 .proofloop-loop-panel .proofloop-kicker {
-    color: #9bd2b8;
+    color: #a8b89a;
 }
 
 .proofloop-loop-panel h2 {
@@ -584,7 +588,7 @@
     padding: 0.35rem 0.55rem;
     border: 1px solid rgba(155, 210, 184, 0.28);
     border-radius: 999px;
-    color: #b8dec9;
+    color: #cddabd;
     background: rgba(112, 189, 153, 0.08);
     font-size: 0.61rem;
     font-weight: 800;
@@ -652,9 +656,9 @@
 }
 
 .proofloop-loop-map li.is-current .proofloop-loop-node {
-    border-color: #70bd99;
+    border-color: #8fa37e;
     color: var(--pl-ink);
-    background: #70bd99;
+    background: #8fa37e;
     box-shadow: 0 0 0 5px rgba(112, 189, 153, 0.1);
 }
 
@@ -664,7 +668,7 @@
 
 .proofloop-loop-map li.is-complete .proofloop-loop-node {
     border-color: rgba(155, 210, 184, 0.4);
-    color: #b8dec9;
+    color: #cddabd;
     background: rgba(112, 189, 153, 0.11);
 }
 
@@ -689,14 +693,14 @@
 
 .proofloop-loop-illustration path {
     fill: none;
-    stroke: #9bd2b8;
+    stroke: #a8b89a;
     stroke-dasharray: 8 8;
     stroke-linecap: round;
     stroke-width: 2;
 }
 
 .proofloop-loop-illustration circle {
-    fill: #9bd2b8;
+    fill: #a8b89a;
 }
 
 /* Signal strip */
@@ -1136,13 +1140,13 @@
 }
 
 .proofloop-journey-list .dashboard-v3-journey-step.is-completed .dashboard-v3-journey-marker {
-    border-color: #9cc2b0;
+    border-color: #a8b89a;
     color: var(--pl-emerald-dark);
     background: var(--pl-emerald-soft);
 }
 
 .proofloop-journey-list .dashboard-v3-journey-step.is-completed::after {
-    background: #9cc2b0;
+    background: #a8b89a;
 }
 
 /* Roadmaps */
@@ -1167,7 +1171,7 @@
 }
 
 .proofloop-roadmap-list .dashboard-v3-roadmap-row:hover {
-    border-color: #9cc2b0;
+    border-color: #a8b89a;
     background: var(--pl-emerald-soft);
 }
 
@@ -1218,8 +1222,8 @@
 /* Readiness */
 
 .proofloop-readiness-panel {
-    border-color: #9fc2b1;
-    background: #f8fcf9;
+    border-color: #a8b89a;
+    background: #eef0e4;
 }
 
 .proofloop-readiness-main {
@@ -1236,7 +1240,7 @@
     display: grid;
     place-items: center;
     border-radius: 999px;
-    background: conic-gradient(var(--pl-emerald) var(--proofloop-progress), #dfe8e2 0);
+    background: conic-gradient(var(--pl-emerald) var(--proofloop-progress), #dcd5c4 0);
 }
 
 .proofloop-readiness-ring::before {
@@ -1244,7 +1248,7 @@
     position: absolute;
     inset: 0.55rem;
     border-radius: inherit;
-    background: #f8fcf9;
+    background: #eef0e4;
 }
 
 .proofloop-readiness-ring span {
@@ -1290,7 +1294,7 @@
     display: grid;
     gap: 0.15rem;
     padding: 0.7rem;
-    border: 1px solid #c9ded4;
+    border: 1px solid #dcd5c4;
     border-radius: var(--pl-radius-small);
     background: #ffffff;
 }
@@ -1474,7 +1478,7 @@
 }
 
 .proofloop-evidence-layers a:hover {
-    border-color: #9cc2b0;
+    border-color: #a8b89a;
     background: var(--pl-emerald-soft);
 }
 
