@@ -10,9 +10,9 @@
        app-wide tokens in editorial.css. --pl-emerald keeps its name
        (heavily referenced below as the primary action/active-state color)
        but now points at the app's sage accent rather than literal green. */
-    --pl-ink: #1e2518;
-    --pl-ink-2: #2a331f;
-    --pl-ink-3: #3a4529;
+    --pl-ink: #2c3a22;
+    --pl-ink-2: #3a4a2c;
+    --pl-ink-3: #495c34;
     --pl-cream: #ffffff;
     --pl-cream-2: #ece6d6;
     --pl-surface: #ffffff;
@@ -529,13 +529,13 @@
     min-height: 2.85rem;
     border-color: #8fa37e;
     background: #8fa37e;
-    color: #1e2518;
+    color: #2c3a22;
 }
 
 .proofloop-command-actions .button:hover {
     border-color: #a8b89a;
     background: #a8b89a;
-    color: #1e2518;
+    color: #2c3a22;
 }
 
 .proofloop-command-actions .button-secondary {
