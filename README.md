@@ -86,7 +86,7 @@ Tasks are selected using explainable scoring and **OR-Tools CP-SAT optimisation*
 
 ### Grounded RAG Help Assistant
 
-The Help Assistant answers only from trusted project documentation.
+The Help Assistant answers only from trusted project documentation, with guardrails against hallucinated or uncited answers.
 
 ```text
 Trusted Markdown
@@ -97,20 +97,30 @@ Gemini embeddings
     ↓
 PostgreSQL + pgvector
     ↓
-Similarity retrieval
+Similarity retrieval (3x over-fetch + threshold filter)
     ↓
-Grounded answer with citations
+Grounded answer with [Source N] citations
 ```
 
-It includes:
+**Reliability**
 
-- inline source citations;
-- visible source cards;
-- refusal when evidence is insufficient;
-- query and latency logging;
-- rate limiting;
-- ingestion history;
-- retrieval evaluation tests.
+- Refuses (`NOT_SUPPORTED`) instead of guessing when retrieved evidence is empty or below the similarity threshold.
+- Every citation in a generated answer is validated against the chunks actually retrieved — an out-of-range or missing `[Source N]` is treated as unsupported, never silently defaulted to "cite everything."
+- The system prompt treats any instructions found inside a question or a retrieved document as data, not commands, as a defence against prompt injection.
+- Ingestion is idempotent and transactional: unchanged documents are skipped by content checksum, renamed source files are re-matched by slug instead of duplicated, and chunk replacement is wrapped in `select_for_update()` so nothing reads a half-rebuilt document mid-swap.
+- One `try/except` boundary wraps both retrieval and generation, so a retrieval-time failure (not just a generation-time one) is always logged and surfaced as a handled `AnswerGenerationError` rather than an unhandled exception.
+
+**Observability**
+
+- Every call — answered, refused, or errored — is written to a structured `KnowledgeQueryLog` row with its status, retrieved chunk IDs, citations, top similarity score, latency, and (on failure) the exception type and message.
+- The same log table backs per-user rate limiting, so no separate counter store is needed.
+- Query logs give an auditable record of what the assistant was asked, what it found, and why it answered or refused — not just free-text application logs.
+
+**Evaluation**
+
+- A hand-labelled retrieval test set scores retrieval quality with Mean Reciprocal Rank across product, interview-prep, hand-written and auto-generated documentation.
+- An opt-in LLM-as-judge separately grades whether a generated answer's claims are actually supported by its retrieved context, catching hallucination a retrieval-only metric would miss.
+- Retrieval quality and answer faithfulness are measured independently on purpose, so a regression in one doesn't get mistaken for a regression in the other.
 
 ## Architecture
 
