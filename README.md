@@ -223,4 +223,4 @@ Current work is focused on migrating the remaining legacy pages onto the newer P
 
 **Luthando Mbuyane**
 
-Computer Science, Applied Statistics and Psychology graduate building software across product engineering, applied AI and decision systems.
+BSc Computer Science and Psychology graduate, with statistics coursework, building software across product engineering, applied AI and decision systems.
