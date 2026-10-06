@@ -4,8 +4,8 @@
     --d3-copper: #7c8f68;
     --d3-copper-dark: #65785a;
     --d3-copper-soft: #e4e9da;
-    --d3-charcoal: #1e2518;
-    --d3-canvas: #f2eee3;
+    --d3-charcoal: #2c3a22;
+    --d3-canvas: #ffffff;
     --d3-surface: #ffffff;
     --d3-text: #232b1d;
     --d3-muted: #5b6652;
@@ -202,7 +202,7 @@
     padding: clamp(1.25rem, 2.6vw, 2rem);
     border: 1px solid #dcd5c4;
     border-radius: var(--d3-radius);
-    background: linear-gradient(100deg, #eef2e6 0%, #f2eee3 58%, #e4e9da 100%);
+    background: linear-gradient(100deg, #eef2e6 0%, #ffffff 58%, #e4e9da 100%);
     box-shadow: var(--d3-shadow);
 }
 

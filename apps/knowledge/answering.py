@@ -218,34 +218,40 @@ def answer_question(
         raise ValueError("A question cannot be empty.")
 
     started_at = time.perf_counter()
-    results: tuple[RetrievedKnowledge, ...] = tuple(retriever(query=cleaned_question))
-
-    if not results:
-        latency_ms = _elapsed_ms(started_at)
-        log = _create_log(
-            user=user,
-            question=cleaned_question,
-            answer=REFUSAL_ANSWER,
-            status=KnowledgeQueryLog.Status.NO_EVIDENCE,
-            model="",
-            results=results,
-            sources=(),
-            latency_ms=latency_ms,
-        )
-        return GroundedAnswer(
-            answer=REFUSAL_ANSWER,
-            sources=(),
-            supported=False,
-            status=KnowledgeQueryLog.Status.NO_EVIDENCE,
-            model="",
-            latency_ms=latency_ms,
-            log_id=log.pk,
-        )
-
-    provider = generator or GeminiAnswerProvider()
-    model = provider.model
+    # Defined before the try block so the except handler below can always
+    # log something useful, even if retrieval itself (which needs Gemini to
+    # embed the query) is what failed.
+    results: tuple[RetrievedKnowledge, ...] = ()
+    model = ""
 
     try:
+        results = tuple(retriever(query=cleaned_question))
+
+        if not results:
+            latency_ms = _elapsed_ms(started_at)
+            log = _create_log(
+                user=user,
+                question=cleaned_question,
+                answer=REFUSAL_ANSWER,
+                status=KnowledgeQueryLog.Status.NO_EVIDENCE,
+                model="",
+                results=results,
+                sources=(),
+                latency_ms=latency_ms,
+            )
+            return GroundedAnswer(
+                answer=REFUSAL_ANSWER,
+                sources=(),
+                supported=False,
+                status=KnowledgeQueryLog.Status.NO_EVIDENCE,
+                model="",
+                latency_ms=latency_ms,
+                log_id=log.pk,
+            )
+
+        provider = generator or GeminiAnswerProvider()
+        model = provider.model
+
         generated_answer = provider.generate(
             question=cleaned_question,
             context=build_grounding_context(results),

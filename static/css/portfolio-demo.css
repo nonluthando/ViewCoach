@@ -25,7 +25,7 @@
 
 .portfolio-home-proof,
 .portfolio-case-summary {
-    background: #1e2518;
+    background: #2c3a22;
     border-radius: 8px;
     color: #fff;
     padding: 1.5rem;
@@ -79,7 +79,7 @@
 }
 
 .portfolio-metric-strip {
-    background: #1e2518;
+    background: #2c3a22;
     color: #fff;
     display: grid;
     gap: 1px;
@@ -88,7 +88,7 @@
 }
 
 .portfolio-metric-strip article {
-    background: #1e2518;
+    background: #2c3a22;
     border: 1px solid #3a454b;
     display: grid;
     gap: 0.25rem;
@@ -206,7 +206,7 @@
 
 .portfolio-case-cta {
     align-items: center;
-    background: #1e2518;
+    background: #2c3a22;
     border-radius: 8px;
     color: #fff;
     display: flex;
@@ -259,7 +259,7 @@
     background: #fff;
     border: 1px solid #dcd5c4;
     border-radius: 4px;
-    color: #1e2518;
+    color: #2c3a22;
     font-size: 0.78rem;
     padding: 0.38rem 0.52rem;
     text-decoration: none;
@@ -305,7 +305,7 @@
 }
 
 .portfolio-demo-guide-progress {
-    background: #1e2518;
+    background: #2c3a22;
     border-radius: 7px;
     color: #fff;
     display: grid;
